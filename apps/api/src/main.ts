@@ -1,15 +1,51 @@
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { buildServer } from "./server.js";
+import { createDb, initSchema } from "./modules/db/index.js";
+import { bootstrapAdmin } from "./modules/auth/index.js";
+import { createEnv } from "./config/env.js";
 
 async function main(): Promise<void> {
-  const app = await buildServer();
-  const host = process.env["MODELHARBOR_HOST"] ?? "0.0.0.0";
-  const port = Number(process.env["MODELHARBOR_PORT"] ?? 3000);
+  const env = createEnv();
+
+  if (env.DATABASE_URL.startsWith("file:")) {
+    const filePath = env.DATABASE_URL.slice("file:".length);
+    if (filePath !== ":memory:") {
+      mkdirSync(dirname(filePath), { recursive: true });
+    }
+  }
+
+  const { db, client } = createDb({ url: env.DATABASE_URL });
+  await initSchema(db);
+
+  const admin = await bootstrapAdmin(db, {
+    username: env.ADMIN_USERNAME,
+    password: env.ADMIN_PASSWORD,
+    displayName: env.ADMIN_DISPLAY_NAME,
+  });
+  console.log(`[modelharbor] admin user ready: ${admin.username} (${admin.id})`);
+
+  const app = await buildServer({ db });
+
   try {
-    await app.listen({ host, port });
+    await app.listen({ host: env.HOST, port: env.PORT });
   } catch (err) {
     app.log.error(err);
+    client.close();
     process.exit(1);
   }
+
+  const shutdown = async (): Promise<void> => {
+    try {
+      await app.close();
+    } catch (err) {
+      app.log.error(err);
+    }
+    client.close();
+    process.exit(0);
+  };
+  process.on("SIGINT", () => void shutdown());
+  process.on("SIGTERM", () => void shutdown());
 }
 
 void main();

@@ -8,6 +8,7 @@ const PREFIXES = {
   publicModel: "pm",
   modelGroup: "mg",
   stickyBinding: "sb",
+  session: "sess",
   usageRecord: "usr",
   healthEvent: "he",
   auditEvent: "ae",

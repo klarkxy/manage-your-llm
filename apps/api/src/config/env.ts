@@ -5,6 +5,9 @@ export interface Env {
   LOG_LEVEL: string;
   DATABASE_URL: string;
   SECRET_KEY: string;
+  ADMIN_USERNAME: string;
+  ADMIN_PASSWORD: string;
+  ADMIN_DISPLAY_NAME: string;
 }
 
 const DEFAULTS: Env = {
@@ -14,6 +17,9 @@ const DEFAULTS: Env = {
   LOG_LEVEL: "info",
   DATABASE_URL: "file:./data/modelharbor.sqlite",
   SECRET_KEY: "dev-secret-change-me",
+  ADMIN_USERNAME: "admin",
+  ADMIN_PASSWORD: "change-me-on-first-run",
+  ADMIN_DISPLAY_NAME: "Admin",
 };
 
 function readNumber(name: string, fallback: number): number {
@@ -28,8 +34,11 @@ function readNumber(name: string, fallback: number): number {
   return n;
 }
 
-export function createEnv(): Env {
-  const nodeEnv = (process.env["NODE_ENV"] ?? DEFAULTS.NODE_ENV) as Env["NODE_ENV"];
+function readEnv(): Env {
+  const nodeEnvRaw = (process.env["NODE_ENV"] ?? DEFAULTS.NODE_ENV) as Env["NODE_ENV"];
+  const nodeEnv: Env["NODE_ENV"] = ["development", "production", "test"].includes(nodeEnvRaw)
+    ? nodeEnvRaw
+    : "development";
   return {
     NODE_ENV: nodeEnv,
     HOST: process.env["MODELHARBOR_HOST"] ?? DEFAULTS.HOST,
@@ -37,5 +46,27 @@ export function createEnv(): Env {
     LOG_LEVEL: process.env["MODELHARBOR_LOG_LEVEL"] ?? DEFAULTS.LOG_LEVEL,
     DATABASE_URL: process.env["MODELHARBOR_DATABASE_URL"] ?? DEFAULTS.DATABASE_URL,
     SECRET_KEY: process.env["MODELHARBOR_SECRET_KEY"] ?? DEFAULTS.SECRET_KEY,
+    ADMIN_USERNAME: process.env["MODELHARBOR_ADMIN_USERNAME"] ?? DEFAULTS.ADMIN_USERNAME,
+    ADMIN_PASSWORD: process.env["MODELHARBOR_ADMIN_PASSWORD"] ?? DEFAULTS.ADMIN_PASSWORD,
+    ADMIN_DISPLAY_NAME: process.env["MODELHARBOR_ADMIN_DISPLAY_NAME"] ?? DEFAULTS.ADMIN_DISPLAY_NAME,
   };
+}
+
+let cached: Env | null = null;
+export function createEnv(): Env {
+  if (cached) return cached;
+  cached = readEnv();
+  if (cached.NODE_ENV === "production") {
+    if (cached.SECRET_KEY === DEFAULTS.SECRET_KEY) {
+      throw new Error("MODELHARBOR_SECRET_KEY must be set in production");
+    }
+    if (cached.ADMIN_PASSWORD === DEFAULTS.ADMIN_PASSWORD) {
+      throw new Error("MODELHARBOR_ADMIN_PASSWORD must be set in production");
+    }
+  }
+  return cached;
+}
+
+export function resetEnvForTests(): void {
+  cached = null;
 }

@@ -8,13 +8,16 @@ import {
   NMenu,
   NText,
   NSpace,
+  NDropdown,
   type MenuOption,
 } from "naive-ui";
 import { RouterView, useRoute, useRouter } from "vue-router";
+import { useAuthStore } from "../stores/auth.js";
 
 const route = useRoute();
 const router = useRouter();
 const collapsed = ref(false);
+const auth = useAuthStore();
 
 const menuOptions = computed<MenuOption[]>(() => [
   { key: "overview", label: "Overview" },
@@ -30,6 +33,19 @@ const activeKey = computed<string>(() => (typeof route.name === "string" ? route
 
 function onMenuSelect(key: string): void {
   void router.push({ name: key });
+}
+
+const userLabel = computed(() => auth.user?.displayName || auth.user?.username || "—");
+
+const userOptions = computed(() => [
+  { key: "logout", label: "Sign out" },
+]);
+
+async function onUserMenu(key: string): Promise<void> {
+  if (key === "logout") {
+    await auth.logout();
+    await router.push({ name: "login" });
+  }
 }
 </script>
 
@@ -60,7 +76,10 @@ function onMenuSelect(key: string): void {
     <NLayout>
       <NLayoutHeader bordered class="header">
         <NSpace align="center" justify="space-between" style="width: 100%">
-          <NText depth="3">v0.1.0 · M0 scaffold</NText>
+          <NText depth="3">v0.1.0 · M1 ready</NText>
+          <NDropdown :options="userOptions" trigger="click" @select="onUserMenu">
+            <NText style="cursor: pointer">{{ userLabel }}</NText>
+          </NDropdown>
         </NSpace>
       </NLayoutHeader>
       <NLayoutContent content-style="padding: 24px;">

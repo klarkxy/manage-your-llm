@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { NConfigProvider, NMessageProvider, NDialogProvider, NNotificationProvider, lightTheme } from "naive-ui";
 import type { GlobalThemeOverrides } from "naive-ui";
+import { useRoute } from "vue-router";
 import AdminLayout from "./layouts/AdminLayout.vue";
+
+const route = useRoute();
 
 const themeOverrides: GlobalThemeOverrides = {
   common: {
@@ -12,6 +16,8 @@ const themeOverrides: GlobalThemeOverrides = {
     borderRadius: "6px",
   },
 };
+
+const isStandalone = computed(() => route.meta["standalone"] === true);
 </script>
 
 <template>
@@ -19,7 +25,8 @@ const themeOverrides: GlobalThemeOverrides = {
     <NMessageProvider>
       <NDialogProvider>
         <NNotificationProvider>
-          <AdminLayout />
+          <RouterView v-if="isStandalone" />
+          <AdminLayout v-else />
         </NNotificationProvider>
       </NDialogProvider>
     </NMessageProvider>

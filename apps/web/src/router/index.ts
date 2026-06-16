@@ -1,6 +1,13 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router";
+import { useAuthStore } from "../stores/auth.js";
 
 const routes: RouteRecordRaw[] = [
+  {
+    path: "/login",
+    name: "login",
+    component: () => import("../pages/Login.vue"),
+    meta: { standalone: true },
+  },
   {
     path: "/",
     name: "overview",
@@ -41,4 +48,25 @@ const routes: RouteRecordRaw[] = [
 export const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+router.beforeEach(async (to) => {
+  const auth = useAuthStore();
+  if (!auth.ready) {
+    try {
+      await auth.fetchMe();
+    } catch {
+      auth.$patch({ user: null, ready: true });
+    }
+  }
+  if (to.name === "login") {
+    if (auth.isAuthenticated) {
+      return { name: "overview" };
+    }
+    return true;
+  }
+  if (!auth.isAuthenticated) {
+    return { name: "login", query: { redirect: to.fullPath } };
+  }
+  return true;
 });

@@ -18,7 +18,7 @@ It is not an API resale platform. It intentionally avoids pricing, billing, paym
 - Backend: Node.js, Fastify, TypeScript
 - Frontend: Vue 3, Vite, TypeScript, Naive UI
 - State: SQLite first, Postgres later
-- ORM: Drizzle
+- ORM: Drizzle (libsql driver)
 - Deployment: single Docker image serving both gateway APIs and admin UI
 - License: AGPL-3.0-or-later
 
@@ -26,8 +26,8 @@ It is not an API resale platform. It intentionally avoids pricing, billing, paym
 
 ```text
 apps/
-  api/    Fastify 5 + TypeScript, gateway and admin API
-  web/    Vue 3 + Vite + Naive UI dashboard
+  api/    Fastify 5 + libsql + Drizzle, gateway and admin API
+  web/    Vue 3 + Vite + Naive UI + Pinia dashboard
 packages/
   shared/  protocol-neutral types, error classes, id generators
 ```
@@ -37,15 +37,24 @@ packages/
 | Milestone | Title                          | Status   |
 | --------- | ------------------------------ | -------- |
 | M0        | Repository foundation          | done     |
-| M1        | Database and local admin       | next     |
-| M2        | Control plane objects          | pending  |
+| M1        | Database and local admin       | done     |
+| M2        | Control plane objects          | next     |
 | M3        | Provider adapter foundation    | pending  |
 | M4        | Gateway routing                | pending  |
 | M5        | Streaming                      | pending  |
 | M6        | Quotas and sticky routing      | pending  |
 | M7        | Usage and observability        | pending  |
 
-M0 ships a working monorepo: workspace pnpm setup, shared package, Fastify server with `/healthz` and `/readyz`, Vue 3 dashboard shell with Naive UI, lint, typecheck, test, and build scripts.
+## M1 highlights
+
+- `admin_users` and `admin_sessions` tables, idempotent schema init.
+- scrypt password hashing (NFKC-normalized, 64-byte key, base64 salt+hash envelope).
+- HMAC-SHA256 signed session cookies (`mh_session`), 7-day TTL, sliding renewal on hit, server stores only the SHA-256 hash of the session id.
+- Routes: `POST /api/admin/auth/login`, `POST /api/admin/auth/logout`, `GET /api/admin/auth/me` (guarded by `requireAdmin` preHandler).
+- AES-256-GCM encryption helper ready for upstream key storage (used in M2).
+- `MODELHARBOR_SECRET_KEY` and `MODELHARBOR_ADMIN_PASSWORD` are required to differ from defaults in production.
+- Login page wired into the dashboard with redirect-on-auth and 401 handling.
+- Empty JSON body is accepted by the API (custom content-type parser) so simple POSTs without a body do not 400.
 
 ## Local Development
 
@@ -57,7 +66,7 @@ pnpm test
 pnpm build
 ```
 
-Open the dashboard at `http://localhost:5173`. The Vite dev server proxies `/v1` and `/api` to the Fastify backend on port 3000.
+Open the dashboard at `http://localhost:5173`. The Vite dev server proxies `/v1` and `/api` to the Fastify backend on port 3000. The first admin is bootstrapped on first run from `MODELHARBOR_ADMIN_USERNAME` and `MODELHARBOR_ADMIN_PASSWORD` (defaults to `admin` / `change-me-on-first-run`).
 
 ## Phase 1 Decisions (locked)
 
