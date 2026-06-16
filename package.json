@@ -1,0 +1,38 @@
+{
+  "name": "modelharbor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ModelHarbor - lightweight dashboard-first LLM API router",
+  "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": ">=20.10.0",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@10.29.2",
+  "scripts": {
+    "predev": "pnpm --filter @modelharbor/shared build",
+    "dev": "pnpm -r --parallel --stream dev",
+    "dev:api": "pnpm --filter @modelharbor/api dev",
+    "dev:web": "pnpm --filter @modelharbor/web dev",
+    "prebuild": "pnpm --filter @modelharbor/shared build",
+    "build": "pnpm -r build",
+    "pretypecheck": "pnpm --filter @modelharbor/shared build",
+    "typecheck": "pnpm -r typecheck",
+    "pretest": "pnpm --filter @modelharbor/shared build",
+    "test": "pnpm -r test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^2.1.8"
+  }
+}
