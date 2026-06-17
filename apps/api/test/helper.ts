@@ -31,7 +31,7 @@ export interface AdminTestRig {
 const TEST_SECRET = "test-secret-key-for-m2";
 
 function freshTestDbPath(): string {
-  // Use a temp file (not :memory:) so that Drizzle transactions share a connection.
+  // Use a temp file (not :memory:) so Drizzle transactions share a connection.
   return join(
     tmpdir(),
     `mh-test-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.db`,
@@ -43,7 +43,13 @@ export async function makeAdminRig(): Promise<AdminTestRig> {
   const { db, client } = createDb({ url: `file:${dbFile}` });
   await initSchema(db);
   await bootstrapAdmin(db, { username: "admin", password: "secret123", displayName: "Admin" });
-  const app = await buildServer({ db, logger: false, isProduction: false, secretKey: TEST_SECRET });
+  const app = await buildServer({
+    db,
+    logger: false,
+    isProduction: false,
+    secretKey: TEST_SECRET,
+    disableBackgroundJobs: true,
+  });
   await app.ready();
   const login = await app.inject({
     method: "POST",
@@ -164,6 +170,13 @@ export async function seedFullRoute(rig: AdminTestRig): Promise<SeedRefs> {
     enabled: true,
     createdAt: now,
     updatedAt: now,
+  });
+  await rig.db.insert(consumerKeyAccess).values({
+    id: generateId("consumerKey") + "_a",
+    consumerKeyId: ckId,
+    targetType: "public_model",
+    targetId: pmId,
+    createdAt: now,
   });
   await rig.db.insert(consumerKeyAccess).values({
     id: generateId("consumerKey") + "_a",

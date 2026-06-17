@@ -203,6 +203,34 @@ const STATEMENTS: readonly string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS upstream_key_counter_window ON upstream_key_counters(upstream_key_id, period, period_started_at)`,
   `CREATE INDEX IF NOT EXISTS upstream_key_counter_upstream_idx ON upstream_key_counters(upstream_key_id)`,
 
+  // Audit events
+  `CREATE TABLE IF NOT EXISTS audit_events (
+     id TEXT PRIMARY KEY,
+     actor_admin_id TEXT,
+     actor_username TEXT,
+     action TEXT NOT NULL,
+     resource_type TEXT NOT NULL,
+     resource_id TEXT,
+     details_json TEXT,
+     ip TEXT,
+     created_at INTEGER NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS audit_events_created_at_idx ON audit_events(created_at)`,
+  `CREATE INDEX IF NOT EXISTS audit_events_actor_idx ON audit_events(actor_admin_id)`,
+  `CREATE INDEX IF NOT EXISTS audit_events_resource_idx ON audit_events(resource_type, resource_id)`,
+
+  // Login rate limiting
+  `CREATE TABLE IF NOT EXISTS login_attempts (
+     id TEXT PRIMARY KEY,
+     username TEXT NOT NULL,
+     ip TEXT NOT NULL,
+     success INTEGER NOT NULL DEFAULT 0,
+     created_at INTEGER NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS login_attempts_created_at_idx ON login_attempts(created_at)`,
+  `CREATE INDEX IF NOT EXISTS login_attempts_username_idx ON login_attempts(username, created_at)`,
+  `CREATE INDEX IF NOT EXISTS login_attempts_ip_idx ON login_attempts(ip, created_at)`,
+
   // M6: sticky bindings
   `CREATE TABLE IF NOT EXISTS sticky_bindings (
      id TEXT PRIMARY KEY,

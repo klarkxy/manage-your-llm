@@ -21,12 +21,15 @@
     "typecheck": "pnpm -r typecheck",
     "pretest": "pnpm --filter @modelharbor/shared build",
     "test": "pnpm -r test",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install --with-deps chromium",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
+    "@playwright/test": "^1.49.1",
     "@types/node": "^22.10.5",
     "eslint": "^9.18.0",
     "globals": "^15.14.0",

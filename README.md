@@ -34,16 +34,16 @@ packages/
 
 ## Milestone Status
 
-| Milestone | Title                          | Status   |
-| --------- | ------------------------------ | -------- |
-| M0        | Repository foundation          | done     |
-| M1        | Database and local admin       | done     |
-| M2        | Control plane objects          | done     |
-| M3        | Provider adapter foundation    | done     |
-| M4        | Gateway routing                | done     |
-| M5        | Streaming                      | done     |
-| M6        | Quotas and sticky routing      | done     |
-| M7        | Usage and observability        | pending  |
+| Milestone | Title                       | Status |
+| --------- | --------------------------- | ------ |
+| M0        | Repository foundation       | done   |
+| M1        | Database and local admin    | done   |
+| M2        | Control plane objects       | done   |
+| M3        | Provider adapter foundation | done   |
+| M4        | Gateway routing             | done   |
+| M5        | Streaming                   | done   |
+| M6        | Quotas and sticky routing   | done   |
+| M7        | Usage and observability     | done   |
 
 ## M3 highlights
 
@@ -54,7 +54,6 @@ packages/
 - `ir-converters.ts`: `anthropicRequestToIR` and `openaiRequestToIR` turn the wire-format client request into a `ChatRequestIR` (the gateway will call these in M4).
 - `fake-upstream.ts`: Fastify-backed fake that records incoming requests and serves a configurable response; used to verify adapters end-to-end without a real provider.
 - Registry: `getAdapter("anthropic_compatible" | "openai_compatible")` returns the right factory; `listProviderTypes()` for routing decisions.
-
 
 ## M4 highlights
 
@@ -77,9 +76,6 @@ packages/
 - Client disconnect is wired end-to-end. `handleStreamRequest` creates a per-attempt `AbortController`, passes its `signal` to `startUpstreamStream`, and the single `close` listener on `reply.raw` calls `abortController.abort()` so the upstream `fetch` is cancelled promptly. The usage row written after a client disconnect is tagged `errorCode: "client_disconnected"`, `status: "error"`, `category: "provider_stream_error"`.
 - Usage attribution follows the resolved target, not the served candidate. A request against a `model_group` writes `resolvedTargetType: "model_group"`, `resolvedTargetId: <groupId>`, `requestedTargetName: <groupName>`; a request against a `public_model` writes `resolvedTargetType: "public_model"`, `resolvedTargetId: <publicModelId>`. Both the non-stream path (`gateway/handler.ts`) and the streaming path (`gateway/stream-handler.ts`) read these from the `ResolvedTarget` returned by the router.
 - A real TCP listener is used in the streaming tests (`app.inject` does not honor streaming responses reliably — it returns before the async handler finishes writing, so the post-stream usage record would not be visible to the test yet). The fake upstream now supports an SSE stream mode: `setAnthropicStream` / `setOpenAIStream` accept a list of frames plus an optional `closeAfter` to simulate a mid-flight disconnect via socket-level close.
-
-
-
 
 ## M6 highlights
 

@@ -12,6 +12,12 @@ import {
 } from "../db/index.js";
 import { hashPassword, verifyPassword } from "./password.js";
 import { hashSessionId, issueSessionToken, verifySessionToken } from "./session.js";
+import {
+  inspectLoginRateLimit,
+  recordAuditEvent,
+  recordLoginAttempt,
+  resetLoginFailures,
+} from "../observability/index.js";
 
 export const SESSION_COOKIE = "mh_session";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -145,22 +151,56 @@ export function registerAdminAuthRoutes(app: FastifyInstance, deps: AdminAuthDep
     const body = (req.body ?? {}) as { username?: unknown; password?: unknown };
     const username = typeof body.username === "string" ? body.username.trim() : "";
     const password = typeof body.password === "string" ? body.password : "";
+    const ip = req.ip ?? "unknown";
     if (!username || !password) {
       reply.code(400).send({
         error: { message: "username and password required", type: "validation_error", code: "validation_error" },
       });
       return;
     }
+    // Per (username, ip) sliding-window rate limit. The window counter
+    // counts only failures; success resets the window for this pair.
+    const rate = await inspectLoginRateLimit(db, { username, ip, now: new Date() });
+    if (!rate.allowed) {
+      reply.header("retry-after", String(Math.ceil(rate.retryAfterMs / 1000)));
+      reply.code(429).send({
+        error: {
+          message: "Too many login attempts; please retry later",
+          type: "rate_limited",
+          code: "rate_limited",
+        },
+      });
+      return;
+    }
     const user = await db.select().from(adminUsers).where(eq(adminUsers.username, username)).get();
-    if (!user || !user.enabled || !verifyPassword(password, user.passwordHash)) {
+    const passwordOk = !!user && user.enabled && verifyPassword(password, user.passwordHash);
+    if (!passwordOk) {
+      await recordLoginAttempt(db, { username, ip, success: false });
+      await recordAuditEvent(db, {
+        actorAdminId: null,
+        actorUsername: username,
+        action: "admin.login.failure",
+        resourceType: "admin_session",
+        ip,
+      });
       reply.code(401).send({
         error: { message: "Invalid credentials", type: "authentication_error", code: "authentication_error" },
       });
       return;
     }
     const sessionId = `${generateId("admin")}_${Math.random().toString(36).slice(2, 10)}`;
-    await createSession(db, { sessionId, adminUserId: user.id });
-    await db.update(adminUsers).set({ lastLoginAt: new Date() }).where(eq(adminUsers.id, user.id));
+    await createSession(db, { sessionId, adminUserId: user!.id });
+    await db.update(adminUsers).set({ lastLoginAt: new Date() }).where(eq(adminUsers.id, user!.id));
+    await resetLoginFailures(db, { username, ip });
+    await recordLoginAttempt(db, { username, ip, success: true });
+    await recordAuditEvent(db, {
+      actorAdminId: user!.id,
+      actorUsername: user!.username,
+      action: "admin.login.success",
+      resourceType: "admin_session",
+      resourceId: sessionId,
+      ip,
+    });
     const token = issueSessionToken(sessionId, secretKey);
     reply.setCookie(SESSION_COOKIE, token, {
       httpOnly: true,
@@ -171,14 +211,15 @@ export function registerAdminAuthRoutes(app: FastifyInstance, deps: AdminAuthDep
     });
     reply.send({
       admin: {
-        id: user.id,
-        username: user.username,
-        displayName: user.displayName,
+        id: user!.id,
+        username: user!.username,
+        displayName: user!.displayName,
       },
     });
   });
 
-  app.post("/api/admin/auth/logout", async (req, reply) => {
+  app.post("/api/admin/auth/logout", { preHandler: requireAdmin(db, secretKey) }, async (req, reply) => {
+    const auth = req as AuthenticatedRequest;
     const cookies = req.cookies as Record<string, string | undefined> | undefined;
     const raw = cookies?.[SESSION_COOKIE];
     if (raw) {
@@ -186,6 +227,14 @@ export function registerAdminAuthRoutes(app: FastifyInstance, deps: AdminAuthDep
       if (sessionId) await deleteSession(db, sessionId);
     }
     reply.clearCookie(SESSION_COOKIE, { path: "/" });
+    await recordAuditEvent(db, {
+      actorAdminId: auth.admin.id,
+      actorUsername: auth.admin.username,
+      action: "admin.logout",
+      resourceType: "admin_session",
+      resourceId: auth.sessionId,
+      ip: req.ip ?? null,
+    });
     reply.code(204).send();
   });
 
@@ -199,4 +248,86 @@ export function registerAdminAuthRoutes(app: FastifyInstance, deps: AdminAuthDep
       },
     };
   });
+
+  // Change own password. Requires the current password to prevent a stolen
+  // session from being used to lock out the real owner.
+  app.post(
+    "/api/admin/auth/change-password",
+    { preHandler: requireAdmin(db, secretKey) },
+    async (req, reply) => {
+      const auth = req as AuthenticatedRequest;
+      const body = (req.body ?? {}) as { currentPassword?: unknown; newPassword?: unknown };
+      const currentPassword = typeof body.currentPassword === "string" ? body.currentPassword : "";
+      const newPassword = typeof body.newPassword === "string" ? body.newPassword : "";
+      if (!currentPassword || !newPassword) {
+        reply.code(400).send({
+          error: { message: "currentPassword and newPassword required", type: "validation_error", code: "validation_error" },
+        });
+        return;
+      }
+      if (newPassword.length < 8) {
+        reply.code(400).send({
+          error: { message: "newPassword must be at least 8 characters", type: "validation_error", code: "validation_error" },
+        });
+        return;
+      }
+      const fresh = await db.select().from(adminUsers).where(eq(adminUsers.id, auth.admin.id)).get();
+      if (!fresh || !verifyPassword(currentPassword, fresh.passwordHash)) {
+        reply.code(401).send({
+          error: { message: "Current password is incorrect", type: "authentication_error", code: "authentication_error" },
+        });
+        return;
+      }
+      await db
+        .update(adminUsers)
+        .set({ passwordHash: hashPassword(newPassword), updatedAt: new Date() })
+        .where(eq(adminUsers.id, auth.admin.id));
+      await recordAuditEvent(db, {
+        actorAdminId: auth.admin.id,
+        actorUsername: auth.admin.username,
+        action: "admin.password.change",
+        resourceType: "admin_user",
+        resourceId: auth.admin.id,
+        ip: req.ip ?? null,
+      });
+      reply.send({ ok: true });
+    },
+  );
+
+  // Update own profile (displayName). Audit-logged.
+  app.patch(
+    "/api/admin/auth/profile",
+    { preHandler: requireAdmin(db, secretKey) },
+    async (req, reply) => {
+      const auth = req as AuthenticatedRequest;
+      const body = (req.body ?? {}) as { displayName?: unknown };
+      if (body.displayName !== undefined) {
+        if (typeof body.displayName !== "string") {
+          reply.code(400).send({
+            error: { message: "displayName must be a string", type: "validation_error", code: "validation_error" },
+          });
+          return;
+        }
+        const trimmed = body.displayName.trim();
+        await db
+          .update(adminUsers)
+          .set({ displayName: trimmed.length > 0 ? trimmed : null, updatedAt: new Date() })
+          .where(eq(adminUsers.id, auth.admin.id));
+      }
+      const fresh = await db.select().from(adminUsers).where(eq(adminUsers.id, auth.admin.id)).get();
+      if (!fresh) {
+        reply.code(404).send({
+          error: { message: "Admin not found", type: "target_not_found", code: "target_not_found" },
+        });
+        return;
+      }
+      reply.send({
+        admin: {
+          id: fresh.id,
+          username: fresh.username,
+          displayName: fresh.displayName,
+        },
+      });
+    },
+  );
 }

@@ -2,6 +2,8 @@ import { eq, desc } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { generateId, ValidationError } from "@modelharbor/shared";
 import { type Db, type AppRow, apps } from "../db/index.js";
+import { auditMetaFromRequest } from "./upstream-keys.js";
+import { recordAuditEvent } from "../observability/index.js";
 
 export interface AppRouteDeps {
   db: Db;
@@ -51,6 +53,13 @@ export function registerAppRoutes(app: FastifyInstance, deps: AppRouteDeps): voi
     await db.insert(apps).values({ id, name, description, enabled: true, createdAt: now, updatedAt: now });
     const row = await db.select().from(apps).where(eq(apps.id, id)).get();
     if (!row) throw new Error("insert failed");
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: "app.create",
+      resourceType: "app",
+      resourceId: row.id,
+      details: { name: row.name },
+    });
     return presentApp(row);
   });
 
@@ -78,6 +87,13 @@ export function registerAppRoutes(app: FastifyInstance, deps: AppRouteDeps): voi
     await db.update(apps).set(update).where(eq(apps.id, id));
     const row = await db.select().from(apps).where(eq(apps.id, id)).get();
     if (!row) throw new Error("not found");
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: "app.update",
+      resourceType: "app",
+      resourceId: row.id,
+      details: { name: row.name, enabled: row.enabled },
+    });
     return presentApp(row);
   });
 }

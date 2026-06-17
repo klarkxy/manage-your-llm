@@ -229,3 +229,101 @@ export const consumerKeysApi = {
   setAccess: (id: string, access: ConsumerKeyAccessItem[]) =>
     api.put<{ access: ConsumerKeyAccessItem[] }>(`/api/admin/consumer-keys/${id}/access`, { access }),
 };
+
+// Usage / observability (M7 dashboard)
+export type UsageWindow = "today" | "24h" | "7d";
+
+export interface UsageTotals {
+  totalRequests: number;
+  successfulRequests: number;
+  failedRequests: number;
+  stickyHits: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  successRate: number;
+  stickyHitRate: number;
+}
+
+export interface UsageBreakdownEntry {
+  id: string;
+  name: string;
+  totalRequests: number;
+  successfulRequests: number;
+  failedRequests: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+export interface UsageTargetBreakdownEntry extends UsageBreakdownEntry {
+  targetType: "public_model" | "model_group";
+}
+
+export interface UsageRecentRow {
+  id: string;
+  appId: string;
+  consumerKeyId: string;
+  requestedTargetName: string;
+  resolvedTargetType: "public_model" | "model_group";
+  resolvedTargetId: string;
+  upstreamKeyId: string;
+  realModelName: string;
+  sourceProtocol: string;
+  stream: boolean;
+  stickyHit: boolean;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  status: "success" | "error";
+  errorCode: string | null;
+  latencyMs: number;
+  createdAt: string;
+}
+
+export const usageApi = {
+  totals: (window: UsageWindow = "today") =>
+    api.get<UsageTotals>(`/api/admin/usage/totals?window=${window}`),
+  byApp: (window: UsageWindow = "today") =>
+    api.get<{ items: UsageBreakdownEntry[] }>(`/api/admin/usage/by-app?window=${window}`),
+  byConsumerKey: (window: UsageWindow = "today") =>
+    api.get<{ items: UsageBreakdownEntry[] }>(`/api/admin/usage/by-consumer-key?window=${window}`),
+  byUpstreamKey: (window: UsageWindow = "today") =>
+    api.get<{ items: UsageBreakdownEntry[] }>(`/api/admin/usage/by-upstream-key?window=${window}`),
+  byTarget: (window: UsageWindow = "today") =>
+    api.get<{ items: UsageTargetBreakdownEntry[] }>(`/api/admin/usage/by-target?window=${window}`),
+  recent: (limit = 100) =>
+    api.get<{ items: UsageRecentRow[] }>(`/api/admin/usage/recent?limit=${limit}`),
+};
+
+// Audit (post-M7 hardening)
+export interface AuditEvent {
+  id: string;
+  actorAdminId: string | null;
+  actorUsername: string | null;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  details: Record<string, unknown> | null;
+  ip: string | null;
+  createdAt: string;
+}
+
+export const auditApi = {
+  list: (limit = 100) =>
+    api.get<{ items: AuditEvent[] }>(`/api/admin/audit-events?limit=${limit}`),
+};
+
+// Account self-service (Settings page)
+export const accountApi = {
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.post<{ ok: true }>("/api/admin/auth/change-password", { currentPassword, newPassword }),
+  updateProfile: (payload: { displayName?: string | null }) =>
+    api.patch<{ admin: AdminSummary }>("/api/admin/auth/profile", payload),
+};
+
+export interface AdminSummary {
+  id: string;
+  username: string;
+  displayName: string | null;
+}

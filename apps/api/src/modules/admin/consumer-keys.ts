@@ -12,6 +12,8 @@ import {
   resolveTarget,
   replaceRowsInTransaction,
 } from "./helpers.js";
+import { auditMetaFromRequest } from "./upstream-keys.js";
+import { recordAuditEvent } from "../observability/index.js";
 
 export interface ConsumerKeyRouteDeps {
   db: Db;
@@ -102,6 +104,13 @@ export function registerConsumerKeyRoutes(app: FastifyInstance, deps: ConsumerKe
 
     const row = await db.select().from(consumerKeys).where(eq(consumerKeys.id, id)).get();
     if (!row) throw new Error("insert failed");
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: "consumer_key.create",
+      resourceType: "consumer_key",
+      resourceId: row.id,
+      details: { name: row.name, appId: row.appId, keyPrefix: row.keyPrefix },
+    });
     // Raw key is returned only on create/rotate.
     return { ...presentConsumerKey(row), key: generated.raw };
   });
@@ -118,6 +127,12 @@ export function registerConsumerKeyRoutes(app: FastifyInstance, deps: ConsumerKe
       .set({ enabled: false, revokedAt: new Date(), updatedAt: new Date() })
       .where(eq(consumerKeys.id, id));
     const row = await db.select().from(consumerKeys).where(eq(consumerKeys.id, id)).get();
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: "consumer_key.revoke",
+      resourceType: "consumer_key",
+      resourceId: id,
+    });
     return presentConsumerKey(row!);
   });
 
@@ -135,6 +150,13 @@ export function registerConsumerKeyRoutes(app: FastifyInstance, deps: ConsumerKe
       .where(eq(consumerKeys.id, id));
     const row = await db.select().from(consumerKeys).where(eq(consumerKeys.id, id)).get();
     if (!row) throw new Error("not found");
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: "consumer_key.rotate",
+      resourceType: "consumer_key",
+      resourceId: row.id,
+      details: { keyPrefix: row.keyPrefix },
+    });
     return { ...presentConsumerKey(row), key: generated.raw };
   });
 
@@ -182,6 +204,13 @@ export function registerConsumerKeyRoutes(app: FastifyInstance, deps: ConsumerKe
         await tx.insert(consumerKeyAccess).values(normalized);
         return normalized;
       },
+    });
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: "consumer_key.access.update",
+      resourceType: "consumer_key",
+      resourceId: id,
+      details: { count: normalized.length },
     });
     return { access: body.access };
   });

@@ -91,7 +91,13 @@ export async function makeGatewayRig(
   const { db, client } = createDb({ url: `file:${dbFile}` });
   await initSchema(db);
   await bootstrapAdmin(db, { username: "admin", password: "secret123", displayName: "Admin" });
-  const app = await buildServer({ db, logger: false, isProduction: false, secretKey: TEST_SECRET });
+  const app = await buildServer({
+    db,
+    logger: false,
+    isProduction: false,
+    secretKey: TEST_SECRET,
+    disableBackgroundJobs: true,
+  });
   await app.ready();
 
   const fake = await startFakeUpstream();

@@ -15,6 +15,8 @@ import {
   findPublicModelById,
   replaceRowsInTransaction,
 } from "./helpers.js";
+import { auditMetaFromRequest } from "./upstream-keys.js";
+import { recordAuditEvent } from "../observability/index.js";
 
 export interface PublicModelRouteDeps {
   db: Db;
@@ -196,6 +198,13 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
     const row = await findPublicModelById(db, id);
     if (!row) throw new Error("insert failed");
     const candidates = await loadCandidates(db, id);
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: "public_model.create",
+      resourceType: "public_model",
+      resourceId: row.id,
+      details: { name: row.name, candidates: candidates.length },
+    });
     return { ...presentPublicModel(row, candidates.length), candidates };
   });
 
@@ -219,6 +228,13 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
     const row = await findPublicModelById(db, id);
     if (!row) throw new Error("not found");
     const candidates = await loadCandidates(db, id);
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: "public_model.update",
+      resourceType: "public_model",
+      resourceId: row.id,
+      details: { name: row.name, enabled: row.enabled },
+    });
     return { ...presentPublicModel(row, candidates.length), candidates };
   });
 
@@ -263,6 +279,13 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
         return normalized;
       },
     });
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: "public_model.update",
+      resourceType: "public_model",
+      resourceId: id,
+      details: { candidatesCount: normalized.length },
+    });
     const candidates = await loadCandidates(db, id);
     return { candidates };
   });
@@ -278,6 +301,12 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
       targetType: "public_model",
       targetId: id,
       deleteTarget: async (tx) => { await tx.delete(publicModels).where(eq(publicModels.id, id)); },
+    });
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: "public_model.delete",
+      resourceType: "public_model",
+      resourceId: id,
     });
     return { id, deleted: true };
   });

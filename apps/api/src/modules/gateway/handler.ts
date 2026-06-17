@@ -14,13 +14,17 @@ import {
   TargetNotFoundError,
   ValidationError,
   isNormalizedError,
-} from "@modelharbor/shared";
-import { eq } from "drizzle-orm";
-import { type Db, upstreamKeys } from "../db/index.js";
-import { decryptSecret } from "../auth/crypto.js";
-import { type ResolvedCandidate, expandCandidates, filterCandidates } from "../router/candidates.js";
-import { assertConsumerKeyAccess } from "../router/access.js";
-import { resolveTargetByName } from "../router/resolve.js";
+} from '@modelharbor/shared';
+import { eq } from 'drizzle-orm';
+import { type Db, upstreamKeys } from '../db/index.js';
+import { decryptSecret } from '../auth/crypto.js';
+import {
+  type ResolvedCandidate,
+  expandCandidates,
+  filterCandidates,
+} from '../router/candidates.js';
+import { assertConsumerKeyAccess } from '../router/access.js';
+import { resolveTargetByName } from '../router/resolve.js';
 import {
   type NormalizedProviderError,
   type ProviderHttpRequest,
@@ -30,12 +34,18 @@ import {
   anthropicRequestToIR,
   openaiRequestToIR,
   getAdapter,
-} from "../providers/index.js";
-import { sendUpstreamRequest, type SendOutcome } from "./sender.js";
-import { writeUsageRecord } from "../usage/index.js";
-import { applyCooldown, computeCooldownUpdate, shouldCooldown } from "./cooldown.js";
-import { conversationFingerprint, isStickyBindingValid, lookupStickyBinding, touchStickyBinding, upsertStickyBinding } from "../sticky/index.js";
-import { getEnabledQuotaPeriods, recordQuotaUsage, wouldExceedQuota } from "../quota/index.js";
+} from '../providers/index.js';
+import { sendUpstreamRequest, type SendOutcome } from './sender.js';
+import { writeUsageRecord } from '../usage/index.js';
+import { applyCooldown, computeCooldownUpdate, shouldCooldown } from './cooldown.js';
+import {
+  conversationFingerprint,
+  isStickyBindingValid,
+  lookupStickyBinding,
+  touchStickyBinding,
+  upsertStickyBinding,
+} from '../sticky/index.js';
+import { getEnabledQuotaPeriods, recordQuotaUsage, wouldExceedQuota } from '../quota/index.js';
 
 export interface GatewayRequestContext {
   db: Db;
@@ -66,11 +76,11 @@ export interface GatewayError {
 export type GatewayOutcome = GatewaySuccess | GatewayError;
 
 const DEFAULT_UPSTREAM_TIMEOUT_MS = 60_000;
-const FAILOVER_CATEGORIES: ReadonlySet<NormalizedProviderError["category"]> = new Set([
-  "provider_rate_limit",
-  "provider_quota",
-  "provider_overloaded",
-  "provider_timeout",
+const FAILOVER_CATEGORIES: ReadonlySet<NormalizedProviderError['category']> = new Set([
+  'provider_rate_limit',
+  'provider_quota',
+  'provider_overloaded',
+  'provider_timeout',
 ]);
 
 // Walk the candidate list in priority order. On a failover-eligible error,
@@ -99,7 +109,7 @@ async function tryCandidates(
     });
 
     const classified = classifyOutcome(adapter, { outcome, request, ir: args.ir });
-    if (classified.kind === "success") {
+    if (classified.kind === 'success') {
       return {
         ok: true,
         ir: classified.response,
@@ -139,7 +149,7 @@ async function tryCandidates(
     return { ok: false, providerError: lastError, lastCandidate, attempts };
   }
   // Should not happen (we checked length earlier), but be defensive.
-  throw new NoRouteAvailableError("no available upstream");
+  throw new NoRouteAvailableError('no available upstream');
 }
 
 function buildHttpRequest(
@@ -160,8 +170,8 @@ function buildHttpRequest(
 }
 
 type ClassifiedOutcome =
-  | { kind: "success"; response: NormalizedChatResponse; raw: ProviderHttpResponse }
-  | { kind: "error"; error: NormalizedProviderError };
+  | { kind: 'success'; response: NormalizedChatResponse; raw: ProviderHttpResponse }
+  | { kind: 'error'; error: NormalizedProviderError };
 
 function classifyOutcome(
   adapter: ProviderAdapter,
@@ -172,27 +182,31 @@ function classifyOutcome(
     if (response.status >= 200 && response.status < 300) {
       try {
         const ir = adapter.normalizeResponse({ response, request: requestToContext(args.request) });
-        return { kind: "success", response: ir, raw: response };
+        return { kind: 'success', response: ir, raw: response };
       } catch (err) {
         // normalizeResponse threw — treat as provider error.
         const providerError: NormalizedProviderError = {
-          category: "provider_unknown",
+          category: 'provider_unknown',
           providerMessage: err instanceof Error ? err.message : String(err),
           providerCode: null,
           upstreamStatus: response.status,
         };
-        return { kind: "error", error: providerError };
+        return { kind: 'error', error: providerError };
       }
     }
-    const error = adapter.normalizeError({ response, request: requestToContext(args.request), transportError: undefined });
-    return { kind: "error", error };
+    const error = adapter.normalizeError({
+      response,
+      request: requestToContext(args.request),
+      transportError: undefined,
+    });
+    return { kind: 'error', error };
   }
   const error = adapter.normalizeError({
     response: undefined,
     request: requestToContext(args.request),
     transportError: args.outcome.transportError,
   });
-  return { kind: "error", error };
+  return { kind: 'error', error };
 }
 
 // Re-build a ProviderRequestContext from a request that was already sent. The
@@ -201,23 +215,23 @@ function classifyOutcome(
 function requestToContext(request: ProviderHttpRequest): ProviderRequestContext {
   return {
     ir: {
-      sourceProtocol: "anthropic",
-      requestedModel: "",
+      sourceProtocol: 'anthropic',
+      requestedModel: '',
       system: null,
       messages: [],
       maxTokens: null,
       temperature: null,
       topP: null,
-      stream: request.method === "POST" ? false : false,
+      stream: request.method === 'POST' ? false : false,
       metadata: {},
       rawRequest: null,
     },
-    realModelName: "",
-    upstreamKeyId: "",
+    realModelName: '',
+    upstreamKeyId: '',
     timeoutMs: 0,
     stream: false,
     baseUrl: request.url,
-    apiKey: "",
+    apiKey: '',
   };
 }
 
@@ -226,22 +240,22 @@ function requestToContext(request: ProviderHttpRequest): ProviderRequestContext 
 // error handler can pick the right status code + body shape.
 export function providerErrorToNormalized(err: NormalizedProviderError): Error {
   switch (err.category) {
-    case "provider_rate_limit":
-      return new ProviderRateLimitError(err.providerMessage ?? "rate limited");
-    case "provider_quota":
-      return new ProviderQuotaError(err.providerMessage ?? "quota exhausted");
-    case "provider_timeout":
-      return new ProviderTimeoutError(err.providerMessage ?? "upstream timeout");
-    case "provider_stream_error":
-      return new ProviderStreamError(err.providerMessage ?? "stream error");
-    case "provider_authentication":
-    case "provider_permission":
-    case "provider_overloaded":
-    case "provider_model_not_found":
-    case "provider_bad_request":
-    case "provider_unknown":
+    case 'provider_rate_limit':
+      return new ProviderRateLimitError(err.providerMessage ?? 'rate limited');
+    case 'provider_quota':
+      return new ProviderQuotaError(err.providerMessage ?? 'quota exhausted');
+    case 'provider_timeout':
+      return new ProviderTimeoutError(err.providerMessage ?? 'upstream timeout');
+    case 'provider_stream_error':
+      return new ProviderStreamError(err.providerMessage ?? 'stream error');
+    case 'provider_authentication':
+    case 'provider_permission':
+    case 'provider_overloaded':
+    case 'provider_model_not_found':
+    case 'provider_bad_request':
+    case 'provider_unknown':
     default:
-      return new ProviderError(err.providerMessage ?? "upstream error");
+      return new ProviderError(err.providerMessage ?? 'upstream error');
   }
 }
 
@@ -250,17 +264,21 @@ export async function handleAnthropicRequest(
   body: unknown,
   ctx: GatewayRequestContext,
 ): Promise<GatewayOutcome> {
-  if (!body || typeof body !== "object") {
-    throw new ValidationError("request body must be a JSON object");
+  if (!body || typeof body !== 'object') {
+    throw new ValidationError('request body must be a JSON object');
   }
   const b = body as Record<string, unknown>;
-  if (typeof b["model"] !== "string") throw new ValidationError("model is required");
-  if (b["stream"] === true) {
-    throw new ValidationError("streaming is not supported in M4");
+  if (typeof b['model'] !== 'string') throw new ValidationError('model is required');
+  if (b['stream'] === true) {
+    // The route handler at /v1/messages dispatches stream: true requests to
+    // handleStreamRequest before reaching this function. If we are here, the
+    // dispatcher was bypassed; reject so the caller gets a clear validation
+    // error instead of a partial / non-streaming response.
+    throw new ValidationError('streaming requests must use the streaming code path');
   }
-  if (!Array.isArray(b["messages"])) throw new ValidationError("messages is required");
+  if (!Array.isArray(b['messages'])) throw new ValidationError('messages is required');
   const ir = anthropicRequestToIR(b as Parameters<typeof anthropicRequestToIR>[0], body);
-  return runGateway(ir, "anthropic", ctx);
+  return runGateway(ir, 'anthropic', ctx);
 }
 
 // Convert an OpenAI Chat Completions wire-format request into a gateway
@@ -269,17 +287,19 @@ export async function handleOpenAIRequest(
   body: unknown,
   ctx: GatewayRequestContext,
 ): Promise<GatewayOutcome> {
-  if (!body || typeof body !== "object") {
-    throw new ValidationError("request body must be a JSON object");
+  if (!body || typeof body !== 'object') {
+    throw new ValidationError('request body must be a JSON object');
   }
   const b = body as Record<string, unknown>;
-  if (typeof b["model"] !== "string") throw new ValidationError("model is required");
-  if (b["stream"] === true) {
-    throw new ValidationError("streaming is not supported in M4");
+  if (typeof b['model'] !== 'string') throw new ValidationError('model is required');
+  if (b['stream'] === true) {
+    // See the matching note in handleAnthropicRequest: the route handler
+    // dispatches stream: true requests to the streaming code path first.
+    throw new ValidationError('streaming requests must use the streaming code path');
   }
-  if (!Array.isArray(b["messages"])) throw new ValidationError("messages is required");
+  if (!Array.isArray(b['messages'])) throw new ValidationError('messages is required');
   const ir = openaiRequestToIR(b as Parameters<typeof openaiRequestToIR>[0], body);
-  return runGateway(ir, "openai", ctx);
+  return runGateway(ir, 'openai', ctx);
 }
 
 async function runGateway(
@@ -312,13 +332,19 @@ async function runGateway(
   const upstreamIds = Array.from(new Set(all.map((c) => c.upstreamKeyId)));
   const quotaExceeded = new Set<string>();
   for (const id of upstreamIds) {
-    if (await wouldExceedQuota(ctx.db, { upstreamKeyId: id, delta: { requests: 1, inputTokens: 0, outputTokens: 0, totalTokens: 0 }, now })) {
+    if (
+      await wouldExceedQuota(ctx.db, {
+        upstreamKeyId: id,
+        delta: { requests: 1, inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        now,
+      })
+    ) {
       quotaExceeded.add(id);
     }
   }
   const { accepted } = filterCandidates(all, { sourceProtocol, now, quotaExceeded });
   if (accepted.length === 0) {
-    throw new NoRouteAvailableError("no available upstream for target");
+    throw new NoRouteAvailableError('no available upstream for target');
   }
 
   // 4. Sticky binding lookup. If a fresh binding exists and the bound
@@ -328,7 +354,7 @@ async function runGateway(
     requestedModel: ir.requestedModel,
     system: ir.system,
     messages: ir.messages,
-    metadataUserId: ir.metadata["user_id"] ?? null,
+    metadataUserId: ir.metadata['user_id'] ?? null,
   });
   const stickyLookup = await lookupStickyBinding(ctx.db, {
     appId: ctx.appId,
@@ -359,70 +385,81 @@ async function runGateway(
   // The selected candidate is on the success path or on the last-tried error
   // path. We attribute the usage to the *asked-for* target so group-level
   // analytics do not double-count at the public-model level.
-  const candidate = outcome.ok
-    ? outcome.candidate
-    : (outcome.lastCandidate ?? sorted[0] ?? null);
+  const candidate = outcome.ok ? outcome.candidate : (outcome.lastCandidate ?? sorted[0] ?? null);
 
   // 6. On a successful routed call, bump the per-period quota counter for the
   // chosen candidate. The counter engine freezes the key when the next call
   // would exceed any configured limit; the freeze takes effect on the next
   // request via the filter. A failure outcome does not count against quota.
-  if (candidate && outcome.ok) {
-    const usage = outcome.ir.usage;
+  if (candidate) {
+    const usage = outcome.ok ? outcome.ir.usage : null;
     const delta = {
       requests: 1,
       inputTokens: usage?.inputTokens ?? 0,
       outputTokens: usage?.outputTokens ?? 0,
       totalTokens: usage?.totalTokens ?? 0,
     };
-    void (async () => {
+    if (outcome.ok) {
       // Bump every configured period for this upstream key so hour/day/week/
-      // month caps actually trigger freezes. `recordQuotaUsage` also bumps the
-      // running `total` counter for the dashboard.
-      const periods = await getEnabledQuotaPeriods(ctx.db, candidate.upstreamKeyId);
-      await recordQuotaUsage(ctx.db, {
+      // month caps actually trigger freezes. `recordQuotaUsage` also bumps
+      // the running `total` counter for the dashboard. We await the write
+      // so the freeze logic on the next request sees a consistent counter;
+      // a DB failure is still swallowed and never surfaces to the client.
+      try {
+        const periods = await getEnabledQuotaPeriods(ctx.db, candidate.upstreamKeyId);
+        await recordQuotaUsage(ctx.db, {
+          upstreamKeyId: candidate.upstreamKeyId,
+          delta,
+          periods,
+          now,
+        });
+      } catch {
+        /* quota is best-effort */
+      }
+      // Persist the sticky binding so the next call with the same fingerprint
+      // reuses the same candidate. We write a fresh binding (or update the
+      // existing one) only on success; failures do not change stickiness.
+      // This stays fire-and-forget: a missing or stale binding only causes
+      // the next request to pick a fresh candidate, it does not change
+      // correctness of the current response.
+      void upsertStickyBinding(ctx.db, {
+        appId: ctx.appId,
+        consumerKeyId: ctx.consumerKeyId,
+        requestedTargetName: ir.requestedModel,
+        fingerprint,
         upstreamKeyId: candidate.upstreamKeyId,
-        delta,
-        periods,
+        realModelName: candidate.realModelName,
         now,
       });
-    })();
-    // Persist the sticky binding so the next call with the same fingerprint
-    // reuses the same candidate. We write a fresh binding (or update the
-    // existing one) only on success; failures do not change stickiness.
-    void upsertStickyBinding(ctx.db, {
-      appId: ctx.appId,
-      consumerKeyId: ctx.consumerKeyId,
-      requestedTargetName: ir.requestedModel,
-      fingerprint,
-      upstreamKeyId: candidate.upstreamKeyId,
-      realModelName: candidate.realModelName,
-      now,
-    });
-  }
-
-  if (candidate) {
-    void writeUsageRecord(ctx.db, {
-      appId: ctx.appId,
-      consumerKeyId: ctx.consumerKeyId,
-      requestedTargetName: ir.requestedModel,
-      resolvedTargetType: target.targetType,
-      resolvedTargetId: target.targetId,
-      upstreamKeyId: candidate.upstreamKeyId,
-      realModelName: candidate.realModelName,
-      sourceProtocol,
-      providerType: candidate.providerType,
-      stream: false,
-      stickyHit,
-      inputTokens: outcome.ok ? (outcome.ir.usage?.inputTokens ?? null) : null,
-      outputTokens: outcome.ok ? (outcome.ir.usage?.outputTokens ?? null) : null,
-      totalTokens: outcome.ok ? (outcome.ir.usage?.totalTokens ?? null) : null,
-      status: outcome.ok ? "success" : "error",
-      errorCode: outcome.ok
-        ? null
-        : outcome.providerError.providerCode ?? outcome.providerError.category,
-      latencyMs,
-    });
+    }
+    // Await the usage record so the dashboard reflects the call before the
+    // response goes out. Swallow DB errors here too: a failed analytics
+    // write must never reach the client.
+    try {
+      await writeUsageRecord(ctx.db, {
+        appId: ctx.appId,
+        consumerKeyId: ctx.consumerKeyId,
+        requestedTargetName: ir.requestedModel,
+        resolvedTargetType: target.targetType,
+        resolvedTargetId: target.targetId,
+        upstreamKeyId: candidate.upstreamKeyId,
+        realModelName: candidate.realModelName,
+        sourceProtocol,
+        providerType: candidate.providerType,
+        stream: false,
+        stickyHit,
+        inputTokens: outcome.ok ? (usage?.inputTokens ?? null) : null,
+        outputTokens: outcome.ok ? (usage?.outputTokens ?? null) : null,
+        totalTokens: outcome.ok ? (usage?.totalTokens ?? null) : null,
+        status: outcome.ok ? 'success' : 'error',
+        errorCode: outcome.ok
+          ? null
+          : (outcome.providerError.providerCode ?? outcome.providerError.category),
+        latencyMs,
+      });
+    } catch {
+      /* usage record is best-effort */
+    }
   }
   return outcome;
 }
@@ -440,4 +477,10 @@ export async function touchUpstreamLastUsed(db: Db, upstreamKeyId: string): Prom
 }
 
 // Re-export the error class checks so route handlers can branch on them.
-export { isNormalizedError, AuthenticationError, PermissionError, TargetNotFoundError, ValidationError };
+export {
+  isNormalizedError,
+  AuthenticationError,
+  PermissionError,
+  TargetNotFoundError,
+  ValidationError,
+};

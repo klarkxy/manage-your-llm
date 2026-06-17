@@ -15,6 +15,8 @@ import {
   findModelGroupById,
   replaceRowsInTransaction,
 } from "./helpers.js";
+import { auditMetaFromRequest } from "./upstream-keys.js";
+import { recordAuditEvent } from "../observability/index.js";
 
 export interface ModelGroupRouteDeps {
   db: Db;
@@ -177,6 +179,13 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
     const row = await findModelGroupById(db, id);
     if (!row) throw new Error("insert failed");
     const members = await loadMembers(db, id);
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: "model_group.create",
+      resourceType: "model_group",
+      resourceId: row.id,
+      details: { name: row.name, members: members.length },
+    });
     return { ...presentGroup(row, members.length), members };
   });
 
@@ -201,6 +210,13 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
     const row = await findModelGroupById(db, id);
     if (!row) throw new Error("not found");
     const members = await loadMembers(db, id);
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: "model_group.update",
+      resourceType: "model_group",
+      resourceId: row.id,
+      details: { name: row.name, enabled: row.enabled },
+    });
     return { ...presentGroup(row, members.length), members };
   });
 
@@ -243,6 +259,13 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
         return normalized;
       },
     });
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: "model_group.update",
+      resourceType: "model_group",
+      resourceId: id,
+      details: { membersCount: normalized.length },
+    });
     const members = await loadMembers(db, id);
     return { members };
   });
@@ -258,6 +281,12 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
       targetType: "model_group",
       targetId: id,
       deleteTarget: async (tx) => { await tx.delete(modelGroups).where(eq(modelGroups.id, id)); },
+    });
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: "model_group.delete",
+      resourceType: "model_group",
+      resourceId: id,
     });
     return { id, deleted: true };
   });

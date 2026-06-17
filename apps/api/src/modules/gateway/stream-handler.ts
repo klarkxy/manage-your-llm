@@ -4,7 +4,7 @@ import {
   NoRouteAvailableError,
   TargetNotFoundError,
   ValidationError,
-} from "@modelharbor/shared";
+} from '@modelharbor/shared';
 import {
   type ProviderAdapter,
   type ProviderHttpRequest,
@@ -12,25 +12,35 @@ import {
   anthropicRequestToIR,
   openaiRequestToIR,
   getAdapter,
-} from "../providers/index.js";
-import { type Db } from "../db/index.js";
-import { decryptSecret } from "../auth/crypto.js";
-import { assertConsumerKeyAccess } from "../router/access.js";
-import { expandCandidates, filterCandidates, type ResolvedCandidate } from "../router/candidates.js";
-import { resolveTargetByName, type ResolvedTarget } from "../router/resolve.js";
-import { applyCooldown, computeCooldownUpdate, shouldCooldown } from "./cooldown.js";
-import { conversationFingerprint, isStickyBindingValid, lookupStickyBinding, touchStickyBinding, upsertStickyBinding } from "../sticky/index.js";
-import { getEnabledQuotaPeriods, recordQuotaUsage, wouldExceedQuota } from "../quota/index.js";
-import { startUpstreamStream, type RawStreamEvent, type StreamStart } from "./stream-sender.js";
-import { writeUsageRecord } from "../usage/index.js";
+} from '../providers/index.js';
+import { type Db } from '../db/index.js';
+import { decryptSecret } from '../auth/crypto.js';
+import { assertConsumerKeyAccess } from '../router/access.js';
+import {
+  expandCandidates,
+  filterCandidates,
+  type ResolvedCandidate,
+} from '../router/candidates.js';
+import { resolveTargetByName, type ResolvedTarget } from '../router/resolve.js';
+import { applyCooldown, computeCooldownUpdate, shouldCooldown } from './cooldown.js';
+import {
+  conversationFingerprint,
+  isStickyBindingValid,
+  lookupStickyBinding,
+  touchStickyBinding,
+  upsertStickyBinding,
+} from '../sticky/index.js';
+import { getEnabledQuotaPeriods, recordQuotaUsage, wouldExceedQuota } from '../quota/index.js';
+import { startUpstreamStream, type RawStreamEvent, type StreamStart } from './stream-sender.js';
+import { writeUsageRecord } from '../usage/index.js';
 import {
   ProviderError,
   ProviderQuotaError,
   ProviderRateLimitError,
   ProviderStreamError,
   ProviderTimeoutError,
-} from "@modelharbor/shared";
-import type { FastifyReply } from "fastify";
+} from '@modelharbor/shared';
+import type { FastifyReply } from 'fastify';
 
 export interface StreamGatewayContext {
   db: Db;
@@ -46,10 +56,10 @@ export interface StreamRequestContext {
 }
 
 const FAILOVER_CATEGORIES: ReadonlySet<string> = new Set([
-  "provider_rate_limit",
-  "provider_quota",
-  "provider_overloaded",
-  "provider_timeout",
+  'provider_rate_limit',
+  'provider_quota',
+  'provider_overloaded',
+  'provider_timeout',
 ]);
 
 interface NormalizedErrorLite {
@@ -60,9 +70,9 @@ interface NormalizedErrorLite {
 }
 
 const CLIENT_DISCONNECTED: NormalizedErrorLite = {
-  category: "provider_stream_error",
-  providerCode: "client_disconnected",
-  providerMessage: "client disconnected mid-stream",
+  category: 'provider_stream_error',
+  providerCode: 'client_disconnected',
+  providerMessage: 'client disconnected mid-stream',
   upstreamStatus: 200,
 };
 
@@ -92,7 +102,13 @@ export async function handleStreamRequest(
   const quotaExceeded = new Set<string>();
   for (const c of all) {
     if (quotaExceeded.has(c.upstreamKeyId)) continue;
-    if (await wouldExceedQuota(ctx.db, { upstreamKeyId: c.upstreamKeyId, delta: { requests: 1, inputTokens: 0, outputTokens: 0, totalTokens: 0 }, now })) {
+    if (
+      await wouldExceedQuota(ctx.db, {
+        upstreamKeyId: c.upstreamKeyId,
+        delta: { requests: 1, inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        now,
+      })
+    ) {
       quotaExceeded.add(c.upstreamKeyId);
     }
   }
@@ -102,7 +118,7 @@ export async function handleStreamRequest(
     quotaExceeded,
   });
   if (accepted.length === 0) {
-    throw new NoRouteAvailableError("no available upstream for target");
+    throw new NoRouteAvailableError('no available upstream for target');
   }
   let sorted = [...accepted].sort((a, b) => a.priority - b.priority);
   // Sticky binding lookup. If a fresh binding exists and the bound
@@ -114,7 +130,7 @@ export async function handleStreamRequest(
     requestedModel: streamCtx.ir.requestedModel,
     system: streamCtx.ir.system,
     messages: streamCtx.ir.messages,
-    metadataUserId: streamCtx.ir.metadata["user_id"] ?? null,
+    metadataUserId: streamCtx.ir.metadata['user_id'] ?? null,
   });
   const stickyLookup = await lookupStickyBinding(ctx.db, {
     appId: ctx.appId,
@@ -156,9 +172,9 @@ export async function handleStreamRequest(
       timeoutMs: ctx.defaultUpstreamTimeoutMs ?? 60_000,
       signal: abortController.signal,
     });
-    if (startResult.kind === "transport") {
+    if (startResult.kind === 'transport') {
       lastError = {
-        category: "provider_timeout",
+        category: 'provider_timeout',
         providerCode: null,
         providerMessage: startResult.error.message,
         upstreamStatus: 0,
@@ -173,7 +189,7 @@ export async function handleStreamRequest(
       if (!FAILOVER_CATEGORIES.has(lastError.category)) break;
       continue;
     }
-    if (startResult.kind === "error-body") {
+    if (startResult.kind === 'error-body') {
       const providerError = adapter.normalizeError({
         response: {
           status: startResult.status,
@@ -218,9 +234,9 @@ export async function handleStreamRequest(
 
   if (!started) {
     const fallback: NormalizedErrorLite = lastError ?? {
-      category: "provider_unknown",
+      category: 'provider_unknown',
       providerCode: null,
-      providerMessage: "no upstream succeeded",
+      providerMessage: 'no upstream succeeded',
       upstreamStatus: 0,
     };
     if (lastCandidate) {
@@ -239,16 +255,16 @@ export async function handleStreamRequest(
 
 function toNormalizedError(err: NormalizedErrorLite): Error {
   switch (err.category) {
-    case "provider_rate_limit":
-      return new ProviderRateLimitError(err.providerMessage ?? "rate limited");
-    case "provider_quota":
-      return new ProviderQuotaError(err.providerMessage ?? "quota exhausted");
-    case "provider_timeout":
-      return new ProviderTimeoutError(err.providerMessage ?? "upstream timeout");
-    case "provider_stream_error":
-      return new ProviderStreamError(err.providerMessage ?? "stream error");
+    case 'provider_rate_limit':
+      return new ProviderRateLimitError(err.providerMessage ?? 'rate limited');
+    case 'provider_quota':
+      return new ProviderQuotaError(err.providerMessage ?? 'quota exhausted');
+    case 'provider_timeout':
+      return new ProviderTimeoutError(err.providerMessage ?? 'upstream timeout');
+    case 'provider_stream_error':
+      return new ProviderStreamError(err.providerMessage ?? 'stream error');
     default:
-      return new ProviderError(err.providerMessage ?? "upstream error");
+      return new ProviderError(err.providerMessage ?? 'upstream error');
   }
 }
 
@@ -281,7 +297,7 @@ function providerCtxOf(
     timeoutMs: 0,
     stream: true,
     baseUrl: request.url,
-    apiKey: "",
+    apiKey: '',
   };
 }
 
@@ -302,26 +318,57 @@ interface DriveStreamArgs {
 // stream ended before the first frame (e.g. client disconnected). In both
 // cases the usage record is written before the function returns.
 async function driveStream(args: DriveStreamArgs): Promise<boolean> {
-  const { ctx, streamCtx, target, reply, adapter, candidate, start, abortController, stickyHit, fingerprint } = args;
-  if (start.kind !== "ok") {
-    throw new Error("driveStream called with non-ok start");
+  const {
+    ctx,
+    streamCtx,
+    target,
+    reply,
+    adapter,
+    candidate,
+    start,
+    abortController,
+    stickyHit,
+    fingerprint,
+  } = args;
+  if (start.kind !== 'ok') {
+    throw new Error('driveStream called with non-ok start');
   }
   const startedAt = Date.now();
-  const usageBag: { value: { inputTokens: number; outputTokens: number; totalTokens: number } | null } = { value: null };
+  const usageBag: {
+    value: { inputTokens: number; outputTokens: number; totalTokens: number } | null;
+  } = { value: null };
   let lastError: NormalizedErrorLite | null = null;
   let clientDisconnected = false;
+  let closedByUpstream = false;
   let firstWrite = false;
 
   // Single client-disconnect listener. The handler may have registered
   // an earlier listener on the same socket (it owns the route-level
   // cleanup); this one is the per-stream one. Both fire on close and we
   // only need this one to do the abort + bookkeeping.
+  //
+  // We only treat `close` as a client-initiated disconnect if it happens
+  // BEFORE we have finalized the response ourselves (i.e. before
+  // `closedByUpstream` flips to true at the end of the upstream
+  // iterator). The natural end of a stream — `data: [DONE]` from OpenAI
+  // or `message_stop` from Anthropic — also triggers a `close` on the
+  // reply socket once we call `reply.raw.end()`; that path is a clean
+  // completion, not a disconnect.
   const onClientClose = (): void => {
+    if (closedByUpstream) return;
     clientDisconnected = true;
-    try { abortController.abort(); } catch { /* ignore */ }
-    try { reply.raw.destroy(); } catch { /* ignore */ }
+    try {
+      abortController.abort();
+    } catch {
+      /* ignore */
+    }
+    try {
+      reply.raw.destroy();
+    } catch {
+      /* ignore */
+    }
   };
-  reply.raw.once("close", onClientClose);
+  reply.raw.once('close', onClientClose);
 
   try {
     for await (const raw of start.events) {
@@ -329,17 +376,21 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
       const result = adapter.normalizeStreamEvent({
         event: raw.event,
         data: raw.data,
-        request: providerCtxOf(streamCtx.ir, candidate, { url: "", method: "POST", headers: {}, body: "" }),
+        request: providerCtxOf(streamCtx.ir, candidate, {
+          url: '',
+          method: 'POST',
+          headers: {},
+          body: '',
+        }),
       });
-      if (result.kind === "usage") {
+      if (result.kind === 'usage') {
         // Merge across events. The Anthropic adapter sets inputTokens
         // to -1 to signal "keep the previously captured input_tokens
         // from message_start". Output tokens from message_delta are
         // always the final value; totalTokens is recomputed.
         const prev = usageBag.value;
-        const inputTokens = result.inputTokens === -1
-          ? (prev?.inputTokens ?? 0)
-          : result.inputTokens;
+        const inputTokens =
+          result.inputTokens === -1 ? (prev?.inputTokens ?? 0) : result.inputTokens;
         const outputTokens = result.outputTokens;
         usageBag.value = {
           inputTokens,
@@ -355,21 +406,30 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
     }
   } catch (err) {
     const e = err as { name?: string; message?: string };
-    if (e.name === "AbortError") {
+    if (e.name === 'AbortError') {
       clientDisconnected = true;
     } else {
       lastError = {
-        category: "provider_stream_error",
+        category: 'provider_stream_error',
         providerCode: null,
-        providerMessage: e.message ?? "stream failed",
+        providerMessage: e.message ?? 'stream failed',
         upstreamStatus: 200,
       };
     }
   } finally {
-    reply.raw.off("close", onClientClose);
+    // Mark the stream as finished on our side before we finalize the
+    // response. Calling `reply.raw.end()` will emit a `close` event on
+    // the reply socket; the listener treats that as a no-op so a clean
+    // completion is never recorded as a client disconnect.
+    closedByUpstream = true;
     if (firstWrite) {
-      try { reply.raw.end(); } catch { /* ignore */ }
+      try {
+        reply.raw.end();
+      } catch {
+        /* ignore */
+      }
     }
+    reply.raw.off('close', onClientClose);
   }
 
   const latencyMs = Date.now() - startedAt;
@@ -384,13 +444,24 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
   if (lastError) {
     await recordUsageOnFailure(ctx, streamCtx, target, candidate, lastError, latencyMs);
   } else {
-    await recordUsageOnSuccess(ctx, streamCtx, target, candidate, usageBag.value, latencyMs, stickyHit);
+    await recordUsageOnSuccess(
+      ctx,
+      streamCtx,
+      target,
+      candidate,
+      usageBag.value,
+      latencyMs,
+      stickyHit,
+    );
     const usageTokens = usageBag.value ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
     const stickyNow = new Date();
-    void (async () => {
-      // Bump every configured period for this upstream key so hour/day/week/
-      // month caps actually trigger freezes. `recordQuotaUsage` also bumps the
-      // running `total` counter for the dashboard.
+    // Bump every configured period for this upstream key so hour/day/week/
+    // month caps actually trigger freezes. `recordQuotaUsage` also bumps
+    // the running `total` counter for the dashboard. We await the write
+    // so the freeze logic on the next request sees a consistent counter;
+    // a DB failure is still swallowed and never changes the response the
+    // client has already received.
+    try {
       const periods = await getEnabledQuotaPeriods(ctx.db, candidate.upstreamKeyId);
       await recordQuotaUsage(ctx.db, {
         upstreamKeyId: candidate.upstreamKeyId,
@@ -403,7 +474,11 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
         periods,
         now: stickyNow,
       });
-    })();
+    } catch {
+      /* quota is best-effort */
+    }
+    // Sticky binding stays fire-and-forget: a missing or stale binding
+    // only causes the next request to pick a fresh candidate.
     void upsertStickyBinding(ctx.db, {
       appId: ctx.appId,
       consumerKeyId: ctx.consumerKeyId,
@@ -417,30 +492,27 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
   return firstWrite;
 }
 
-function writeStreamHeaders(
-  reply: FastifyReply,
-  upstreamHeaders: Record<string, string>,
-): void {
+function writeStreamHeaders(reply: FastifyReply, upstreamHeaders: Record<string, string>): void {
   reply.hijack();
   reply.raw.statusCode = 200;
-  reply.raw.setHeader("content-type", "text/event-stream; charset=utf-8");
-  reply.raw.setHeader("cache-control", "no-cache");
-  reply.raw.setHeader("connection", "keep-alive");
-  reply.raw.setHeader("x-accel-buffering", "no");
-  const requestId = upstreamHeaders["x-request-id"];
-  if (requestId) reply.raw.setHeader("x-request-id", requestId);
+  reply.raw.setHeader('content-type', 'text/event-stream; charset=utf-8');
+  reply.raw.setHeader('cache-control', 'no-cache');
+  reply.raw.setHeader('connection', 'keep-alive');
+  reply.raw.setHeader('x-accel-buffering', 'no');
+  const requestId = upstreamHeaders['x-request-id'];
+  if (requestId) reply.raw.setHeader('x-request-id', requestId);
 }
 
 function writeStreamFrame(reply: FastifyReply, raw: RawStreamEvent): void {
-  let frame = "";
+  let frame = '';
   if (raw.event) {
     frame += `event: ${raw.event}\n`;
   }
-  const dataLines = raw.data.split("\n");
+  const dataLines = raw.data.split('\n');
   for (const line of dataLines) {
     frame += `data: ${line}\n`;
   }
-  frame += "\n";
+  frame += '\n';
   reply.raw.write(frame);
 }
 
@@ -491,7 +563,7 @@ async function recordUsageOnSuccess(
     inputTokens: usage?.inputTokens ?? null,
     outputTokens: usage?.outputTokens ?? null,
     totalTokens: usage?.totalTokens ?? null,
-    status: "success",
+    status: 'success',
     errorCode: null,
     latencyMs,
   });
@@ -519,34 +591,34 @@ async function recordUsageOnFailure(
     inputTokens: null,
     outputTokens: null,
     totalTokens: null,
-    status: "error",
+    status: 'error',
     errorCode: err.providerCode ?? err.category,
     latencyMs,
   });
 }
 
 export function buildStreamRequest(
-  protocol: "anthropic" | "openai",
+  protocol: 'anthropic' | 'openai',
   body: unknown,
 ): StreamRequestContext {
-  if (!body || typeof body !== "object") {
-    throw new ValidationError("request body must be a JSON object");
+  if (!body || typeof body !== 'object') {
+    throw new ValidationError('request body must be a JSON object');
   }
   const b = body as Record<string, unknown>;
-  if (typeof b["model"] !== "string") throw new ValidationError("model is required");
-  if (b["stream"] !== true) {
-    throw new ValidationError("this entry point is only for stream: true requests");
+  if (typeof b['model'] !== 'string') throw new ValidationError('model is required');
+  if (b['stream'] !== true) {
+    throw new ValidationError('this entry point is only for stream: true requests');
   }
-  if (!Array.isArray(b["messages"])) throw new ValidationError("messages is required");
-  if (protocol === "anthropic") {
+  if (!Array.isArray(b['messages'])) throw new ValidationError('messages is required');
+  if (protocol === 'anthropic') {
     return {
       ir: anthropicRequestToIR(b as Parameters<typeof anthropicRequestToIR>[0], body),
-      sourceProtocol: "anthropic",
+      sourceProtocol: 'anthropic',
     };
   }
   return {
     ir: openaiRequestToIR(b as Parameters<typeof openaiRequestToIR>[0], body),
-    sourceProtocol: "openai",
+    sourceProtocol: 'openai',
   };
 }
 

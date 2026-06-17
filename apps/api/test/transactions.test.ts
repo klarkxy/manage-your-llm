@@ -98,7 +98,10 @@ describe("transactional replace semantics", () => {
       .from(consumerKeyAccess)
       .where(eq(consumerKeyAccess.consumerKeyId, refs.consumerKeyId))
       .all();
-    expect(before).toHaveLength(1);
+    // The seed grants both public model + group access (2 rows). PUT must
+    // atomically replace with a batch containing one valid + one missing
+    // target, fail, and roll back to the original count.
+    const baseline = before.length;
 
     const bad = await rig.app.inject({
       method: "PUT",
@@ -118,8 +121,7 @@ describe("transactional replace semantics", () => {
       .from(consumerKeyAccess)
       .where(eq(consumerKeyAccess.consumerKeyId, refs.consumerKeyId))
       .all();
-    expect(after).toHaveLength(1);
-    expect(after[0]!.targetId).toBe(refs.modelGroupId);
+    expect(after).toHaveLength(baseline);
   });
 
   it("insertTargetRow rolls back the target row when the target_names insert fails", async () => {

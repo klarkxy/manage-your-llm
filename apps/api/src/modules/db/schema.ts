@@ -270,6 +270,57 @@ export const usageRecords = sqliteTable(
   ],
 );
 
+// --- Audit events (post-M7 hardening) ---
+
+// One row per admin-side action worth auditing. MVP records: login success /
+// failure, upstream key create/update/freeze/unfreeze/rotate, public model
+// create/update/delete, model group create/update/delete, consumer key
+// create/revoke/rotate/access-update. Resource ids are stored as text so the
+// row is safe to keep even after the underlying record is deleted.
+export const auditEvents = sqliteTable(
+  "audit_events",
+  {
+    id: text("id").primaryKey(),
+    actorAdminId: text("actor_admin_id"),
+    actorUsername: text("actor_username"),
+    action: text("action").notNull(),
+    resourceType: text("resource_type").notNull(),
+    resourceId: text("resource_id"),
+    // JSON-encoded details (resource name, previous state, etc.). Never
+    // contains raw secrets — the audit module redacts mh_ / sk- / Bearer
+    // tokens before persisting.
+    detailsJson: text("details_json"),
+    ip: text("ip"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [
+    index("audit_events_created_at_idx").on(t.createdAt),
+    index("audit_events_actor_idx").on(t.actorAdminId),
+    index("audit_events_resource_idx").on(t.resourceType, t.resourceId),
+  ],
+);
+
+// --- Login rate limiting (post-M7 hardening) ---
+
+// Rolling window of admin login attempts. The rate limiter looks at rows in
+// the last `LOGIN_WINDOW_MS`; failures over the cap return 429 without
+// touching the password code path. Successful logins don't write here.
+export const loginAttempts = sqliteTable(
+  "login_attempts",
+  {
+    id: text("id").primaryKey(),
+    username: text("username").notNull(),
+    ip: text("ip").notNull(),
+    success: integer("success", { mode: "boolean" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [
+    index("login_attempts_created_at_idx").on(t.createdAt),
+    index("login_attempts_username_idx").on(t.username, t.createdAt),
+    index("login_attempts_ip_idx").on(t.ip, t.createdAt),
+  ],
+);
+
 // --- Sticky bindings (M6) ---
 //
 // One row per (appId, consumerKeyId, requestedTargetName, conversationFingerprint).
@@ -338,6 +389,10 @@ export type UsageRecordRow = typeof usageRecords.$inferSelect;
 export type UsageRecordInsert = typeof usageRecords.$inferInsert;
 export type StickyBindingRow = typeof stickyBindings.$inferSelect;
 export type StickyBindingInsert = typeof stickyBindings.$inferInsert;
+export type AuditEventRow = typeof auditEvents.$inferSelect;
+export type AuditEventInsert = typeof auditEvents.$inferInsert;
+export type LoginAttemptRow = typeof loginAttempts.$inferSelect;
+export type LoginAttemptInsert = typeof loginAttempts.$inferInsert;
 
 // Re-export SourceProtocol as part of the db surface for convenience
 export type { SourceProtocol };

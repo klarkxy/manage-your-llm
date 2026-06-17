@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { buildServer } from "./server.js";
+import { buildServer, getBackgroundJobsHandle } from "./server.js";
 import { createDb, initSchema } from "./modules/db/index.js";
 import { bootstrapAdmin } from "./modules/auth/index.js";
 import { createEnv } from "./config/env.js";
@@ -36,6 +36,10 @@ async function main(): Promise<void> {
   }
 
   const shutdown = async (): Promise<void> => {
+    // Stop the background jobs loop first so it can't observe the db after
+    // we close it. The Fastify onClose hook stops the loop too, but doing
+    // it explicitly here makes the shutdown order easy to read.
+    getBackgroundJobsHandle(app)?.stop();
     try {
       await app.close();
     } catch (err) {

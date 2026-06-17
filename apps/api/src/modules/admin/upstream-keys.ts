@@ -1,9 +1,10 @@
 import { eq, desc } from "drizzle-orm";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { generateId, ValidationError } from "@modelharbor/shared";
 import { type UpstreamKeyCounterRow, type UpstreamKeyQuotaRow, type UpstreamKeyQuotaInsert, type UpstreamKeyRow, type Db, upstreamKeyCounters, upstreamKeyQuotas, upstreamKeys } from "../db/index.js";
 import { resetExpiredCounters } from "../quota/index.js";
 import { listStickyBindingsForConsumer, pruneExpiredStickyBindings } from "../sticky/index.js";
+import { recordAuditEvent, type AuditAction } from "../observability/index.js";
 import {
   assertProviderType,
   assertQuotaPeriod,
@@ -14,6 +15,44 @@ import {
   parseJsonObject,
   safeJsonString,
 } from "./helpers.js";
+
+export interface UpstreamKeyRouteDeps {
+  db: Db;
+  secretKey: string;
+}
+
+export interface AuditMeta {
+  actorAdminId: string | null;
+  actorUsername: string | null;
+  ip: string | null;
+}
+
+export function auditMetaFromRequest(req: FastifyRequest): AuditMeta {
+  const admin = (req as unknown as { admin?: { id: string; username: string } | null }).admin;
+  return {
+    actorAdminId: admin?.id ?? null,
+    actorUsername: admin?.username ?? null,
+    ip: req.ip ?? null,
+  };
+}
+
+async function audit(
+  db: Db,
+  meta: AuditMeta,
+  action: AuditAction,
+  resourceId: string | null,
+  details?: Record<string, unknown>,
+): Promise<void> {
+  await recordAuditEvent(db, {
+    actorAdminId: meta.actorAdminId,
+    actorUsername: meta.actorUsername,
+    action,
+    resourceType: "upstream_key",
+    resourceId,
+    details,
+    ip: meta.ip,
+  });
+}
 
 export interface UpstreamKeyRouteDeps {
   db: Db;
@@ -175,6 +214,7 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
     const row = await db.select().from(upstreamKeys).where(eq(upstreamKeys.id, id)).get();
     if (!row) throw new Error("insert failed");
     const quota = (await db.select().from(upstreamKeyQuotas).where(eq(upstreamKeyQuotas.upstreamKeyId, id)).get()) ?? null;
+    await audit(db, auditMetaFromRequest(req), "upstream_key.create", id, { name, providerType, baseUrl });
     return presentUpstreamKey(row, quota, []);
   });
 
@@ -242,6 +282,7 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
     const row = await db.select().from(upstreamKeys).where(eq(upstreamKeys.id, id)).get();
     if (!row) throw new Error("not found");
     const quota = (await db.select().from(upstreamKeyQuotas).where(eq(upstreamKeyQuotas.upstreamKeyId, id)).get()) ?? null;
+    await audit(db, auditMetaFromRequest(req), "upstream_key.update", id, { name: row.name, enabled: row.enabled });
     return presentUpstreamKey(row, quota, []);
   });
 
@@ -260,6 +301,7 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
       .update(upstreamKeys)
       .set({ apiKeyCiphertext: ciphertext, apiKeyPrefix: prefix, updatedAt: new Date() })
       .where(eq(upstreamKeys.id, id));
+    await audit(db, auditMetaFromRequest(req), "upstream_key.rotate_secret", id, { apiKeyPrefix: prefix });
     return { id, apiKeyPrefix: prefix };
   });
 
@@ -276,6 +318,7 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
       .update(upstreamKeys)
       .set({ frozen: true, frozenReason: reason, updatedAt: new Date() })
       .where(eq(upstreamKeys.id, id));
+    await audit(db, auditMetaFromRequest(req), "upstream_key.freeze", id, { reason });
     return { id, frozen: true, frozenReason: reason };
   });
 
@@ -290,6 +333,7 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
       .update(upstreamKeys)
       .set({ frozen: false, frozenReason: null, updatedAt: new Date() })
       .where(eq(upstreamKeys.id, id));
+    await audit(db, auditMetaFromRequest(req), "upstream_key.unfreeze", id);
     return { id, frozen: false };
   });
   // M6: list sticky bindings for a consumer key. Optional filter by
@@ -322,6 +366,7 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
   app.delete("/api/admin/upstream-keys/:id", async (req) => {
     const { id } = req.params as { id: string };
     await db.delete(upstreamKeys).where(eq(upstreamKeys.id, id));
+    await audit(db, auditMetaFromRequest(req), "upstream_key.delete", id);
     return { id, deleted: true };
   });
 }
