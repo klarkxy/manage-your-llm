@@ -1,1 +1,4 @@
-// Router core (M4): target resolution, candidate expansion, sticky reuse, policy
+export * from "./resolve.js";
+export * from "./access.js";
+export * from "./candidates.js";
+export * from "./policy.js";

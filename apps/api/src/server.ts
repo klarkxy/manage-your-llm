@@ -4,7 +4,15 @@ import { createEnv } from "./config/env.js";
 import { healthRoutes } from "./plugins/health.js";
 import { registerErrorHandler } from "./errors.js";
 import { type Db } from "./modules/db/index.js";
-import { registerAdminAuthRoutes } from "./modules/auth/index.js";
+import { registerAdminAuthRoutes, requireAdmin } from "./modules/auth/index.js";
+import { registerGatewayRoutes } from "./modules/gateway/index.js";
+import {
+  registerAppRoutes,
+  registerConsumerKeyRoutes,
+  registerModelGroupRoutes,
+  registerPublicModelRoutes,
+  registerUpstreamKeyRoutes,
+} from "./modules/admin/index.js";
 
 export interface BuildServerOptions {
   logger?: boolean | FastifyServerOptions["logger"];
@@ -49,6 +57,20 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
 
   if (options.db) {
     registerAdminAuthRoutes(app, { db: options.db, secretKey, isProduction });
+    // Guard everything under /api/admin except /api/admin/auth/*
+    const guard = requireAdmin(options.db, secretKey);
+    app.addHook("preHandler", async (req, reply) => {
+      const url = req.url;
+      if (url.startsWith("/api/admin/") && !url.startsWith("/api/admin/auth/")) {
+        await guard(req, reply);
+      }
+    });
+    registerUpstreamKeyRoutes(app, { db: options.db, secretKey });
+    registerPublicModelRoutes(app, { db: options.db });
+    registerModelGroupRoutes(app, { db: options.db });
+    registerAppRoutes(app, { db: options.db });
+    registerConsumerKeyRoutes(app, { db: options.db });
+    registerGatewayRoutes(app, { db: options.db, secretKey });
   }
 
   return app;

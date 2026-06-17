@@ -1,1 +1,6 @@
-// Provider registry (M3): anthropic_compatible, openai_compatible
+export * from "./types.js";
+export * from "./errors.js";
+export * from "./anthropic-compatible.js";
+export * from "./openai-compatible.js";
+export * from "./registry.js";
+export * from "./ir-converters.js";

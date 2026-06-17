@@ -18,3 +18,4 @@ data/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+.codex-tmp
