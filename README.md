@@ -1,125 +1,261 @@
 # ModelHarbor
 
-ModelHarbor, also called "模型港", is a lightweight dashboard-first LLM API router for managing upstream API keys, model exposure, groups, quotas, and application-level usage statistics.
+ModelHarbor is a lightweight, dashboard-first LLM API router. It helps administrators manage multiple upstream API keys, model exposure, routing groups, quotas, and application-level usage through a clean visual interface.
 
-It is not an API resale platform. It intentionally avoids pricing, billing, payment, recharge, affiliate, and other commercial distribution features. The core goal is to help an administrator manage multiple token plans and provider keys through a clear visual dashboard.
+> **Not a resale platform.** ModelHarbor intentionally avoids pricing, billing, payment, or affiliate features. Its sole purpose is to give you a transparent control plane for your LLM infrastructure.
 
-## Core Ideas
+---
 
-- Treat each upstream API key as an actual routable provider instance.
-- Expose clean public model names and administrator-defined model groups.
-- Keep client calls compatible with Anthropic Messages and OpenAI Chat Completions.
-- Use sticky routing to improve provider-side cache hit rates, while allowing automatic rebinding when a key or model is unavailable.
-- Track quotas and usage by upstream key, and aggregate usage by application.
-- Provide an admin dashboard instead of YAML-first configuration.
+## What It Does
 
-## Planned Stack
+- **Manage upstream keys** — Add, rotate, and monitor provider API keys (OpenAI, Anthropic, and compatible services).
+- **Expose models cleanly** — Define public-facing model names and group them into administrator-defined collections.
+- **Route with intelligence** — Sticky routing improves provider-side cache hits; automatic failover handles rate limits, quotas, and timeouts.
+- **Track usage** — See per-app, per-key, per-model consumption without storing prompts or completions.
+- **Control access** — Grant consumer keys fine-grained access to specific models or groups.
+- **Admin dashboard first** — Every configuration is done through the UI; no YAML editing required.
 
-- Backend: Node.js, Fastify, TypeScript
-- Frontend: Vue 3, Vite, TypeScript, Naive UI
-- State: SQLite (libsql driver) first, Postgres later
-- ORM: Drizzle
-- Deployment: single Docker image serving both gateway APIs and admin UI
-- License: AGPL-3.0-or-later
+---
 
-## Monorepo Layout
+## Supported Protocols
+
+| Client Protocol | Endpoint | Status |
+| --------------- | -------- | ------ |
+| Anthropic Messages | `POST /v1/messages` | ✅ Supported (stream + non-stream) |
+| OpenAI Chat Completions | `POST /v1/chat/completions` | ✅ Supported (stream + non-stream) |
+| OpenAI Models List | `GET /v1/models` | ✅ Supported |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+| ----- | ---------- |
+| Backend | Node.js, Fastify 5, TypeScript |
+| Frontend | Vue 3, Vite, Naive UI, Pinia |
+| Database | SQLite (libsql) first, PostgreSQL later |
+| ORM | Drizzle |
+| Monorepo | pnpm workspaces |
+| Test | Vitest (unit), Playwright (e2e) |
+| License | AGPL-3.0-or-later |
+
+---
+
+## Quick Start
+
+### Requirements
+
+- Node.js >= 20.10.0
+- pnpm >= 9
+
+### Install & Run
+
+```bash
+# Install dependencies
+pnpm install
+
+# Start API + dashboard in parallel (development)
+# Dashboard: http://localhost:5173
+# API:       http://localhost:2999
+pnpm dev
+```
+
+> **Development mode:** Vite dev server serves the dashboard on port 5173 and proxies API calls to the Fastify backend on port 2999.
+>
+> **Production mode:** Build both packages (`pnpm build`), then `pnpm start` serves the dashboard and API from a single port (2999).
+
+### First Login
+
+The first admin account is created automatically from environment variables on first run:
+
+| Variable | Default |
+|----------|---------|
+| `MODELHARBOR_ADMIN_USERNAME` | `admin` |
+| `MODELHARBOR_ADMIN_PASSWORD` | `change-me-on-first-run` |
+
+> ⚠️ **Production:** Change the default password before exposing the service.
+
+### Configure Your First Route
+
+1. **Add an upstream key** — Go to **Upstream Keys** → **Add Key**. Enter your provider API key (e.g., OpenAI or Anthropic). The raw key is shown only once.
+2. **Create a public model** — Go to **Public Models** → **Add Model**. Define the name clients will use (e.g., `gpt-4`) and map it to your upstream key's real model name.
+3. **Create an app and consumer key** — Go to **Apps** → **Add App**, then generate a **Consumer Key** inside the app details. Grant it access to your model.
+4. **Test the call**:
+
+```bash
+# OpenAI-compatible
+curl http://localhost:2999/v1/chat/completions \
+  -H "Authorization: Bearer mh_your_consumer_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+
+# Anthropic-compatible
+curl http://localhost:2999/v1/messages \
+  -H "x-api-key: mh_your_consumer_key" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-3-sonnet",
+    "max_tokens": 1024,
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+---
+
+## Project Structure
 
 ```text
 apps/
-  api/    Fastify 5 + libsql + Drizzle, gateway and admin API
-  web/    Vue 3 + Vite + Naive UI + Pinia dashboard
+  api/         Fastify gateway + admin API
+  web/         Vue 3 admin dashboard
 packages/
-  shared/  protocol-neutral types, error classes, id generators, IR
+  shared/      Protocol-neutral types, error classes, IR converters
+docs/          Architecture, API contract, security model, operations
+e2e/           Playwright end-to-end tests
 ```
 
-## Milestone Status
+---
 
-| Milestone | Title                       | Status |
-| --------- | --------------------------- | ------ |
-| M0        | Repository foundation       | done   |
-| M1        | Database and local admin    | done   |
-| M2        | Control plane objects       | done   |
-| M3        | Provider adapter foundation | done   |
-| M4        | Gateway routing             | done   |
-| M5        | Streaming                   | done   |
-| M6        | Quotas and sticky routing   | done   |
-| M7        | Usage and observability     | done   |
+## Environment Variables
 
-## M3 highlights
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MODELHARBOR_HOST` | `0.0.0.0` | Bind address |
+| `MODELHARBOR_PORT` | `2999` | API port |
+| `MODELHARBOR_DATABASE_URL` | `file:./modelharbor.sqlite` | SQLite database path |
+| `MODELHARBOR_SECRET_KEY` | *(none)* | Encryption key for upstream secrets |
+| `MODELHARBOR_ADMIN_USERNAME` | `admin` | First admin username |
+| `MODELHARBOR_ADMIN_PASSWORD` | `change-me-on-first-run` | First admin password |
+| `MODELHARBOR_LOG_LEVEL` | `info` | Log level |
 
-- `ChatRequestIR` and `NormalizedChatResponse` as protocol-neutral internal shapes; the router core never sees wire-format request / response payloads.
-- `anthropic-compatible` adapter: buildRequest → `POST /v1/messages` with `x-api-key` and `anthropic-version: 2023-06-01`; normalizeResponse concatenates text blocks and reads `usage.input_tokens` / `output_tokens`.
-- `openai-compatible` adapter: buildRequest → `POST /v1/chat/completions` with `Authorization: Bearer`; system messages fold into `messages[0]`; normalizeResponse reads `choices[0].message.content` and `usage.prompt_tokens` / `completion_tokens` / `total_tokens`.
-- `errors.ts` classifier: maps status codes (401/403/404/408/429/504/…) plus provider error code substrings (`rate_limit`, `quota`, `insufficient_credit`, `model_not_found`, `auth`, …) into one of nine `NormalizedProviderError` categories; transport errors (no response) become `provider_timeout` with `upstreamStatus: 0`.
-- `ir-converters.ts`: `anthropicRequestToIR` and `openaiRequestToIR` turn the wire-format client request into a `ChatRequestIR` (the gateway will call these in M4).
-- `fake-upstream.ts`: Fastify-backed fake that records incoming requests and serves a configurable response; used to verify adapters end-to-end without a real provider.
-- Registry: `getAdapter("anthropic_compatible" | "openai_compatible")` returns the right factory; `listProviderTypes()` for routing decisions.
+> **Production note:** Change `MODELHARBOR_SECRET_KEY` and `MODELHARBOR_ADMIN_PASSWORD` before exposing the service. If `SECRET_KEY` is lost, encrypted upstream keys cannot be recovered.
 
-## M4 highlights
+---
 
-- Consumer-key authentication on `/v1/*`: `Authorization: Bearer mh_...` (preferred) or `x-api-key: mh_...`. Keys are stored as SHA-256 hashes; revoked or disabled keys, and disabled owning apps, are rejected before target resolution.
-- Target resolution: the requested `model` name is looked up in the unified `target_names` table so a single name space covers both public models and model groups. Unknown names return a protocol-shaped 404.
-- Access checks: `consumer_key_access` is the source of truth. Public model and model group grants are checked the same way.
-- Candidate expansion + filtering: public models expand to their `public_model_candidates` rows; model groups expand through their `model_group_members` to the underlying candidates. Every candidate carries upstream state (`enabled`, `frozen`, `cooldownUntil`, provider `protocols`) so the filter can drop disabled / frozen / cooled-down / wrong-protocol rows with a clear reason and not pick them.
-- Routing policy: `priority` only, ascending, with `upstreamKeyId` / `realModelName` tiebreak for determinism. `weight` is reserved on the schema for M6.
-- Failover with cooldown: rate-limit / quota / overload / timeout errors trigger a brief upstream cooldown (60s / 5min / 30s / 15s) and the router tries the next candidate. Other categories (auth, permission, bad_request, model_not_found) stop immediately.
-- `GET /v1/models` returns the public models and groups the consumer key can access, in OpenAI list-model shape, with `metadata.target_type` distinguishing the two.
-- Streaming is explicitly rejected with 400 in M4; the streaming path lands in M5.
+## API Usage
 
-## M5 highlights
+### Authentication
 
-- Provider adapters now implement `normalizeStreamEvent` for both protocols. Anthropic classifies `message_start` (emits initial input tokens) / `content_block_delta` (text) / `message_delta` (final output tokens) / `message_stop`; OpenAI classifies `data: {...}` deltas, the `finish_reason` chunk, and the terminal `data: [DONE]`. The gateway forwards each upstream frame to the client byte-for-byte; the classification is for capturing usage and knowing when to end.
-- `gateway/stream-sender.ts` opens the upstream request with `fetch` + `AbortController` and parses the SSE body into an async iterable of `RawStreamEvent`. A 2xx response returns the iterable; a non-2xx response reads the body in full (so the gateway can classify the error and decide whether to failover); a transport error returns the error. The reader is cancelled when the controller is aborted.
-- `gateway/stream-handler.ts` is the streaming counterpart of `handler.ts`. It resolves target + access + candidates, then walks the candidate list with the same priority + failover semantics. After the first byte is written to the client, failover is disabled: the gateway commits to the current upstream. SSE headers are set on the first write (`text/event-stream`, `cache-control: no-cache`, `x-accel-buffering: no`). A `close` listener on `reply.raw` aborts the upstream when the client disconnects mid-stream.
-- Usage accounting starts in M5. The `usage_records` table is added to the schema and `modules/usage/index.ts` exposes `writeUsageRecord`. The non-stream path (M4) writes one row per gateway call; the streaming path writes one row when the stream ends, success or failure. Stream completion carries the final `input_tokens` / `output_tokens` (merged across `message_start` and `message_delta` for Anthropic); mid-stream upstream close is recorded as `status: "error"`.
-- Streaming error bodies are protocol-shaped. Errors thrown before the first frame in `buildStreamRequest` / `handleStreamRequest` (unknown model, denied access, validation) are mapped to the same Anthropic / OpenAI error shape as the non-stream path; the route wraps both streaming branches in `try/catch` and calls `sendNormalizedError` on `NormalizedError`. The non-stream body shape is unchanged.
-- Client disconnect is wired end-to-end. `handleStreamRequest` creates a per-attempt `AbortController`, passes its `signal` to `startUpstreamStream`, and the single `close` listener on `reply.raw` calls `abortController.abort()` so the upstream `fetch` is cancelled promptly. The usage row written after a client disconnect is tagged `errorCode: "client_disconnected"`, `status: "error"`, `category: "provider_stream_error"`.
-- Usage attribution follows the resolved target, not the served candidate. A request against a `model_group` writes `resolvedTargetType: "model_group"`, `resolvedTargetId: <groupId>`, `requestedTargetName: <groupName>`; a request against a `public_model` writes `resolvedTargetType: "public_model"`, `resolvedTargetId: <publicModelId>`. Both the non-stream path (`gateway/handler.ts`) and the streaming path (`gateway/stream-handler.ts`) read these from the `ResolvedTarget` returned by the router.
-- A real TCP listener is used in the streaming tests (`app.inject` does not honor streaming responses reliably — it returns before the async handler finishes writing, so the post-stream usage record would not be visible to the test yet). The fake upstream now supports an SSE stream mode: `setAnthropicStream` / `setOpenAIStream` accept a list of frames plus an optional `closeAfter` to simulate a mid-flight disconnect via socket-level close.
+All gateway requests require a Consumer Key.
 
-## M6 highlights
+**Preferred:** `Authorization: Bearer mh_your_consumer_key`
 
-- Quota engine: per-(upstream key, period) counter rows in `upstream_key_counters` and per-key policy rows in `upstream_key_quotas`. Each gateway request on success bumps the configured period for the chosen candidate (`hour` / `day` / `week` / `month` / `total`, one row per key) plus the running `total` counter for the dashboard, and freezes the key with reason `quota_exceeded:<dimension>` as soon as the next call would cross a limit. The pre-routing `wouldExceedQuota` filter uses the same counter rows, so the freeze takes effect on the next request without a window of stale traffic.
-- Sticky routing: the conversation fingerprint (system + first four messages + optional `user_id` metadata) is the key for an `(app, consumer key, requested_target_name, fingerprint)` tuple. A fresh binding moves the bound candidate to the front of the priority list; if the bound candidate becomes invalid (disabled / frozen / cooled down / over quota / protocol mismatch), the binding is ignored and a new candidate is chosen and rebound. TTL is 1h sliding and the hit counter is bumped on every honored hit. The `usage_records.stickyHit` column records whether the routing decision was served from a sticky binding, both for non-stream and stream paths.
-- Admin endpoints: `GET /api/admin/sticky-bindings?appId=...&consumerKeyId=...` lists the bindings for a consumer key (with an optional `requestedTargetName` filter). `POST /api/admin/maintenance/run` is a maintenance pass that resets expired counter windows and prunes expired sticky bindings. The counter windows snap to the wall clock (`hour` → top of the hour, `day` → UTC midnight, `week` / `month` → 30-day month), and stale rows are dropped by the runner.
-- Quota model periods are aligned with what the pre-routing filter actually checks. `recordQuotaUsage` bumps the configured `QuotaPeriod` row for the candidate plus the running `total` counter, so the row used by `wouldExceedQuota` on the next request is the same row that triggered the freeze on the previous one. `periodBounds` returns UTC-anchored windows so two requests inside the same hour share the same counter row, which keeps the dashboard math and the freeze math on the same page.
-- Tests cover the period math, the single-period freeze path, the increment path (configured period plus `total`), the freeze on a non-total period crossing its limit, sticky prune (one expired + one live binding), and upsert behavior (same `(app, key, target, fingerprint)` tuple updates in place, never duplicates).
+**Anthropic-compatible:** `x-api-key: mh_your_consumer_key`
 
-## Local Development
+If both are present, `Authorization` wins.
+
+### Endpoints
+
+#### POST /v1/chat/completions (OpenAI-compatible)
 
 ```bash
-pnpm install
-pnpm dev          # runs API and web in parallel (web on :5173, API on :3000)
-pnpm typecheck
-pnpm test
-pnpm build
+curl http://localhost:2999/v1/chat/completions \
+  -H "Authorization: Bearer mh_your_consumer_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "stream": true
+  }'
 ```
 
-Open the dashboard at `http://localhost:5173`. The Vite dev server proxies `/v1` and `/api` to the Fastify backend on port 3000. The first admin is bootstrapped on first run from `MODELHARBOR_ADMIN_USERNAME` and `MODELHARBOR_ADMIN_PASSWORD` (defaults to `admin` / `change-me-on-first-run`).
+#### POST /v1/messages (Anthropic-compatible)
 
-## Phase 1 Decisions (locked)
+```bash
+curl http://localhost:2999/v1/messages \
+  -H "x-api-key: mh_your_consumer_key" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-3-sonnet",
+    "max_tokens": 1024,
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "stream": true
+  }'
+```
 
-- No cross-protocol routing. A consumer key calling `/v1/messages` can only reach `anthropic_compatible` upstream keys, and `/v1/chat/completions` can only reach `openai_compatible` upstream keys.
-- Routing policy: `priority` only. The `weight` column is reserved in the schema for later and is ignored in MVP.
-- No rate limit on ModelHarbor side. When an upstream returns 429 or a credit/balance error, the key enters cooldown and traffic is rerouted to other candidates in the same group.
-- Sticky routing is the default. It wins over priority when the bound upstream is still a valid candidate, with a sliding 1 hour TTL.
-- Quota counters only count requests, input tokens, output tokens, and total tokens for the configured period.
+#### GET /v1/models
+
+Lists all models and model groups the consumer key can access.
+
+```bash
+curl http://localhost:2999/v1/models \
+  -H "Authorization: Bearer mh_your_consumer_key"
+```
+
+### Routing Behavior
+
+**Sticky routing** — Same conversation (system + first messages + optional `user_id`) prefers the previously used `(upstream key, real model)` pair to improve provider-side cache hit rates. Bindings expire after 1 hour.
+
+**Failover** — When an upstream returns rate-limit / quota / overload / timeout errors, ModelHarbor briefly cools down that candidate and retries the next one. Auth and permission errors stop immediately.
+
+### Common Error Codes
+
+| Status | Scenario |
+|--------|----------|
+| 401 | Invalid or revoked consumer key |
+| 403 | Consumer key has no access to this model |
+| 404 | Model name not found |
+| 429 | All candidates unavailable (cooldown / frozen / quota) |
+
+---
+
+## Key Features
+
+### Provider Adapters
+
+Protocol differences are isolated behind adapters. The router core never sees wire-format payloads.
+
+- **Anthropic-compatible** — `POST /v1/messages`, `x-api-key`, `anthropic-version` header.
+- **OpenAI-compatible** — `POST /v1/chat/completions`, `Authorization: Bearer`.
+
+Both adapters normalize errors into a shared taxonomy (`rate_limit`, `quota`, `auth`, `timeout`, …) so the router can make consistent failover decisions.
+
+### Sticky Routing
+
+Conversation fingerprints (system + first messages + optional `user_id`) bind to a specific `(upstream key, real model)` pair. This improves provider-side cache hit rates. Bindings auto-expire after 1 hour and are ignored when the candidate becomes unavailable.
+
+### Quotas & Cooldowns
+
+Per-key counters track usage by hour, day, week, month, or total. When a limit is reached, the key is frozen with reason `quota_exceeded`. Rate-limit and timeout errors trigger brief cooldowns (15s–5min) before retrying the next candidate.
+
+### Security Defaults
+
+- Upstream and consumer keys are stored as hashes; raw values are shown only once at creation.
+- Prompts and completions are **never** stored by default.
+- Admin sessions use HTTP-only signed cookies.
+- Login attempts are rate-limited.
+
+---
+
+## Development
+
+```bash
+pnpm install      # Install dependencies
+pnpm dev          # Start API + dashboard
+pnpm typecheck    # Type-check all packages
+pnpm test         # Run unit tests
+pnpm build        # Build for production
+pnpm e2e          # Run end-to-end tests
+```
+
+---
 
 ## Documentation
 
-- [Product plan](docs/plan.md)
-- [Architecture](docs/architecture.md)
-- [Testing plan](docs/testing.md)
-- [MVP scope](docs/mvp.md)
-- [Data model](docs/data-model.md)
-- [API contract](docs/api-contract.md)
-- [Provider adapter guide](docs/provider-adapters.md)
-- [Security model](docs/security.md)
-- [Operations and deployment](docs/operations.md)
-- [Admin UI](docs/ui.md)
-- [Roadmap](docs/roadmap.md)
-- [Recorded decisions](docs/decisions.md)
+- [Architecture](docs/architecture.md) — System design and package boundaries
+- [API Contract](docs/api-contract.md) — Gateway and admin endpoints (developer reference)
+- [Security Model](docs/security.md) — Authentication, authorization, and privacy
+- [Operations](docs/operations.md) — Deployment, backups, and health checks
+- [Provider Adapters](docs/provider-adapters.md) — Adapter interface and capabilities
+
+---
 
 ## License
 
-AGPL-3.0-or-later. See [LICENSE](LICENSE).
+[AGPL-3.0-or-later](LICENSE)
+

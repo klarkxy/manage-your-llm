@@ -8,6 +8,9 @@
 
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
 import fastifyCookie from "@fastify/cookie";
+import fastifyStatic from "@fastify/static";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { createEnv } from "./config/env.js";
 import { healthRoutes } from "./plugins/health.js";
 import { registerErrorHandler } from "./errors.js";
@@ -121,6 +124,25 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     registerObservabilityRoutes(app, { db: options.db });
     registerAuditRoutes(app, { db: options.db });
     registerGatewayRoutes(app, { db: options.db, secretKey });
+
+    // Serve built web assets in production
+    if (isProduction) {
+      const staticRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "web", "dist");
+      await app.register(fastifyStatic, {
+        root: staticRoot,
+        prefix: "/",
+        wildcard: false,
+      });
+      // SPA fallback: serve index.html for any non-API route
+      app.setNotFoundHandler(async (req, reply) => {
+        const url = req.url;
+        if (url.startsWith("/api/") || url.startsWith("/v1/") || url.startsWith("/healthz") || url.startsWith("/readyz")) {
+          reply.callNotFound();
+          return;
+        }
+        await reply.sendFile("index.html", staticRoot);
+      });
+    }
 
     if (!options.disableBackgroundJobs) {
       const jobs = startBackgroundJobs(options.db, {
