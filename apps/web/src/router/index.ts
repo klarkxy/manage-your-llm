@@ -19,6 +19,18 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../pages/UpstreamKeys.vue'),
   },
   {
+    path: '/oauth/callback',
+    name: 'oauth-callback',
+    component: () => import('../pages/OAuthCallback.vue'),
+    meta: { standalone: true },
+  },
+  {
+    path: '/auth/callback',
+    name: 'oauth-callback-alias',
+    component: () => import('../pages/OAuthCallback.vue'),
+    meta: { standalone: true },
+  },
+  {
     path: '/public-models',
     name: 'public-models',
     component: () => import('../pages/PublicModels.vue'),

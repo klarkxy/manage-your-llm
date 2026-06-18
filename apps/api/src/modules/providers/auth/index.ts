@@ -3,10 +3,11 @@ import { decryptSecret, encryptSecret } from '../../auth/crypto.js';
 import { parseJsonRecord } from '../../admin/helpers.js';
 import { patAuthStrategy } from './pat.js';
 import { cozeOauthJwtStrategy } from './coze-oauth-jwt.js';
+import { cozeOauthPkceStrategy } from './coze-oauth-pkce.js';
 import { codexOauthStrategy } from './codex-oauth.js';
 import type { Db } from '../../db/index.js';
 
-export type UpstreamAuthType = 'pat' | 'coze_oauth_jwt' | 'codex_oauth';
+export type UpstreamAuthType = 'pat' | 'coze_oauth_jwt' | 'coze_oauth_pkce' | 'codex_oauth';
 
 export interface UpstreamAuthKey {
   id: string;
@@ -38,6 +39,7 @@ export interface UpstreamAuthStrategy {
 const STRATEGIES: Record<UpstreamAuthType, UpstreamAuthStrategy> = {
   pat: patAuthStrategy,
   coze_oauth_jwt: cozeOauthJwtStrategy,
+  coze_oauth_pkce: cozeOauthPkceStrategy,
   codex_oauth: codexOauthStrategy,
 };
 

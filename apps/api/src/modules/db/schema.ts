@@ -94,7 +94,12 @@ export const PROVIDER_TYPES = [
 export const QUOTA_PERIODS = ['hour', 'day', 'week', 'month', 'total'] as const;
 export type QuotaPeriod = (typeof QUOTA_PERIODS)[number];
 
-export const UPSTREAM_AUTH_TYPES = ['pat', 'coze_oauth_jwt', 'codex_oauth'] as const;
+export const UPSTREAM_AUTH_TYPES = [
+  'pat',
+  'coze_oauth_jwt',
+  'coze_oauth_pkce',
+  'codex_oauth',
+] as const;
 export type UpstreamAuthType = (typeof UPSTREAM_AUTH_TYPES)[number];
 
 export const upstreamKeys = sqliteTable('upstream_keys', {
@@ -123,6 +128,26 @@ export const upstreamKeys = sqliteTable('upstream_keys', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
+
+export const oauthSessions = sqliteTable(
+  'oauth_sessions',
+  {
+    id: text('id').primaryKey(),
+    provider: text('provider').notNull(),
+    authType: text('auth_type').notNull(),
+    clientId: text('client_id').notNull(),
+    redirectUri: text('redirect_uri').notNull(),
+    baseUrl: text('base_url'),
+    workspaceId: text('workspace_id'),
+    codeVerifier: text('code_verifier').notNull(),
+    adminUserId: text('admin_user_id').notNull(),
+    upstreamKeyId: text('upstream_key_id'),
+    draftJson: text('draft_json'),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (t) => [index('oauth_sessions_expires_idx').on(t.expiresAt)],
+);
 
 export const upstreamKeyQuotas = sqliteTable('upstream_key_quotas', {
   id: text('id').primaryKey(),
@@ -280,6 +305,8 @@ export const usageRecords = sqliteTable(
     inputTokens: integer('input_tokens'),
     outputTokens: integer('output_tokens'),
     totalTokens: integer('total_tokens'),
+    cacheReadTokens: integer('cache_read_tokens'),
+    cacheWriteTokens: integer('cache_write_tokens'),
     status: text('status').notNull(),
     errorCode: text('error_code'),
     latencyMs: integer('latency_ms').notNull(),
@@ -385,6 +412,78 @@ export const stickyBindings = sqliteTable(
   ],
 );
 
+// --- Request trace logs (M8) ---
+
+// One row per step in a gateway request lifecycle. Multiple rows share the same
+// requestTraceId to form a complete trace. Used for debugging and routing
+// analysis. Automatically pruned after a retention period (default 30 days).
+export const requestTraceLogs = sqliteTable(
+  'request_trace_logs',
+  {
+    id: text('id').primaryKey(),
+    requestTraceId: text('request_trace_id').notNull(),
+    step: text('step').notNull(),
+    stepIndex: integer('step_index').notNull(),
+    appId: text('app_id'),
+    consumerKeyId: text('consumer_key_id'),
+    requestedTargetName: text('requested_target_name'),
+    resolvedTargetType: text('resolved_target_type', { enum: TARGET_TYPES }),
+    resolvedTargetId: text('resolved_target_id'),
+    sourceProtocol: text('source_protocol'),
+    upstreamKeyId: text('upstream_key_id'),
+    upstreamKeyName: text('upstream_key_name'),
+    realModelName: text('real_model_name'),
+    endpointProtocol: text('endpoint_protocol'),
+    filterReason: text('filter_reason'),
+    acceptedCount: integer('accepted_count'),
+    droppedCount: integer('dropped_count'),
+    fallbackCount: integer('fallback_count'),
+    httpStatus: integer('http_status'),
+    errorCategory: text('error_category'),
+    errorCode: text('error_code'),
+    errorMessage: text('error_message'),
+    attemptOrder: integer('attempt_order'),
+    finalOutcome: text('final_outcome'),
+    latencyMs: integer('latency_ms'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (t) => [
+    index('request_trace_logs_trace_id_idx').on(t.requestTraceId),
+    index('request_trace_logs_created_at_idx').on(t.createdAt),
+    index('request_trace_logs_consumer_idx').on(t.consumerKeyId, t.createdAt),
+    index('request_trace_logs_upstream_idx').on(t.upstreamKeyId, t.createdAt),
+  ],
+);
+
+// --- Model consumption stats (M8) ---
+
+// Per-day aggregated consumption by upstream key + real model. Updated
+// incrementally on every successful request. Retained permanently.
+export const modelConsumptionStats = sqliteTable(
+  'model_consumption_stats',
+  {
+    id: text('id').primaryKey(),
+    upstreamKeyId: text('upstream_key_id').notNull(),
+    realModelName: text('real_model_name').notNull(),
+    dayDate: text('day_date').notNull(),
+    requestCount: integer('request_count').notNull().default(0),
+    successCount: integer('success_count').notNull().default(0),
+    errorCount: integer('error_count').notNull().default(0),
+    cacheReadTokens: integer('cache_read_tokens').notNull().default(0),
+    cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
+    inputTokens: integer('input_tokens').notNull().default(0),
+    outputTokens: integer('output_tokens').notNull().default(0),
+    totalTokens: integer('total_tokens').notNull().default(0),
+    avgLatencyMs: integer('avg_latency_ms').notNull().default(0),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('consumption_stats_unique').on(t.upstreamKeyId, t.realModelName, t.dayDate),
+    index('consumption_stats_day_idx').on(t.dayDate),
+    index('consumption_stats_upstream_idx').on(t.upstreamKeyId, t.dayDate),
+  ],
+);
+
 // --- Inferred row types ---
 
 export type AdminUserRow = typeof adminUsers.$inferSelect;
@@ -421,6 +520,10 @@ export type AuditEventRow = typeof auditEvents.$inferSelect;
 export type AuditEventInsert = typeof auditEvents.$inferInsert;
 export type LoginAttemptRow = typeof loginAttempts.$inferSelect;
 export type LoginAttemptInsert = typeof loginAttempts.$inferInsert;
+export type RequestTraceLogRow = typeof requestTraceLogs.$inferSelect;
+export type RequestTraceLogInsert = typeof requestTraceLogs.$inferInsert;
+export type ModelConsumptionStatRow = typeof modelConsumptionStats.$inferSelect;
+export type ModelConsumptionStatInsert = typeof modelConsumptionStats.$inferInsert;
 
 // Re-export SourceProtocol as part of the db surface for convenience
 export type { SourceProtocol };

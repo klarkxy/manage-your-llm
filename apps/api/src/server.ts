@@ -25,6 +25,7 @@ import {
   registerObservabilityRoutes,
   registerPublicModelRoutes,
   registerUpstreamKeyRoutes,
+  registerUpstreamOAuthRoutes,
 } from './modules/admin/index.js';
 import { startBackgroundJobs, type BackgroundJobsHandle } from './modules/jobs/index.js';
 import { wrapLogger } from './modules/observability/index.js';
@@ -113,6 +114,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
       }
     });
     registerUpstreamKeyRoutes(app, { db: options.db, secretKey });
+    registerUpstreamOAuthRoutes(app, { db: options.db, secretKey });
     registerPublicModelRoutes(app, { db: options.db });
     registerModelGroupRoutes(app, { db: options.db });
     registerAppRoutes(app, { db: options.db });

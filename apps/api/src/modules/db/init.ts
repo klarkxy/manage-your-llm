@@ -94,6 +94,29 @@ const STATEMENTS: readonly string[] = [
   `ALTER TABLE upstream_keys ADD COLUMN extra_params_json TEXT`,
   `ALTER TABLE upstream_keys ADD COLUMN auth_type TEXT NOT NULL DEFAULT 'pat'`,
   `ALTER TABLE upstream_keys ADD COLUMN auth_config_ciphertext TEXT`,
+
+  // M8: usage record cache token columns
+  `ALTER TABLE usage_records ADD COLUMN cache_read_tokens INTEGER`,
+  `ALTER TABLE usage_records ADD COLUMN cache_write_tokens INTEGER`,
+
+  // OAuth PKCE authorization sessions (short-lived, one-time use).
+  `CREATE TABLE IF NOT EXISTS oauth_sessions (
+     id TEXT PRIMARY KEY,
+     provider TEXT NOT NULL,
+     auth_type TEXT NOT NULL,
+     client_id TEXT NOT NULL,
+     redirect_uri TEXT NOT NULL,
+     base_url TEXT,
+     workspace_id TEXT,
+     code_verifier TEXT NOT NULL,
+     admin_user_id TEXT NOT NULL,
+     upstream_key_id TEXT,
+     draft_json TEXT,
+     expires_at INTEGER NOT NULL,
+     created_at INTEGER NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS oauth_sessions_expires_idx ON oauth_sessions(expires_at)`,
+
   `CREATE TABLE IF NOT EXISTS upstream_key_quotas (
      id TEXT PRIMARY KEY,
      upstream_key_id TEXT NOT NULL UNIQUE,
@@ -270,6 +293,61 @@ const STATEMENTS: readonly string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS sticky_binding_unique ON sticky_bindings(app_id, consumer_key_id, requested_target_name, conversation_fingerprint)`,
   `CREATE INDEX IF NOT EXISTS sticky_binding_consumer_idx ON sticky_bindings(consumer_key_id, requested_target_name)`,
   `CREATE INDEX IF NOT EXISTS sticky_binding_expires_idx ON sticky_bindings(expires_at)`,
+
+  // M8: request trace logs
+  `CREATE TABLE IF NOT EXISTS request_trace_logs (
+     id TEXT PRIMARY KEY,
+     request_trace_id TEXT NOT NULL,
+     step TEXT NOT NULL,
+     step_index INTEGER NOT NULL,
+     app_id TEXT,
+     consumer_key_id TEXT,
+     requested_target_name TEXT,
+     resolved_target_type TEXT,
+     resolved_target_id TEXT,
+     source_protocol TEXT,
+     upstream_key_id TEXT,
+     upstream_key_name TEXT,
+     real_model_name TEXT,
+     endpoint_protocol TEXT,
+     filter_reason TEXT,
+     accepted_count INTEGER,
+     dropped_count INTEGER,
+     fallback_count INTEGER,
+     http_status INTEGER,
+     error_category TEXT,
+     error_code TEXT,
+     error_message TEXT,
+     attempt_order INTEGER,
+     final_outcome TEXT,
+     latency_ms INTEGER,
+     created_at INTEGER NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS request_trace_logs_trace_id_idx ON request_trace_logs(request_trace_id)`,
+  `CREATE INDEX IF NOT EXISTS request_trace_logs_created_at_idx ON request_trace_logs(created_at)`,
+  `CREATE INDEX IF NOT EXISTS request_trace_logs_consumer_idx ON request_trace_logs(consumer_key_id, created_at)`,
+  `CREATE INDEX IF NOT EXISTS request_trace_logs_upstream_idx ON request_trace_logs(upstream_key_id, created_at)`,
+
+  // M8: model consumption stats
+  `CREATE TABLE IF NOT EXISTS model_consumption_stats (
+     id TEXT PRIMARY KEY,
+     upstream_key_id TEXT NOT NULL,
+     real_model_name TEXT NOT NULL,
+     day_date TEXT NOT NULL,
+     request_count INTEGER NOT NULL DEFAULT 0,
+     success_count INTEGER NOT NULL DEFAULT 0,
+     error_count INTEGER NOT NULL DEFAULT 0,
+     cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+     cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+     input_tokens INTEGER NOT NULL DEFAULT 0,
+     output_tokens INTEGER NOT NULL DEFAULT 0,
+     total_tokens INTEGER NOT NULL DEFAULT 0,
+     avg_latency_ms INTEGER NOT NULL DEFAULT 0,
+     updated_at INTEGER NOT NULL
+   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS consumption_stats_unique ON model_consumption_stats(upstream_key_id, real_model_name, day_date)`,
+  `CREATE INDEX IF NOT EXISTS consumption_stats_day_idx ON model_consumption_stats(day_date)`,
+  `CREATE INDEX IF NOT EXISTS consumption_stats_upstream_idx ON model_consumption_stats(upstream_key_id, day_date)`,
 ];
 
 export async function initSchema(db: Db): Promise<void> {

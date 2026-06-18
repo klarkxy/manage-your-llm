@@ -15,7 +15,7 @@ export interface UpstreamKey {
   name: string;
   providerType: 'anthropic_compatible' | 'openai_compatible' | 'coze' | 'codex';
   baseUrl: string;
-  authType: 'pat' | 'coze_oauth_jwt' | 'codex_oauth';
+  authType: 'pat' | 'coze_oauth_jwt' | 'coze_oauth_pkce' | 'codex_oauth';
   apiKeyPrefix: string;
   defaultHeaders: Record<string, string>;
   extraHeaders: Record<string, string>;
@@ -57,7 +57,7 @@ export interface UpstreamKeyCreatePayload {
   providerType?: 'anthropic_compatible' | 'openai_compatible' | 'coze' | 'codex';
   baseUrl?: string;
   apiKey?: string;
-  authType?: 'pat' | 'coze_oauth_jwt' | 'codex_oauth';
+  authType?: 'pat' | 'coze_oauth_jwt' | 'coze_oauth_pkce' | 'codex_oauth';
   authConfig?: Record<string, unknown>;
   supportedModels?: string[];
   defaultHeaders?: Record<string, string>;
@@ -81,8 +81,29 @@ export interface DiscoverModelsPayload {
   providerPresetId?: string;
   upstreamKeyId?: string;
   workspaceId?: string;
-  authType?: 'pat' | 'coze_oauth_jwt' | 'codex_oauth';
+  authType?: 'pat' | 'coze_oauth_jwt' | 'coze_oauth_pkce' | 'codex_oauth';
   authConfig?: Record<string, unknown>;
+}
+
+export interface OAuthInitPayload {
+  provider: 'codex' | 'coze';
+  authType: 'codex_oauth' | 'coze_oauth_pkce';
+  clientId: string;
+  redirectUri: string;
+  baseUrl?: string;
+  workspaceId?: string;
+  upstreamKeyId?: string;
+  draft?: UpstreamKeyCreatePayload;
+}
+
+export interface OAuthInitResponse {
+  authorizationUrl: string;
+  state: string;
+}
+
+export interface OAuthExchangePayload {
+  state: string;
+  code: string;
 }
 
 export interface UpstreamKeyPingPayload {
@@ -132,6 +153,10 @@ export const upstreamKeysApi = {
     api.post<UpstreamKeyPingResult>(`/api/admin/upstream-keys/${id}/ping`, payload),
   delete: (id: string) =>
     api.delete<{ id: string; deleted: boolean }>(`/api/admin/upstream-keys/${id}`),
+  oauthInit: (payload: OAuthInitPayload) =>
+    api.post<OAuthInitResponse>('/api/admin/upstream-keys/oauth-init', payload),
+  oauthExchange: (payload: OAuthExchangePayload) =>
+    api.post<UpstreamKey>('/api/admin/upstream-keys/oauth-exchange', payload),
 };
 
 // Provider presets
@@ -389,6 +414,98 @@ export const usageApi = {
     api.get<{ items: UsageTargetBreakdownEntry[] }>(`/api/admin/usage/by-target?window=${window}`),
   recent: (limit = 100) =>
     api.get<{ items: UsageRecentRow[] }>(`/api/admin/usage/recent?limit=${limit}`),
+};
+
+// Trace logs (M8)
+export interface TraceSummary {
+  requestTraceId: string;
+  requestedTargetName: string | null;
+  consumerKeyId: string | null;
+  appId: string | null;
+  sourceProtocol: string | null;
+  createdAt: string;
+  finalOutcome: string | null;
+}
+
+export interface TraceLogStep {
+  id: string;
+  requestTraceId: string;
+  step: string;
+  stepIndex: number;
+  appId: string | null;
+  consumerKeyId: string | null;
+  requestedTargetName: string | null;
+  resolvedTargetType: string | null;
+  resolvedTargetId: string | null;
+  sourceProtocol: string | null;
+  upstreamKeyId: string | null;
+  upstreamKeyName: string | null;
+  realModelName: string | null;
+  endpointProtocol: string | null;
+  filterReason: string | null;
+  acceptedCount: number | null;
+  droppedCount: number | null;
+  fallbackCount: number | null;
+  httpStatus: number | null;
+  errorCategory: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  attemptOrder: number | null;
+  finalOutcome: string | null;
+  latencyMs: number | null;
+  createdAt: string;
+}
+
+export interface TraceTimeline {
+  requestTraceId: string;
+  steps: TraceLogStep[];
+}
+
+export const traceApi = {
+  list: (limit = 100) => api.get<{ items: TraceSummary[] }>(`/api/admin/usage/traces?limit=${limit}`),
+  get: (traceId: string) => api.get<TraceTimeline>(`/api/admin/usage/traces/${traceId}`),
+};
+
+// Consumption stats (M8)
+export interface ConsumptionStat {
+  upstreamKeyId: string;
+  realModelName: string;
+  dayDate: string;
+  requestCount: number;
+  successCount: number;
+  errorCount: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  avgLatencyMs: number;
+  updatedAt: string;
+}
+
+export interface DailyConsumptionSummary {
+  dayDate: string;
+  totalRequests: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalTotalTokens: number;
+  totalCacheReadTokens: number;
+  totalCacheWriteTokens: number;
+}
+
+export const consumptionApi = {
+  list: (args?: { upstreamKeyId?: string; dayDate?: string; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (args?.upstreamKeyId) params.set('upstreamKeyId', args.upstreamKeyId);
+    if (args?.dayDate) params.set('dayDate', args.dayDate);
+    if (args?.limit) params.set('limit', String(args.limit));
+    return api.get<{ items: ConsumptionStat[] }>(`/api/admin/usage/consumption?${params.toString()}`);
+  },
+  daily: (args?: { limit?: number }) => {
+    const params = new URLSearchParams();
+    if (args?.limit) params.set('limit', String(args.limit));
+    return api.get<{ items: DailyConsumptionSummary[] }>(`/api/admin/usage/consumption/daily?${params.toString()}`);
+  },
 };
 
 // Audit (post-M7 hardening)

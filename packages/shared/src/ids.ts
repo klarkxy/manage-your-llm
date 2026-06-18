@@ -12,6 +12,7 @@ const PREFIXES = {
   usageRecord: 'usr',
   healthEvent: 'he',
   auditEvent: 'ae',
+  oauth: 'oa',
 } as const;
 
 export type IdKind = keyof typeof PREFIXES;

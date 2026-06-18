@@ -30,6 +30,7 @@ import {
   providerPresetsApi,
   upstreamKeysApi,
   type DiscoverModelsPayload,
+  type OAuthInitPayload,
   type ProviderPreset,
   type UpstreamKey,
   type UpstreamKeyCandidate,
@@ -67,11 +68,17 @@ const cozeAuthConfig = ref({
   privateKey: '',
   durationSeconds: 900,
 });
+const cozePkceConfig = ref({
+  clientId: '',
+  redirectUri: `${window.location.origin}/oauth/callback`,
+});
 const codexAuthConfig = ref({
   refreshToken: '',
   clientId: '',
   tokenUrl: '',
+  redirectUri: `${window.location.origin}/oauth/callback`,
 });
+const oauthInProgress = ref(false);
 const workspaceId = ref('');
 const modelMappings = ref<ModelMappingItem[]>([]);
 const extraHeaders = ref<KeyValueItem[]>([]);
@@ -99,10 +106,15 @@ function resetForm() {
     privateKey: '',
     durationSeconds: 900,
   };
+  cozePkceConfig.value = {
+    clientId: '',
+    redirectUri: `${window.location.origin}/oauth/callback`,
+  };
   codexAuthConfig.value = {
     refreshToken: '',
     clientId: '',
     tokenUrl: '',
+    redirectUri: `${window.location.origin}/oauth/callback`,
   };
   workspaceId.value = '';
   selectedPresetId.value = null;
@@ -173,7 +185,6 @@ async function onSubmit() {
   const isPreset = Boolean(selectedPresetId.value);
   const needsApiKey = authType.value === 'pat' && !isEdit.value;
   const needsCozeAuthConfig = authType.value === 'coze_oauth_jwt' && !isEdit.value;
-  const needsCodexAuthConfig = authType.value === 'codex_oauth' && !isEdit.value;
   if (
     !form.value.name ||
     (needsApiKey && !form.value.apiKey) ||
@@ -181,7 +192,6 @@ async function onSubmit() {
       (!cozeAuthConfig.value.appId.trim() ||
         !cozeAuthConfig.value.kid.trim() ||
         !cozeAuthConfig.value.privateKey.trim())) ||
-    (needsCodexAuthConfig && !codexAuthConfig.value.refreshToken.trim()) ||
     (!isPreset && !form.value.baseUrl)
   ) {
     message.error(t('upstreamKeys.validation.required'));
@@ -192,6 +202,16 @@ async function onSubmit() {
     message.error(t('upstreamKeys.validation.modelMappings'));
     return;
   }
+
+  // Browser-based OAuth flows create the key after the provider redirects back.
+  const codexBrowserMode =
+    authType.value === 'codex_oauth' && !isEdit.value && !codexAuthConfig.value.refreshToken.trim();
+  const cozePkceBrowserMode = authType.value === 'coze_oauth_pkce' && !isEdit.value;
+  if (codexBrowserMode || cozePkceBrowserMode) {
+    await startOAuth();
+    return;
+  }
+
   submitting.value = true;
   try {
     const mappings = activeMappings.map((m) => ({
@@ -304,6 +324,92 @@ async function onSubmit() {
     message.error((err as Error).message);
   } finally {
     submitting.value = false;
+  }
+}
+
+async function startOAuth() {
+  const isPreset = Boolean(selectedPresetId.value);
+  if (!form.value.name || (!isPreset && !form.value.baseUrl)) {
+    message.error(t('upstreamKeys.validation.required'));
+    return;
+  }
+  const activeMappings = modelMappings.value.filter((m) => m.enabled && m.realName.trim() !== '');
+  if (activeMappings.length === 0) {
+    message.error(t('upstreamKeys.validation.modelMappings'));
+    return;
+  }
+
+  if (authType.value === 'coze_oauth_pkce') {
+    if (!cozePkceConfig.value.clientId.trim() || !workspaceId.value.trim()) {
+      message.error(t('upstreamKeys.validation.required'));
+      return;
+    }
+  }
+
+  oauthInProgress.value = true;
+  try {
+    const mappings = activeMappings.map((m) => ({
+      realName: m.realName.trim(),
+      publicName: m.publicName.trim() || m.realName.trim(),
+      enabled: m.enabled,
+    }));
+    const headersPayload: Record<string, string> = {};
+    for (const h of extraHeaders.value) {
+      if (h.enabled && h.key.trim()) headersPayload[h.key.trim()] = h.value;
+    }
+    const paramsPayload: Record<string, unknown> = {};
+    for (const p of extraParams.value) {
+      if (p.enabled && p.key.trim()) {
+        try {
+          paramsPayload[p.key.trim()] = JSON.parse(p.value);
+        } catch {
+          paramsPayload[p.key.trim()] = p.value;
+        }
+      }
+    }
+
+    const draft: UpstreamKeyCreatePayload = {
+      name: form.value.name,
+      modelMappings: mappings,
+      extraHeaders: headersPayload,
+      extraParams: paramsPayload,
+    };
+    if (isPreset) {
+      draft.providerPresetId = selectedPresetId.value!;
+    } else {
+      draft.providerType = form.value.providerType;
+      draft.baseUrl = form.value.baseUrl;
+    }
+    draft.authType = authType.value as UpstreamKeyCreatePayload['authType'];
+
+    let initPayload: import('../api/admin.js').OAuthInitPayload;
+    if (authType.value === 'codex_oauth') {
+      initPayload = {
+        provider: 'codex',
+        authType: 'codex_oauth',
+        clientId: codexAuthConfig.value.clientId.trim(),
+        redirectUri: codexAuthConfig.value.redirectUri.trim(),
+        ...(isEdit.value && editingId.value ? { upstreamKeyId: editingId.value } : { draft }),
+      };
+    } else {
+      initPayload = {
+        provider: 'coze',
+        authType: 'coze_oauth_pkce',
+        clientId: cozePkceConfig.value.clientId.trim(),
+        redirectUri: cozePkceConfig.value.redirectUri.trim(),
+        baseUrl: form.value.baseUrl?.trim() ?? '',
+        workspaceId: workspaceId.value.trim() || undefined,
+        ...(isEdit.value && editingId.value ? { upstreamKeyId: editingId.value } : { draft }),
+      };
+    }
+
+    const { authorizationUrl } = await upstreamKeysApi.oauthInit(initPayload);
+    window.open(authorizationUrl, '_blank');
+    message.info(t('upstreamKeys.oauth.windowOpened'));
+  } catch (err) {
+    message.error((err as Error).message);
+  } finally {
+    oauthInProgress.value = false;
   }
 }
 
@@ -431,9 +537,11 @@ const authTypeOptions = computed(() => {
       const labelKey =
         value === 'coze_oauth_jwt'
           ? 'cozeOauthJwt'
-          : value === 'codex_oauth'
-            ? 'codexOauth'
-            : 'pat';
+          : value === 'coze_oauth_pkce'
+            ? 'cozeOauthPkce'
+            : value === 'codex_oauth'
+              ? 'codexOauth'
+              : 'pat';
       return { label: t(`upstreamKeys.drawer.authType.${labelKey}`), value };
     });
   }
@@ -518,6 +626,10 @@ const canFetchModels = computed(() => {
     if (authType.value === 'pat') {
       return Boolean(form.value.apiKey?.trim() || isEdit.value);
     }
+    if (authType.value === 'coze_oauth_pkce') {
+      // A fresh PKCE key has no token until the browser flow completes.
+      return isEdit.value;
+    }
     return Boolean(
       cozeAuthConfig.value.appId.trim() &&
       cozeAuthConfig.value.kid.trim() &&
@@ -554,6 +666,10 @@ async function handleFetchModels() {
           privateKey: cozeAuthConfig.value.privateKey.trim(),
           durationSeconds: cozeAuthConfig.value.durationSeconds,
         };
+      } else if (authType.value === 'coze_oauth_pkce') {
+        if (isEdit.value && editingId.value) {
+          payload.upstreamKeyId = editingId.value;
+        }
       }
     } else if (authType.value === 'codex_oauth') {
       payload.authConfig = {
@@ -717,7 +833,7 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
             v-if="authTypeOptions.length > 1"
             :label="t('upstreamKeys.drawer.authType.label')"
           >
-            <NSelect v-model:value="authType" :options="authTypeOptions" />
+            <NSelect v-model:value="authType" :options="authTypeOptions" :disabled="isEdit" />
           </NFormItem>
           <template v-if="authType === 'coze_oauth_jwt'">
             <NFormItem :label="t('upstreamKeys.drawer.coze.appId')" required>
@@ -743,8 +859,46 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
               />
             </NFormItem>
           </template>
+          <template v-else-if="authType === 'coze_oauth_pkce'">
+            <NFormItem :label="t('upstreamKeys.drawer.cozePkce.clientId')" required>
+              <NInput
+                v-model:value="cozePkceConfig.clientId"
+                :placeholder="t('upstreamKeys.drawer.placeholders.cozeClientId')"
+              />
+            </NFormItem>
+            <NFormItem :label="t('upstreamKeys.drawer.cozePkce.redirectUri')" required>
+              <NInput v-model:value="cozePkceConfig.redirectUri" />
+            </NFormItem>
+            <NFormItem>
+              <NSpace vertical>
+                <NButton type="primary" :loading="oauthInProgress" @click="startOAuth">
+                  {{
+                    isEdit ? t('upstreamKeys.oauth.reauthorize') : t('upstreamKeys.oauth.authorize')
+                  }}
+                </NButton>
+                <NText depth="3" style="font-size: 12px">
+                  {{ t('upstreamKeys.oauth.cozeHint') }}
+                </NText>
+              </NSpace>
+            </NFormItem>
+          </template>
           <template v-else-if="authType === 'codex_oauth'">
-            <NFormItem :label="t('upstreamKeys.drawer.codex.refreshToken')" required>
+            <NFormItem>
+              <NSpace vertical>
+                <NButton type="primary" :loading="oauthInProgress" @click="startOAuth">
+                  {{
+                    isEdit ? t('upstreamKeys.oauth.reauthorize') : t('upstreamKeys.oauth.authorize')
+                  }}
+                </NButton>
+                <NText depth="3" style="font-size: 12px">
+                  {{ t('upstreamKeys.oauth.codexHint') }}
+                </NText>
+              </NSpace>
+            </NFormItem>
+            <NFormItem :label="t('upstreamKeys.drawer.codex.redirectUri')">
+              <NInput v-model:value="codexAuthConfig.redirectUri" />
+            </NFormItem>
+            <NFormItem :label="t('upstreamKeys.drawer.codex.refreshToken')">
               <NInput
                 v-model:value="codexAuthConfig.refreshToken"
                 type="password"
@@ -822,6 +976,13 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
         <template #footer>
           <NSpace justify="end">
             <NButton @click="drawerOpen = false">{{ t('common.cancel') }}</NButton>
+            <NButton
+              v-if="authType === 'codex_oauth' || authType === 'coze_oauth_pkce'"
+              :loading="oauthInProgress"
+              @click="startOAuth"
+            >
+              {{ isEdit ? t('upstreamKeys.oauth.reauthorize') : t('upstreamKeys.oauth.authorize') }}
+            </NButton>
             <NButton type="primary" :loading="submitting" @click="onSubmit">{{
               isEdit ? t('common.save') : t('common.create')
             }}</NButton>

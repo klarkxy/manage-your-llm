@@ -1,5 +1,6 @@
 import { ValidationError } from '@modelharbor/shared';
 import { eq } from 'drizzle-orm';
+import { generatePkce } from './oauth-pkce.js';
 import { parseJsonRecord } from '../../admin/helpers.js';
 import { decryptSecret, encryptSecret } from '../../auth/crypto.js';
 import { upstreamKeys } from '../../db/index.js';
@@ -27,8 +28,10 @@ interface TokenCacheEntry {
 
 // Default values mirror the OpenAI Codex CLI public OAuth app. Users can
 // override them in the auth config if they are using a custom OAuth app.
-const DEFAULT_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
-const DEFAULT_TOKEN_URL = 'https://auth.openai.com/oauth/token';
+export const DEFAULT_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
+export const DEFAULT_TOKEN_URL = 'https://auth.openai.com/oauth/token';
+export const DEFAULT_AUTHORIZE_URL = 'https://auth.openai.com/oauth/authorize';
+const DEFAULT_REDIRECT_URI = 'http://localhost:1455/auth/callback';
 const EXPIRY_BUFFER_MS = 60_000;
 
 const tokenCache = new Map<string, TokenCacheEntry>();
@@ -165,6 +168,94 @@ async function persistRotatedRefreshToken(
     console.error('[codex_oauth] failed to persist rotated refresh token:', err);
   }
 }
+
+export function buildCodexAuthorizeUrl(params: {
+  clientId: string;
+  redirectUri: string;
+  state: string;
+  codeChallenge: string;
+}): string {
+  const query = new URLSearchParams({
+    response_type: 'code',
+    client_id: params.clientId,
+    redirect_uri: params.redirectUri,
+    scope: 'openid email profile offline_access',
+    state: params.state,
+    code_challenge: params.codeChallenge,
+    code_challenge_method: 'S256',
+    prompt: 'login',
+    id_token_add_organizations: 'true',
+    codex_cli_simplified_flow: 'true',
+  });
+  return `${DEFAULT_AUTHORIZE_URL}?${query.toString()}`;
+}
+
+export async function exchangeCodexCode(params: {
+  clientId: string;
+  redirectUri: string;
+  code: string;
+  codeVerifier: string;
+  tokenUrl?: string;
+}): Promise<TokenResponse> {
+  const tokenUrl =
+    params.tokenUrl && params.tokenUrl.length > 0 ? params.tokenUrl : DEFAULT_TOKEN_URL;
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    client_id: params.clientId,
+    redirect_uri: params.redirectUri,
+    code: params.code,
+    code_verifier: params.codeVerifier,
+  });
+
+  const res = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      accept: 'application/json',
+    },
+    body: body.toString(),
+  });
+  return parseTokenResponse(res, 'Codex OAuth code exchange');
+}
+
+async function parseTokenResponse(res: Response, context: string): Promise<TokenResponse> {
+  const bodyText = await res.text();
+  let bodyJson: unknown;
+  try {
+    bodyJson = JSON.parse(bodyText);
+  } catch {
+    bodyJson = null;
+  }
+
+  if (!res.ok) {
+    const message =
+      bodyJson &&
+      typeof bodyJson === 'object' &&
+      typeof (bodyJson as { error?: unknown }).error === 'string'
+        ? (bodyJson as { error: string }).error
+        : bodyText || `HTTP ${res.status}`;
+    throw new Error(`${context} failed: ${message}`);
+  }
+
+  if (!bodyJson || typeof bodyJson !== 'object') {
+    throw new Error(`${context} returned invalid JSON`);
+  }
+
+  const typed = bodyJson as Partial<TokenResponse>;
+  if (typeof typed.access_token !== 'string' || typeof typed.expires_in !== 'number') {
+    throw new Error(`${context} response missing access_token or expires_in`);
+  }
+
+  return {
+    access_token: typed.access_token,
+    refresh_token: typed.refresh_token,
+    expires_in: typed.expires_in,
+    token_type: typed.token_type,
+    scope: typed.scope,
+  };
+}
+
+export { generatePkce, DEFAULT_REDIRECT_URI };
 
 export const codexOauthStrategy: UpstreamAuthStrategy = {
   type: 'codex_oauth',

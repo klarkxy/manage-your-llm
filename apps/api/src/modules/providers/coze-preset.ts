@@ -15,7 +15,7 @@ const preset: ProviderPreset = {
   ],
   authStrategies: {
     default: 'coze_oauth_jwt',
-    available: ['coze_oauth_jwt', 'pat'],
+    available: ['coze_oauth_jwt', 'coze_oauth_pkce', 'pat'],
   },
 };
 
