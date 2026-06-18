@@ -90,7 +90,6 @@ const STATEMENTS: readonly string[] = [
   `ALTER TABLE upstream_keys ADD COLUMN provider_preset_id TEXT`,
   `ALTER TABLE upstream_keys ADD COLUMN extra_headers_json TEXT`,
   `ALTER TABLE upstream_keys ADD COLUMN extra_params_json TEXT`,
-  `ALTER TABLE upstream_keys ADD COLUMN plan_type TEXT`,
   `CREATE TABLE IF NOT EXISTS upstream_key_quotas (
      id TEXT PRIMARY KEY,
      upstream_key_id TEXT NOT NULL UNIQUE,

@@ -1,23 +1,25 @@
-import { describe, it, expect } from "vitest";
-import { generateId, isNormalizedError, protocolFor, PROTOCOL_BY_PROVIDER } from "./index.js";
+import { describe, it, expect } from 'vitest';
+import { generateId, isNormalizedError, protocolFor, PROTOCOL_BY_PROVIDER } from './index.js';
 
-describe("shared package", () => {
-  it("generates id with the right prefix", () => {
-    const id = generateId("upstreamKey");
-    expect(id.startsWith("uk_")).toBe(true);
+describe('shared package', () => {
+  it('generates id with the right prefix', () => {
+    const id = generateId('upstreamKey');
+    expect(id.startsWith('uk_')).toBe(true);
   });
 
-  it("maps provider type to source protocol", () => {
-    expect(protocolFor("anthropic_compatible")).toBe("anthropic");
-    expect(protocolFor("openai_compatible")).toBe("openai");
-    expect(PROTOCOL_BY_PROVIDER["anthropic_compatible"]).toBe("anthropic");
+  it('maps provider type to source protocol', () => {
+    expect(protocolFor('anthropic_compatible')).toBe('anthropic');
+    expect(protocolFor('openai_compatible')).toBe('openai');
+    expect(protocolFor('coze')).toBe('openai');
+    expect(PROTOCOL_BY_PROVIDER['anthropic_compatible']).toBe('anthropic');
+    expect(PROTOCOL_BY_PROVIDER['coze']).toBe('openai');
   });
 
-  it("recognizes normalized errors", () => {
-    expect(isNormalizedError(new Error("plain"))).toBe(false);
+  it('recognizes normalized errors', () => {
+    expect(isNormalizedError(new Error('plain'))).toBe(false);
     const e = new (class extends Error {
-      readonly code = "x";
-      readonly type = "y";
+      readonly code = 'x';
+      readonly type = 'y';
       toClientShape() {
         return { error: { code: this.code, type: this.type } };
       }

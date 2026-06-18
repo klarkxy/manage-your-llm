@@ -1,5 +1,5 @@
-import type { AddressInfo } from "node:net";
-import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
+import type { AddressInfo } from 'node:net';
+import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 
 export interface FakeAnthropicResponse {
   status?: number;
@@ -23,6 +23,11 @@ export interface AnthropicStreamEvent {
 // One OpenAI SSE chunk (one `data:` line). The terminal `[DONE]` line
 // is just `{ data: "[DONE]" }`.
 export interface OpenAIStreamChunk {
+  data: string;
+}
+
+export interface CozeStreamEvent {
+  event?: string;
   data: string;
 }
 
@@ -60,51 +65,88 @@ export interface FakeUpstreamRig {
   // back to the most recent set*Stream value after that.
   enqueueAnthropicStream(spec: FakeStreamSpec<AnthropicStreamEvent>): void;
   enqueueOpenAIStream(spec: FakeStreamSpec<OpenAIStreamChunk>): void;
+  // Coze /v3/chat helpers.
+  setCozeStream(spec: FakeStreamSpec<CozeStreamEvent>): void;
+  enqueueCozeStream(spec: FakeStreamSpec<CozeStreamEvent>): void;
   // Recorded incoming requests (body + headers) for inspection.
   anthropicRequests: Array<{ body: unknown; headers: Record<string, string> }>;
   openaiRequests: Array<{ body: unknown; headers: Record<string, string> }>;
+  cozeRequests: Array<{ body: unknown; headers: Record<string, string> }>;
   close(): Promise<void>;
 }
 
 export async function startFakeUpstream(): Promise<FakeUpstreamRig> {
   const app = Fastify({ logger: false });
 
-  let anthropicResp: FakeAnthropicResponse = { status: 200, body: { id: "msg_default", type: "message", role: "assistant", content: [{ type: "text", text: "ok" }], model: "fake", stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } };
-  let openaiResp: FakeOpenAIResponse = { status: 200, body: { id: "cmpl_default", object: "chat.completion", created: 0, model: "fake", choices: [{ index: 0, message: { role: "assistant", content: "ok" }, finish_reason: "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } } };
+  let anthropicResp: FakeAnthropicResponse = {
+    status: 200,
+    body: {
+      id: 'msg_default',
+      type: 'message',
+      role: 'assistant',
+      content: [{ type: 'text', text: 'ok' }],
+      model: 'fake',
+      stop_reason: 'end_turn',
+      stop_sequence: null,
+      usage: { input_tokens: 1, output_tokens: 1 },
+    },
+  };
+  let openaiResp: FakeOpenAIResponse = {
+    status: 200,
+    body: {
+      id: 'cmpl_default',
+      object: 'chat.completion',
+      created: 0,
+      model: 'fake',
+      choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+    },
+  };
   const anthropicQueue: FakeAnthropicResponse[] = [];
   const openaiQueue: FakeOpenAIResponse[] = [];
   let anthropicStream: FakeStreamSpec<AnthropicStreamEvent> | null = null;
   let openaiStream: FakeStreamSpec<OpenAIStreamChunk> | null = null;
+  let cozeStream: FakeStreamSpec<CozeStreamEvent> | null = null;
   const anthropicStreamQueue: FakeStreamSpec<AnthropicStreamEvent>[] = [];
   const openaiStreamQueue: FakeStreamSpec<OpenAIStreamChunk>[] = [];
+  const cozeStreamQueue: FakeStreamSpec<CozeStreamEvent>[] = [];
 
   const anthropicRequests: Array<{ body: unknown; headers: Record<string, string> }> = [];
   const openaiRequests: Array<{ body: unknown; headers: Record<string, string> }> = [];
+  const cozeRequests: Array<{ body: unknown; headers: Record<string, string> }> = [];
 
-  app.post("/v1/messages", async (req: FastifyRequest, reply: FastifyReply) => {
-    anthropicRequests.push({ body: req.body, headers: { ...(req.headers as Record<string, string>) } });
-    const streamSpec = anthropicStreamQueue.length > 0 ? anthropicStreamQueue.shift()! : anthropicStream;
+  app.post('/v1/messages', async (req: FastifyRequest, reply: FastifyReply) => {
+    anthropicRequests.push({
+      body: req.body,
+      headers: { ...(req.headers as Record<string, string>) },
+    });
+    const streamSpec =
+      anthropicStreamQueue.length > 0 ? anthropicStreamQueue.shift()! : anthropicStream;
     if (streamSpec) {
       reply.raw.statusCode = 200;
-      reply.raw.setHeader("content-type", "text/event-stream; charset=utf-8");
-      reply.raw.setHeader("cache-control", "no-cache");
+      reply.raw.setHeader('content-type', 'text/event-stream; charset=utf-8');
+      reply.raw.setHeader('cache-control', 'no-cache');
       for (let i = 0; i < streamSpec.events.length; i++) {
         if (streamSpec.closeAfter !== undefined && i >= streamSpec.closeAfter) {
           // Wait one tick so the already-queued `write` actually reaches
           // the socket buffer, then destroy at the socket level. This
           // gives the gateway a partial body to react to.
           setImmediate(() => {
-            try { (reply.raw.socket ?? reply.raw.connection)?.destroy(); } catch { /* ignore */ }
+            try {
+              (reply.raw.socket ?? reply.raw.connection)?.destroy();
+            } catch {
+              /* ignore */
+            }
           });
           return;
         }
         const e = streamSpec.events[i]!;
-        let frame = "";
+        let frame = '';
         if (e.event) frame += `event: ${e.event}\n`;
-        for (const line of e.data.split("\n")) {
+        for (const line of e.data.split('\n')) {
           frame += `data: ${line}\n`;
         }
-        frame += "\n";
+        frame += '\n';
         reply.raw.write(frame);
         if (streamSpec.delayMs && streamSpec.delayMs > 0) {
           await new Promise<void>((r) => setTimeout(r, streamSpec.delayMs));
@@ -119,29 +161,36 @@ export async function startFakeUpstream(): Promise<FakeUpstreamRig> {
     return resp.body;
   });
 
-  app.post("/v1/chat/completions", async (req: FastifyRequest, reply: FastifyReply) => {
-    openaiRequests.push({ body: req.body, headers: { ...(req.headers as Record<string, string>) } });
+  app.post('/v1/chat/completions', async (req: FastifyRequest, reply: FastifyReply) => {
+    openaiRequests.push({
+      body: req.body,
+      headers: { ...(req.headers as Record<string, string>) },
+    });
     const streamSpec = openaiStreamQueue.length > 0 ? openaiStreamQueue.shift()! : openaiStream;
     if (streamSpec) {
       reply.raw.statusCode = 200;
-      reply.raw.setHeader("content-type", "text/event-stream; charset=utf-8");
-      reply.raw.setHeader("cache-control", "no-cache");
+      reply.raw.setHeader('content-type', 'text/event-stream; charset=utf-8');
+      reply.raw.setHeader('cache-control', 'no-cache');
       for (let i = 0; i < streamSpec.events.length; i++) {
         if (streamSpec.closeAfter !== undefined && i >= streamSpec.closeAfter) {
           // Wait one tick so the already-queued `write` actually reaches
           // the socket buffer, then destroy at the socket level. This
           // gives the gateway a partial body to react to.
           setImmediate(() => {
-            try { (reply.raw.socket ?? reply.raw.connection)?.destroy(); } catch { /* ignore */ }
+            try {
+              (reply.raw.socket ?? reply.raw.connection)?.destroy();
+            } catch {
+              /* ignore */
+            }
           });
           return;
         }
         const e = streamSpec.events[i]!;
-        let frame = "";
-        for (const line of e.data.split("\n")) {
+        let frame = '';
+        for (const line of e.data.split('\n')) {
           frame += `data: ${line}\n`;
         }
-        frame += "\n";
+        frame += '\n';
         reply.raw.write(frame);
         if (streamSpec.delayMs && streamSpec.delayMs > 0) {
           await new Promise<void>((r) => setTimeout(r, streamSpec.delayMs));
@@ -156,24 +205,92 @@ export async function startFakeUpstream(): Promise<FakeUpstreamRig> {
     return resp.body;
   });
 
-  await app.listen({ host: "127.0.0.1", port: 0 });
+  app.post('/v3/chat', async (req: FastifyRequest, reply: FastifyReply) => {
+    cozeRequests.push({ body: req.body, headers: { ...(req.headers as Record<string, string>) } });
+    const streamSpec = cozeStreamQueue.length > 0 ? cozeStreamQueue.shift()! : cozeStream;
+    if (streamSpec) {
+      reply.raw.statusCode = 200;
+      reply.raw.setHeader('content-type', 'text/event-stream; charset=utf-8');
+      reply.raw.setHeader('cache-control', 'no-cache');
+      for (let i = 0; i < streamSpec.events.length; i++) {
+        if (streamSpec.closeAfter !== undefined && i >= streamSpec.closeAfter) {
+          setImmediate(() => {
+            try {
+              (reply.raw.socket ?? reply.raw.connection)?.destroy();
+            } catch {
+              /* ignore */
+            }
+          });
+          return;
+        }
+        const e = streamSpec.events[i]!;
+        let frame = '';
+        if (e.event) frame += `event: ${e.event}\n`;
+        for (const line of e.data.split('\n')) {
+          frame += `data: ${line}\n`;
+        }
+        frame += '\n';
+        reply.raw.write(frame);
+        if (streamSpec.delayMs && streamSpec.delayMs > 0) {
+          await new Promise<void>((r) => setTimeout(r, streamSpec.delayMs));
+        }
+      }
+      reply.raw.end();
+      return;
+    }
+    // Non-streaming fallback for Coze tests: return the accumulated SSE body as JSON.
+    reply.status(200);
+    return {
+      id: 'chat_default',
+      conversation_id: 'conv_default',
+      bot_id: 'fake',
+      status: 'completed',
+    };
+  });
+
+  await app.listen({ host: '127.0.0.1', port: 0 });
   const addr = app.server.address() as AddressInfo;
   const baseUrl = `http://127.0.0.1:${addr.port}`;
-  const apiKey = "test-fake-key";
+  const apiKey = 'test-fake-key';
 
   return {
     baseUrl,
     apiKey,
-    setAnthropicResponse: (r) => { anthropicResp = r; },
-    setOpenAIResponse: (r) => { openaiResp = r; },
-    enqueueAnthropicResponse: (r) => { anthropicQueue.push(r); },
-    enqueueOpenAIResponse: (r) => { openaiQueue.push(r); },
-    setAnthropicStream: (s) => { anthropicStream = s; },
-    setOpenAIStream: (s) => { openaiStream = s; },
-    enqueueAnthropicStream: (s) => { anthropicStreamQueue.push(s); },
-    enqueueOpenAIStream: (s) => { openaiStreamQueue.push(s); },
+    setAnthropicResponse: (r) => {
+      anthropicResp = r;
+    },
+    setOpenAIResponse: (r) => {
+      openaiResp = r;
+    },
+    enqueueAnthropicResponse: (r) => {
+      anthropicQueue.push(r);
+    },
+    enqueueOpenAIResponse: (r) => {
+      openaiQueue.push(r);
+    },
+    setAnthropicStream: (s) => {
+      anthropicStream = s;
+    },
+    setOpenAIStream: (s) => {
+      openaiStream = s;
+    },
+    enqueueAnthropicStream: (s) => {
+      anthropicStreamQueue.push(s);
+    },
+    enqueueOpenAIStream: (s) => {
+      openaiStreamQueue.push(s);
+    },
+    setCozeStream: (s) => {
+      cozeStream = s;
+    },
+    enqueueCozeStream: (s) => {
+      cozeStreamQueue.push(s);
+    },
     anthropicRequests,
     openaiRequests,
-    close: async () => { await app.close(); },
+    cozeRequests,
+    close: async () => {
+      await app.close();
+    },
   };
 }

@@ -58,7 +58,6 @@ const form = ref<UpstreamKeyCreatePayload>({
   providerType: 'anthropic_compatible',
   baseUrl: '',
   apiKey: '',
-  planType: null,
 });
 const modelMappings = ref<ModelMappingItem[]>([]);
 const extraHeaders = ref<KeyValueItem[]>([]);
@@ -78,7 +77,6 @@ function resetForm() {
     providerType: 'anthropic_compatible',
     baseUrl: '',
     apiKey: '',
-    planType: null,
   };
   selectedPresetId.value = null;
   modelMappings.value = [];
@@ -119,7 +117,6 @@ async function openEdit(row: UpstreamKey) {
   form.value.providerType = row.providerType;
   form.value.baseUrl = row.baseUrl;
   form.value.apiKey = '';
-  form.value.planType = row.planType;
   selectedPresetId.value = row.providerPresetId;
   extraHeaders.value = Object.entries(row.extraHeaders ?? {}).map(([key, value]) => ({
     key,
@@ -187,7 +184,6 @@ async function onSubmit() {
         name: form.value.name,
         extraHeaders: headersPayload,
         extraParams: paramsPayload,
-        planType: form.value.planType || null,
       };
       if (!isPreset) {
         updates.providerType = form.value.providerType;
@@ -208,7 +204,6 @@ async function onSubmit() {
         modelMappings: mappings,
         extraHeaders: headersPayload,
         extraParams: paramsPayload,
-        planType: form.value.planType || null,
       };
       if (isPreset) {
         payload.providerPresetId = selectedPresetId.value!;
@@ -342,19 +337,6 @@ const providerOptions = computed(() => [
   { label: t('upstreamKeys.drawer.providers.anthropic'), value: 'anthropic_compatible' },
   { label: t('upstreamKeys.drawer.providers.openai'), value: 'openai_compatible' },
 ]);
-
-const planTypeOptions = computed(() => [
-  { label: t('upstreamKeys.drawer.planType.none'), value: '' },
-  { label: t('upstreamKeys.drawer.planType.codingPlan'), value: 'coding-plan' },
-  { label: t('upstreamKeys.drawer.planType.tokenPlan'), value: 'token-plan' },
-]);
-
-const planTypeModel = computed<'coding-plan' | 'token-plan' | ''>({
-  get: () => form.value.planType ?? '',
-  set: (value) => {
-    form.value.planType = value ? (value as 'coding-plan' | 'token-plan') : null;
-  },
-});
 
 const presetOptions = computed(() => {
   const sorted = [...presets.value].sort((a, b) =>
@@ -584,9 +566,6 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
                   : t('upstreamKeys.drawer.placeholders.apiKey')
               "
             />
-          </NFormItem>
-          <NFormItem :label="t('upstreamKeys.drawer.planType.label')">
-            <NSelect v-model:value="planTypeModel" :options="planTypeOptions" clearable />
           </NFormItem>
           <NFormItem :label="t('upstreamKeys.drawer.extraHeaders.label')">
             <KeyValueEditor

@@ -3,7 +3,7 @@ import type { ProviderModule, ProviderPreset } from './types.js';
 const preset: ProviderPreset = {
   id: 'baichuan',
   icon: '🌊',
-  name: 'Baichuan (China)',
+  name: 'Baichuan',
   endpoints: [
     {
       protocol: 'openai',

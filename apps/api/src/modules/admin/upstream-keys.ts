@@ -1,4 +1,4 @@
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { generateId, ValidationError, type ProviderType, type ChatRequestIR } from '@modelharbor/shared';
 import {
@@ -35,7 +35,6 @@ import {
 import {
   assertProviderType,
   assertQuotaPeriod,
-  assertUpstreamKeyPlanType,
   assertPositiveInt,
   assertSourceProtocol,
   decryptUpstreamApiKey,
@@ -94,7 +93,6 @@ interface CreateUpstreamKeyBody {
   extraParams?: unknown;
   supportedModels?: unknown;
   providerPresetId?: unknown;
-  planType?: unknown;
   endpoints?: unknown;
   modelMappings?: unknown;
   quota?: {
@@ -125,7 +123,6 @@ function presentUpstreamKey(
     candidateCount,
     endpoints: row.endpointsJson ? parseEndpoints(row.endpointsJson) : [],
     providerPresetId: row.providerPresetId,
-    planType: row.planType,
     enabled: row.enabled,
     frozen: row.frozen,
     frozenReason: row.frozenReason,
@@ -191,13 +188,6 @@ function normalizeExtraHeaders(value: unknown): Record<string, string> {
 function normalizeExtraParams(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return { ...(value as Record<string, unknown>) };
-}
-
-function normalizePlanType(value: unknown): 'coding-plan' | 'token-plan' | null {
-  if (value === undefined || value === null) return null;
-  if (typeof value !== 'string') throw new ValidationError('planType must be a string');
-  assertUpstreamKeyPlanType(value);
-  return value;
 }
 
 function normalizeModelMappings(value: unknown): OnboardingMapping[] {
@@ -426,6 +416,19 @@ function resolveDiscoveryEndpoint(
   return { baseUrl: endpoint!.baseUrl, providerType: endpoint!.providerType };
 }
 
+// Some providers (e.g. SiliconFlow) return model IDs with vendor prefixes such
+// as "vendor/model-name". For those presets we expose only the actual model
+// name as the public name so consumers don't have to type the prefix.
+function derivePublicName(presetId: string | undefined, realName: string): string {
+  if (presetId === 'siliconflow') {
+    const lastSlash = realName.lastIndexOf('/');
+    if (lastSlash >= 0) {
+      return realName.slice(lastSlash + 1);
+    }
+  }
+  return realName;
+}
+
 interface DiscoverContext {
   body: DiscoverModelsBody;
   db: Db;
@@ -524,7 +527,7 @@ async function discoverUpstreamModels(
 
     return ids.map((realName) => ({
       realName,
-      publicName: realToPublic.get(realName) ?? realName,
+      publicName: realToPublic.get(realName) ?? derivePublicName(preset?.id, realName),
     }));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -682,7 +685,6 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
       supportedModelsJson: JSON.stringify(supportedModels),
       endpointsJson: endpoints.length > 0 ? JSON.stringify(endpoints) : null,
       providerPresetId: preset ? preset.id : null,
-      planType: normalizePlanType(body.planType),
       enabled: true,
       frozen: false,
       createdAt: now,
@@ -729,12 +731,20 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
         .from(upstreamKeyQuotas)
         .where(eq(upstreamKeyQuotas.upstreamKeyId, id))
         .get()) ?? null;
+    const candidateCount =
+      (
+        await db
+          .select({ count: sql<number>`count(*)` })
+          .from(publicModelCandidates)
+          .where(eq(publicModelCandidates.upstreamKeyId, id))
+          .get()
+      )?.count ?? 0;
     await audit(db, auditMetaFromRequest(req), 'upstream_key.create', id, {
       name,
       providerType,
       baseUrl,
     });
-    return presentUpstreamKey(row, quota, []);
+    return presentUpstreamKey(row, quota, [], candidateCount);
   });
 
   app.patch('/api/admin/upstream-keys/:id', async (req, reply) => {
@@ -801,9 +811,6 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
       update.extraParamsJson = safeJsonString(normalizeExtraParams(body.extraParams), '{}');
     }
     if (typeof body.enabled === 'boolean') update.enabled = body.enabled;
-    if (body.planType !== undefined) {
-      update.planType = normalizePlanType(body.planType);
-    }
     await db.update(upstreamKeys).set(update).where(eq(upstreamKeys.id, id));
 
     if (body.quota) {

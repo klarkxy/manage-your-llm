@@ -3,7 +3,7 @@ import type { ProviderModule, ProviderPreset } from './types.js';
 const preset: ProviderPreset = {
   id: 'groq',
   icon: '⚡',
-  name: 'Groq (International)',
+  name: 'Groq',
   endpoints: [
     {
       protocol: 'openai',

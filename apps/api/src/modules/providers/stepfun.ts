@@ -3,7 +3,7 @@ import type { ProviderModule, ProviderPreset } from './types.js';
 const preset: ProviderPreset = {
   id: 'stepfun',
   icon: '⬆️',
-  name: 'StepFun (China)',
+  name: 'StepFun',
   endpoints: [
     {
       protocol: 'openai',

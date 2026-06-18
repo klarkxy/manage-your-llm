@@ -10,7 +10,6 @@ import type {
   SourceProtocol,
 } from '@modelharbor/shared';
 
-
 // HTTP request the adapter asks the engine to send to the upstream.
 export interface ProviderHttpRequest {
   url: string;
@@ -78,6 +77,9 @@ export interface ProviderStreamEventContext {
   event: string | null;
   data: string;
   request: ProviderRequestContext;
+  // Client protocol this stream is being served to. Adapters for custom
+  // upstream protocols use this to emit translated SSE frames.
+  sourceProtocol: SourceProtocol;
 }
 
 export interface ProviderErrorContext {
@@ -89,14 +91,37 @@ export interface ProviderErrorContext {
   transportError: unknown;
 }
 
+// Frame the adapter wants written to the client stream. When omitted, the
+// gateway writes the raw upstream SSE frame (legacy same-protocol behavior).
+// When provided, the gateway writes this translated frame instead, enabling
+// cross-protocol streaming.
+export interface ProviderStreamClientFrame {
+  event?: string;
+  data: string;
+}
+
 // Stream events are intentionally loose for M3 (streaming is M5). The shape is
 // defined here so the adapter contract is complete; M5 will fill it in.
 export type ProviderStreamEventResult =
-  | { kind: 'open' }
-  | { kind: 'delta'; text: string }
-  | { kind: 'usage'; inputTokens: number; outputTokens: number; totalTokens: number }
-  | { kind: 'stop'; reason: string | null }
-  | { kind: 'ignored' };
+  | { kind: 'open'; clientFrame?: ProviderStreamClientFrame | ProviderStreamClientFrame[] }
+  | {
+      kind: 'delta';
+      text: string;
+      clientFrame?: ProviderStreamClientFrame | ProviderStreamClientFrame[];
+    }
+  | {
+      kind: 'usage';
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      clientFrame?: ProviderStreamClientFrame | ProviderStreamClientFrame[];
+    }
+  | {
+      kind: 'stop';
+      reason: string | null;
+      clientFrame?: ProviderStreamClientFrame | ProviderStreamClientFrame[];
+    }
+  | { kind: 'ignored'; clientFrame?: ProviderStreamClientFrame | ProviderStreamClientFrame[] };
 
 // The adapter contract. Each provider type implements this.
 export interface ProviderAdapter {

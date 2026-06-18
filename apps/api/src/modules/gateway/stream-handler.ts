@@ -117,17 +117,23 @@ export async function handleStreamRequest(
     now,
     quotaExceeded,
   });
-  // Streaming currently forwards upstream SSE frames verbatim. Cross-protocol
-  // streaming would require parsing and re-emitting frames in the client
-  // protocol, which is not implemented yet. Surface a clear error instead of
-  // silently sending the wrong wire format.
-  if (accepted.length === 0 && fallback.length > 0) {
-    throw new ValidationError('cross-protocol streaming is not supported yet');
-  }
-  if (accepted.length === 0) {
+  // Cross-protocol streaming is only safe when the upstream adapter can
+  // translate its native SSE frames into the client protocol. Adapters declare
+  // this via capabilities.protocols. Same-protocol candidates are always used;
+  // cross-protocol candidates are only used when their adapter explicitly
+  // supports the client protocol.
+  const translatableFallback = fallback.filter((c) => {
+    const adapter = getProviderAdapter(c);
+    return adapter.capabilities.protocols.includes(streamCtx.sourceProtocol);
+  });
+  const usableCandidates = accepted.length > 0 ? accepted : translatableFallback;
+  if (usableCandidates.length === 0) {
+    if (fallback.length > 0) {
+      throw new ValidationError('cross-protocol streaming is not supported yet');
+    }
     throw new NoRouteAvailableError('no available upstream for target');
   }
-  let sorted = [...accepted].sort((a, b) => a.priority - b.priority);
+  let sorted = [...usableCandidates].sort((a, b) => a.priority - b.priority);
   // Sticky binding lookup. If a fresh binding exists and the bound
   // candidate is still in the accepted set, honor it by moving it to
   // the front. We only consult sticky once per stream; if the bound
@@ -395,6 +401,7 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
           headers: {},
           body: '',
         }),
+        sourceProtocol: streamCtx.sourceProtocol,
       });
       if (result.kind === 'usage') {
         // Merge across events. The Anthropic adapter sets inputTokens
@@ -415,7 +422,14 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
         writeStreamHeaders(reply, start.headers);
         firstWrite = true;
       }
-      writeStreamFrame(reply, raw);
+      const frames = result.clientFrame ?? raw;
+      if (Array.isArray(frames)) {
+        for (const frame of frames) {
+          writeStreamFrame(reply, frame);
+        }
+      } else {
+        writeStreamFrame(reply, frames);
+      }
     }
   } catch (err) {
     const e = err as { name?: string; message?: string };
@@ -516,17 +530,20 @@ function writeStreamHeaders(reply: FastifyReply, upstreamHeaders: Record<string,
   if (requestId) reply.raw.setHeader('x-request-id', requestId);
 }
 
-function writeStreamFrame(reply: FastifyReply, raw: RawStreamEvent): void {
-  let frame = '';
-  if (raw.event) {
-    frame += `event: ${raw.event}\n`;
+function writeStreamFrame(
+  reply: FastifyReply,
+  frame: RawStreamEvent | { event?: string; data: string },
+): void {
+  let text = '';
+  if (frame.event) {
+    text += `event: ${frame.event}\n`;
   }
-  const dataLines = raw.data.split('\n');
+  const dataLines = frame.data.split('\n');
   for (const line of dataLines) {
-    frame += `data: ${line}\n`;
+    text += `data: ${line}\n`;
   }
-  frame += '\n';
-  reply.raw.write(frame);
+  text += '\n';
+  reply.raw.write(text);
 }
 
 async function tryCooldown(

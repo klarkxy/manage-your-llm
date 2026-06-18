@@ -1,10 +1,15 @@
-export type ProviderType = "anthropic_compatible" | "openai_compatible";
+export type ProviderType = 'anthropic_compatible' | 'openai_compatible' | 'coze';
 
-export type SourceProtocol = "anthropic" | "openai";
+export type SourceProtocol = 'anthropic' | 'openai';
 
+// Maps a provider type to the client protocol it natively speaks. Providers
+// such as Coze use their own wire protocol; they are treated as OpenAI-shaped
+// for routing purposes and rely on the adapter to translate when serving
+// Anthropic clients.
 export const PROTOCOL_BY_PROVIDER: Readonly<Record<ProviderType, SourceProtocol>> = {
-  anthropic_compatible: "anthropic",
-  openai_compatible: "openai",
+  anthropic_compatible: 'anthropic',
+  openai_compatible: 'openai',
+  coze: 'openai',
 };
 
 export function protocolFor(providerType: ProviderType): SourceProtocol {
@@ -12,11 +17,9 @@ export function protocolFor(providerType: ProviderType): SourceProtocol {
 }
 
 export const ALL_PROVIDER_TYPES: readonly ProviderType[] = [
-  "anthropic_compatible",
-  "openai_compatible",
+  'anthropic_compatible',
+  'openai_compatible',
+  'coze',
 ] as const;
 
-export const ALL_SOURCE_PROTOCOLS: readonly SourceProtocol[] = [
-  "anthropic",
-  "openai",
-] as const;
+export const ALL_SOURCE_PROTOCOLS: readonly SourceProtocol[] = ['anthropic', 'openai'] as const;

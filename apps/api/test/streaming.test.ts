@@ -1,58 +1,133 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import http from "node:http";
-import { usageRecords } from "../src/modules/db/index.js";
-import { makeGatewayRig, type GatewayTestRig } from "./gateway-helper.js";
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import http from 'node:http';
+import { usageRecords } from '../src/modules/db/index.js';
+import { makeGatewayRig, type GatewayTestRig } from './gateway-helper.js';
 
 const ANTHROPIC_STREAM_BODY = {
-  model: "coding-fast",
-  messages: [{ role: "user", content: "stream please" }],
+  model: 'coding-fast',
+  messages: [{ role: 'user', content: 'stream please' }],
   max_tokens: 64,
   stream: true,
 };
 
 const OPENAI_STREAM_BODY = {
-  model: "coding-fast",
-  messages: [{ role: "user", content: "stream please" }],
+  model: 'coding-fast',
+  messages: [{ role: 'user', content: 'stream please' }],
   stream: true,
 };
 
 const anthropicStreamFrames = [
-  { event: "message_start", data: JSON.stringify({ type: "message_start", message: { id: "msg_1", type: "message", role: "assistant", content: [], model: "fake-real-model", stop_reason: null, stop_sequence: null, usage: { input_tokens: 4, output_tokens: 0 } } }) },
-  { event: "content_block_start", data: JSON.stringify({ type: "content_block_start", index: 0, content_block: { type: "text", text: "" } }) },
-  { event: "ping", data: JSON.stringify({ type: "ping" }) },
-  { event: "content_block_delta", data: JSON.stringify({ type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Hello, " } }) },
-  { event: "content_block_delta", data: JSON.stringify({ type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "world!" } }) },
-  { event: "content_block_stop", data: JSON.stringify({ type: "content_block_stop", index: 0 }) },
-  { event: "message_delta", data: JSON.stringify({ type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 7 } }) },
-  { event: "message_stop", data: JSON.stringify({ type: "message_stop" }) },
+  {
+    event: 'message_start',
+    data: JSON.stringify({
+      type: 'message_start',
+      message: {
+        id: 'msg_1',
+        type: 'message',
+        role: 'assistant',
+        content: [],
+        model: 'fake-real-model',
+        stop_reason: null,
+        stop_sequence: null,
+        usage: { input_tokens: 4, output_tokens: 0 },
+      },
+    }),
+  },
+  {
+    event: 'content_block_start',
+    data: JSON.stringify({
+      type: 'content_block_start',
+      index: 0,
+      content_block: { type: 'text', text: '' },
+    }),
+  },
+  { event: 'ping', data: JSON.stringify({ type: 'ping' }) },
+  {
+    event: 'content_block_delta',
+    data: JSON.stringify({
+      type: 'content_block_delta',
+      index: 0,
+      delta: { type: 'text_delta', text: 'Hello, ' },
+    }),
+  },
+  {
+    event: 'content_block_delta',
+    data: JSON.stringify({
+      type: 'content_block_delta',
+      index: 0,
+      delta: { type: 'text_delta', text: 'world!' },
+    }),
+  },
+  { event: 'content_block_stop', data: JSON.stringify({ type: 'content_block_stop', index: 0 }) },
+  {
+    event: 'message_delta',
+    data: JSON.stringify({
+      type: 'message_delta',
+      delta: { stop_reason: 'end_turn', stop_sequence: null },
+      usage: { output_tokens: 7 },
+    }),
+  },
+  { event: 'message_stop', data: JSON.stringify({ type: 'message_stop' }) },
 ];
 
 const openaiStreamChunks = [
-  { data: JSON.stringify({ id: "cmpl-1", object: "chat.completion.chunk", created: 1700000000, model: "fake-real-model", choices: [{ index: 0, delta: { role: "assistant", content: "Hello" }, finish_reason: null }] }) },
-  { data: JSON.stringify({ id: "cmpl-1", object: "chat.completion.chunk", created: 1700000000, model: "fake-real-model", choices: [{ index: 0, delta: { content: ", " }, finish_reason: null }] }) },
-  { data: JSON.stringify({ id: "cmpl-1", object: "chat.completion.chunk", created: 1700000000, model: "fake-real-model", choices: [{ index: 0, delta: { content: "world!" }, finish_reason: null }] }) },
-  { data: JSON.stringify({ id: "cmpl-1", object: "chat.completion.chunk", created: 1700000000, model: "fake-real-model", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] }) },
-  { data: "[DONE]" },
+  {
+    data: JSON.stringify({
+      id: 'cmpl-1',
+      object: 'chat.completion.chunk',
+      created: 1700000000,
+      model: 'fake-real-model',
+      choices: [{ index: 0, delta: { role: 'assistant', content: 'Hello' }, finish_reason: null }],
+    }),
+  },
+  {
+    data: JSON.stringify({
+      id: 'cmpl-1',
+      object: 'chat.completion.chunk',
+      created: 1700000000,
+      model: 'fake-real-model',
+      choices: [{ index: 0, delta: { content: ', ' }, finish_reason: null }],
+    }),
+  },
+  {
+    data: JSON.stringify({
+      id: 'cmpl-1',
+      object: 'chat.completion.chunk',
+      created: 1700000000,
+      model: 'fake-real-model',
+      choices: [{ index: 0, delta: { content: 'world!' }, finish_reason: null }],
+    }),
+  },
+  {
+    data: JSON.stringify({
+      id: 'cmpl-1',
+      object: 'chat.completion.chunk',
+      created: 1700000000,
+      model: 'fake-real-model',
+      choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+    }),
+  },
+  { data: '[DONE]' },
 ];
 
 function parseSseResponse(text: string): Array<{ event: string | null; data: string }> {
   const out: Array<{ event: string | null; data: string }> = [];
   for (const block of text.split(/\n\n/)) {
-    const trimmed = block.replace(/\r$/, "").trim();
+    const trimmed = block.replace(/\r$/, '').trim();
     if (trimmed.length === 0) continue;
     let event: string | null = null;
     const dataParts: string[] = [];
     for (const line of trimmed.split(/\n/)) {
       if (line.length === 0) continue;
-      const colon = line.indexOf(":");
+      const colon = line.indexOf(':');
       if (colon < 0) continue;
       const field = line.slice(0, colon);
       let value = line.slice(colon + 1);
-      if (value.startsWith(" ")) value = value.slice(1);
-      if (field === "event") event = value;
-      else if (field === "data") dataParts.push(value);
+      if (value.startsWith(' ')) value = value.slice(1);
+      if (field === 'event') event = value;
+      else if (field === 'data') dataParts.push(value);
     }
-    if (dataParts.length > 0) out.push({ event, data: dataParts.join("\n") });
+    if (dataParts.length > 0) out.push({ event, data: dataParts.join('\n') });
   }
   return out;
 }
@@ -63,9 +138,9 @@ interface LiveRig extends GatewayTestRig {
 }
 
 async function startListening(rig: GatewayTestRig): Promise<LiveRig> {
-  await rig.app.listen({ host: "127.0.0.1", port: 0 });
+  await rig.app.listen({ host: '127.0.0.1', port: 0 });
   const addr = rig.app.server.address();
-  if (!addr || typeof addr === "string") throw new Error("not listening");
+  if (!addr || typeof addr === 'string') throw new Error('not listening');
   return {
     ...rig,
     port: addr.port,
@@ -80,31 +155,36 @@ function postSse(
   path: string,
   body: unknown,
   headers: Record<string, string>,
-): Promise<{ statusCode: number; headers: http.IncomingHttpHeaders; body: string; raw: http.IncomingMessage }> {
+): Promise<{
+  statusCode: number;
+  headers: http.IncomingHttpHeaders;
+  body: string;
+  raw: http.IncomingMessage;
+}> {
   return new Promise((resolve, _reject) => {
     const req = http.request(
       {
-        host: "127.0.0.1",
+        host: '127.0.0.1',
         port: rig.port,
-        method: "POST",
+        method: 'POST',
         path,
-        headers: { "content-type": "application/json", ...headers },
+        headers: { 'content-type': 'application/json', ...headers },
       },
       (res) => {
         const chunks: Buffer[] = [];
-        res.on("data", (c) => chunks.push(c as Buffer));
-        res.on("end", () =>
+        res.on('data', (c) => chunks.push(c as Buffer));
+        res.on('end', () =>
           resolve({
             statusCode: res.statusCode ?? 0,
             headers: res.headers,
-            body: Buffer.concat(chunks).toString("utf-8"),
+            body: Buffer.concat(chunks).toString('utf-8'),
             raw: res,
           }),
         );
-        res.on("error", _reject);
+        res.on('error', _reject);
       },
     );
-    req.on("error", _reject);
+    req.on('error', _reject);
     req.write(JSON.stringify(body));
     req.end();
   });
@@ -123,52 +203,66 @@ function postSseWithAbort(
   });
   const req = http.request(
     {
-      host: "127.0.0.1",
+      host: '127.0.0.1',
       port: rig.port,
-      method: "POST",
+      method: 'POST',
       path,
-      headers: { "content-type": "application/json", ...headers },
+      headers: { 'content-type': 'application/json', ...headers },
     },
     (res) => {
       const chunks: Buffer[] = [];
-      res.on("data", (c) => chunks.push(c as Buffer));
-      res.on("end", () =>
-        resolveOuter({ statusCode: res.statusCode ?? 0, body: Buffer.concat(chunks).toString("utf-8") }),
+      res.on('data', (c) => chunks.push(c as Buffer));
+      res.on('end', () =>
+        resolveOuter({
+          statusCode: res.statusCode ?? 0,
+          body: Buffer.concat(chunks).toString('utf-8'),
+        }),
       );
-      res.on("error", () => {
-        resolveOuter({ statusCode: 0, body: Buffer.concat(chunks).toString("utf-8") });
+      res.on('error', () => {
+        resolveOuter({ statusCode: 0, body: Buffer.concat(chunks).toString('utf-8') });
       });
     },
   );
-  req.on("error", () => resolveOuter({ statusCode: 0, body: "" }));
+  req.on('error', () => resolveOuter({ statusCode: 0, body: '' }));
   req.write(JSON.stringify(body));
   req.end();
   setTimeout(() => {
-    try { req.destroy(); } catch { /* ignore */ }
+    try {
+      req.destroy();
+    } catch {
+      /* ignore */
+    }
   }, abortAfterMs);
-  return { promise, abort: () => { try { req.destroy(); } catch { /* ignore */ } } };
+  return {
+    promise,
+    abort: () => {
+      try {
+        req.destroy();
+      } catch {
+        /* ignore */
+      }
+    },
+  };
 }
 
-describe("M5 streaming: /v1/messages (live HTTP)", () => {
+describe('M5 streaming: /v1/messages (live HTTP)', () => {
   let rig: LiveRig;
   beforeEach(async () => {
-    const base = await makeGatewayRig({ providerType: "anthropic_compatible" });
+    const base = await makeGatewayRig({ providerType: 'anthropic_compatible' });
     rig = await startListening(base);
   });
   afterEach(async () => {
     await rig.closeAll();
   });
 
-  it("streams multiple events in order and writes a usage record with terminal tokens", async () => {
+  it('streams multiple events in order and writes a usage record with terminal tokens', async () => {
     rig.fake.setAnthropicStream({ events: anthropicStreamFrames });
-    const res = await postSse(
-      rig,
-      "/v1/messages",
-      ANTHROPIC_STREAM_BODY,
-      { "x-api-key": rig.rawConsumerKey, accept: "text/event-stream" },
-    );
+    const res = await postSse(rig, '/v1/messages', ANTHROPIC_STREAM_BODY, {
+      'x-api-key': rig.rawConsumerKey,
+      accept: 'text/event-stream',
+    });
     expect(res.statusCode).toBe(200);
-    expect(res.headers["content-type"]).toMatch(/text\/event-stream/);
+    expect(res.headers['content-type']).toMatch(/text\/event-stream/);
     const frames = parseSseResponse(res.body);
     expect(frames).toHaveLength(anthropicStreamFrames.length);
     for (let i = 0; i < frames.length; i++) {
@@ -180,10 +274,10 @@ describe("M5 streaming: /v1/messages (live HTTP)", () => {
     expect(streamRec).toBeTruthy();
     expect(streamRec!.inputTokens).toBe(4);
     expect(streamRec!.outputTokens).toBe(7);
-    expect(streamRec!.status).toBe("success");
+    expect(streamRec!.status).toBe('success');
   });
 
-  it("returns an Anthropic-shaped 404 for an unknown model in stream mode", async () => {
+  it('returns an Anthropic-shaped 404 for an unknown model in stream mode', async () => {
     // The streaming branch in routes.ts must wrap the handler in try/catch
     // so the body matches the Anthropic shape on errors thrown before the
     // first frame (unknown model, denied access, validation). The previous
@@ -191,67 +285,61 @@ describe("M5 streaming: /v1/messages (live HTTP)", () => {
     // error handler which returns the OpenAI shape.
     const res = await postSse(
       rig,
-      "/v1/messages",
-      { ...ANTHROPIC_STREAM_BODY, model: "does-not-exist" },
-      { "x-api-key": rig.rawConsumerKey },
+      '/v1/messages',
+      { ...ANTHROPIC_STREAM_BODY, model: 'does-not-exist' },
+      { 'x-api-key': rig.rawConsumerKey },
     );
     expect(res.statusCode).toBe(404);
     const body = JSON.parse(res.body) as { type: string; error: { type: string; message: string } };
-    expect(body.type).toBe("error");
-    expect(body.error.type).toBe("not_found_error");
+    expect(body.type).toBe('error');
+    expect(body.error.type).toBe('not_found_error');
   });
 
-  it("returns an Anthropic-shaped 400 for a missing model field in stream mode", async () => {
-    const body = { stream: true, messages: [{ role: "user", content: "x" }], max_tokens: 32 };
-    const res = await postSse(rig, "/v1/messages", body, { "x-api-key": rig.rawConsumerKey });
+  it('returns an Anthropic-shaped 400 for a missing model field in stream mode', async () => {
+    const body = { stream: true, messages: [{ role: 'user', content: 'x' }], max_tokens: 32 };
+    const res = await postSse(rig, '/v1/messages', body, { 'x-api-key': rig.rawConsumerKey });
     expect(res.statusCode).toBe(400);
     const parsed = JSON.parse(res.body) as { type: string; error: { type: string } };
-    expect(parsed.type).toBe("error");
-    expect(parsed.error.type).toBe("invalid_request_error");
+    expect(parsed.type).toBe('error');
+    expect(parsed.error.type).toBe('invalid_request_error');
   });
 
-  it("records an error usage row when the upstream returns 4xx before any frames", async () => {
+  it('records an error usage row when the upstream returns 4xx before any frames', async () => {
     rig.fake.setAnthropicResponse({
       status: 429,
-      body: { type: "error", error: { type: "rate_limit_error", message: "too many" } },
+      body: { type: 'error', error: { type: 'rate_limit_error', message: 'too many' } },
     });
-    const res = await postSse(
-      rig,
-      "/v1/messages",
-      ANTHROPIC_STREAM_BODY,
-      { "x-api-key": rig.rawConsumerKey },
-    );
+    const res = await postSse(rig, '/v1/messages', ANTHROPIC_STREAM_BODY, {
+      'x-api-key': rig.rawConsumerKey,
+    });
     expect(res.statusCode).toBe(429);
     const records = await rig.db.select().from(usageRecords).all();
     const streamRec = records.find((r) => r.stream);
     expect(streamRec).toBeTruthy();
-    expect(streamRec!.status).toBe("error");
-    expect(streamRec!.errorCode).toBe("rate_limit_error");
+    expect(streamRec!.status).toBe('error');
+    expect(streamRec!.errorCode).toBe('rate_limit_error');
   });
 
-  it("records an error usage row when the upstream closes the stream mid-flight", async () => {
+  it('records an error usage row when the upstream closes the stream mid-flight', async () => {
     rig.fake.setAnthropicStream({ events: anthropicStreamFrames, closeAfter: 3 });
-    const res = await postSse(
-      rig,
-      "/v1/messages",
-      ANTHROPIC_STREAM_BODY,
-      { "x-api-key": rig.rawConsumerKey },
-    );
+    const res = await postSse(rig, '/v1/messages', ANTHROPIC_STREAM_BODY, {
+      'x-api-key': rig.rawConsumerKey,
+    });
     const frames = parseSseResponse(res.body);
     expect(frames.length).toBeLessThan(anthropicStreamFrames.length);
     const records = await rig.db.select().from(usageRecords).all();
     const streamRec = records.find((r) => r.stream);
     expect(streamRec).toBeTruthy();
-    expect(streamRec!.status).toBe("error");
+    expect(streamRec!.status).toBe('error');
   });
 });
 
-describe("M5 streaming: /v1/chat/completions (live HTTP)", () => {
+describe('M5 streaming: /v1/chat/completions (live HTTP)', () => {
   let rig: LiveRig;
   beforeEach(async () => {
     const base = await makeGatewayRig({
-      providerType: "openai_compatible",
-      publicModelName: "fast-chat",
+      providerType: 'openai_compatible',
+      publicModelName: 'fast-chat',
     });
     rig = await startListening(base);
   });
@@ -259,60 +347,139 @@ describe("M5 streaming: /v1/chat/completions (live HTTP)", () => {
     await rig.closeAll();
   });
 
-  it("streams multiple OpenAI chunks in order and writes a usage record", async () => {
+  it('streams multiple OpenAI chunks in order and writes a usage record', async () => {
     rig.fake.setOpenAIStream({ events: openaiStreamChunks });
     const res = await postSse(
       rig,
-      "/v1/chat/completions",
-      { ...OPENAI_STREAM_BODY, model: "fast-chat" },
+      '/v1/chat/completions',
+      { ...OPENAI_STREAM_BODY, model: 'fast-chat' },
       { authorization: `Bearer ${rig.rawConsumerKey}` },
     );
     expect(res.statusCode).toBe(200);
-    expect(res.headers["content-type"]).toMatch(/text\/event-stream/);
+    expect(res.headers['content-type']).toMatch(/text\/event-stream/);
     const frames = parseSseResponse(res.body);
     expect(frames).toHaveLength(openaiStreamChunks.length);
-    expect(frames[frames.length - 1]!.data).toBe("[DONE]");
+    expect(frames[frames.length - 1]!.data).toBe('[DONE]');
     const records = await rig.db.select().from(usageRecords).all();
     const streamRec = records.find((r) => r.stream);
     expect(streamRec).toBeTruthy();
-    expect(streamRec!.status).toBe("success");
+    expect(streamRec!.status).toBe('success');
   });
 
-  it("returns an OpenAI-shaped 404 for an unknown model in stream mode", async () => {
+  it('returns an OpenAI-shaped 404 for an unknown model in stream mode', async () => {
     const res = await postSse(
       rig,
-      "/v1/chat/completions",
-      { ...OPENAI_STREAM_BODY, model: "does-not-exist" },
+      '/v1/chat/completions',
+      { ...OPENAI_STREAM_BODY, model: 'does-not-exist' },
       { authorization: `Bearer ${rig.rawConsumerKey}` },
     );
     expect(res.statusCode).toBe(404);
     const body = JSON.parse(res.body) as { error: { type: string; code: string } };
-    expect(body.error.type).toBe("TargetNotFoundError");
-    expect(body.error.code).toBe("target_not_found");
+    expect(body.error.type).toBe('TargetNotFoundError');
+    expect(body.error.code).toBe('target_not_found');
   });
 });
 
-describe("M5 streaming: client disconnect aborts the upstream request", () => {
+const cozeStreamEvents = [
+  {
+    event: 'conversation.chat.created',
+    data: JSON.stringify({ id: 'chat_1', conversation_id: 'conv_1', bot_id: 'fake' }),
+  },
+  {
+    event: 'conversation.message.delta',
+    data: JSON.stringify({ id: 'msg_1', role: 'assistant', type: 'answer', content: 'Hello' }),
+  },
+  {
+    event: 'conversation.message.delta',
+    data: JSON.stringify({ id: 'msg_1', role: 'assistant', type: 'answer', content: ', ' }),
+  },
+  {
+    event: 'conversation.message.delta',
+    data: JSON.stringify({ id: 'msg_1', role: 'assistant', type: 'answer', content: 'world!' }),
+  },
+  {
+    event: 'conversation.message.completed',
+    data: JSON.stringify({
+      id: 'msg_1',
+      role: 'assistant',
+      type: 'answer',
+      content: 'Hello, world!',
+      usage: { input_count: 4, output_count: 3, token_count: 7 },
+    }),
+  },
+  {
+    event: 'conversation.chat.completed',
+    data: JSON.stringify({
+      id: 'chat_1',
+      usage: { input_count: 4, output_count: 3, token_count: 7 },
+    }),
+  },
+  { event: 'done', data: '{}' },
+];
+
+describe('M5 streaming: Coze upstream translated to OpenAI', () => {
   let rig: LiveRig;
   beforeEach(async () => {
-    const base = await makeGatewayRig({ providerType: "anthropic_compatible" });
+    const base = await makeGatewayRig({ providerType: 'coze' });
     rig = await startListening(base);
   });
   afterEach(async () => {
     await rig.closeAll();
   });
 
-  it("aborts the upstream request and records an error usage row when the client disconnects mid-stream", async () => {
+  it('translates Coze SSE events into OpenAI chunks and writes a usage record', async () => {
+    rig.fake.setCozeStream({ events: cozeStreamEvents });
+    const res = await postSse(
+      rig,
+      '/v1/chat/completions',
+      { ...OPENAI_STREAM_BODY, model: 'coding-fast' },
+      { authorization: `Bearer ${rig.rawConsumerKey}` },
+    );
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/event-stream/);
+    const frames = parseSseResponse(res.body);
+    // chat.created is ignored; 3 deltas + final stop frame + usage frames + [DONE].
+    expect(frames.length).toBeGreaterThan(0);
+    const dataFrames = frames.filter((f) => f.data && f.data !== '[DONE]');
+    const stopFrame = dataFrames.find((f) => {
+      try {
+        return JSON.parse(f.data).choices?.[0]?.finish_reason === 'stop';
+      } catch {
+        return false;
+      }
+    });
+    expect(stopFrame).toBeTruthy();
+
+    const records = await rig.db.select().from(usageRecords).all();
+    const streamRec = records.find((r) => r.stream);
+    expect(streamRec).toBeTruthy();
+    expect(streamRec!.inputTokens).toBe(4);
+    expect(streamRec!.outputTokens).toBe(3);
+    expect(streamRec!.status).toBe('success');
+  });
+});
+
+describe('M5 streaming: client disconnect aborts the upstream request', () => {
+  let rig: LiveRig;
+  beforeEach(async () => {
+    const base = await makeGatewayRig({ providerType: 'anthropic_compatible' });
+    rig = await startListening(base);
+  });
+  afterEach(async () => {
+    await rig.closeAll();
+  });
+
+  it('aborts the upstream request and records an error usage row when the client disconnects mid-stream', async () => {
     // Per-event delay so the stream runs longer than the client abort.
     rig.fake.setAnthropicStream({ events: anthropicStreamFrames, delayMs: 40 });
     const { promise } = postSseWithAbort(
       rig,
-      "/v1/messages",
+      '/v1/messages',
       ANTHROPIC_STREAM_BODY,
-      { "x-api-key": rig.rawConsumerKey },
+      { 'x-api-key': rig.rawConsumerKey },
       200,
     );
-    await promise.catch(() => ({ statusCode: 0, body: "" }));
+    await promise.catch(() => ({ statusCode: 0, body: '' }));
 
     // The fake upstream received the stream request with stream: true.
     expect(rig.fake.anthropicRequests).toHaveLength(1);
@@ -333,51 +500,51 @@ describe("M5 streaming: client disconnect aborts the upstream request", () => {
       await new Promise((r) => setTimeout(r, 20));
     }
     expect(streamRec).toBeTruthy();
-    expect(streamRec!.status).toBe("error");
-    expect(streamRec!.errorCode).toBe("client_disconnected");
+    expect(streamRec!.status).toBe('error');
+    expect(streamRec!.errorCode).toBe('client_disconnected');
   });
 });
 
-describe("M5 streaming: usage records for non-stream /v1/messages", () => {
+describe('M5 streaming: usage records for non-stream /v1/messages', () => {
   let rig: LiveRig;
   beforeEach(async () => {
-    const base = await makeGatewayRig({ providerType: "anthropic_compatible" });
+    const base = await makeGatewayRig({ providerType: 'anthropic_compatible' });
     rig = await startListening(base);
   });
   afterEach(async () => {
     await rig.closeAll();
   });
 
-  it("writes one usage row per non-stream call", async () => {
+  it('writes one usage row per non-stream call', async () => {
     rig.fake.setAnthropicResponse({
       status: 200,
       body: {
-        id: "msg_ns",
-        type: "message",
-        role: "assistant",
-        content: [{ type: "text", text: "ok" }],
-        model: "fake-real-model",
-        stop_reason: "end_turn",
+        id: 'msg_ns',
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'text', text: 'ok' }],
+        model: 'fake-real-model',
+        stop_reason: 'end_turn',
         stop_sequence: null,
         usage: { input_tokens: 2, output_tokens: 3 },
       },
     });
     const res = await postSse(
       rig,
-      "/v1/messages",
-      { model: "coding-fast", messages: [{ role: "user", content: "hi" }], max_tokens: 32 },
-      { "x-api-key": rig.rawConsumerKey },
+      '/v1/messages',
+      { model: 'coding-fast', messages: [{ role: 'user', content: 'hi' }], max_tokens: 32 },
+      { 'x-api-key': rig.rawConsumerKey },
     );
     expect(res.statusCode).toBe(200);
     const records = await rig.db.select().from(usageRecords).all();
     const nsRec = records.find((r) => !r.stream);
     expect(nsRec).toBeTruthy();
-    expect(nsRec!.status).toBe("success");
+    expect(nsRec!.status).toBe('success');
     expect(nsRec!.inputTokens).toBe(2);
     expect(nsRec!.outputTokens).toBe(3);
   });
 
-  it("attributes non-stream usage to the resolved target, not the underlying public model", async () => {
+  it('attributes non-stream usage to the resolved target, not the underlying public model', async () => {
     // The default rig seeds a model group "coding" containing "coding-fast".
     // We use the gateway-helper's "createGroup: true" default by NOT
     // setting grantPublicModelAccess=false, then issue the call against
@@ -385,21 +552,21 @@ describe("M5 streaming: usage records for non-stream /v1/messages", () => {
     rig.fake.setAnthropicResponse({
       status: 200,
       body: {
-        id: "msg_grp",
-        type: "message",
-        role: "assistant",
-        content: [{ type: "text", text: "ok" }],
-        model: "fake-real-model",
-        stop_reason: "end_turn",
+        id: 'msg_grp',
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'text', text: 'ok' }],
+        model: 'fake-real-model',
+        stop_reason: 'end_turn',
         stop_sequence: null,
         usage: { input_tokens: 1, output_tokens: 1 },
       },
     });
     const res = await postSse(
       rig,
-      "/v1/messages",
-      { model: "coding", messages: [{ role: "user", content: "hi" }], max_tokens: 32 },
-      { "x-api-key": rig.rawConsumerKey },
+      '/v1/messages',
+      { model: 'coding', messages: [{ role: 'user', content: 'hi' }], max_tokens: 32 },
+      { 'x-api-key': rig.rawConsumerKey },
     );
     expect(res.statusCode).toBe(200);
     const records = await rig.db.select().from(usageRecords).all();
@@ -408,64 +575,64 @@ describe("M5 streaming: usage records for non-stream /v1/messages", () => {
     // Usage is attributed to the *asked-for* model group, not the
     // underlying public model that actually served the request. This is
     // what the M5 / P2 fix enforces.
-    expect(nsRec!.resolvedTargetType).toBe("model_group");
+    expect(nsRec!.resolvedTargetType).toBe('model_group');
     expect(nsRec!.resolvedTargetId).toBe(rig.ids.modelGroupId);
-    expect(nsRec!.requestedTargetName).toBe("coding");
+    expect(nsRec!.requestedTargetName).toBe('coding');
   });
 
-  it("attributes public-model calls to the public model target", async () => {
+  it('attributes public-model calls to the public model target', async () => {
     rig.fake.setAnthropicResponse({
       status: 200,
       body: {
-        id: "msg_pm",
-        type: "message",
-        role: "assistant",
-        content: [{ type: "text", text: "ok" }],
-        model: "fake-real-model",
-        stop_reason: "end_turn",
+        id: 'msg_pm',
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'text', text: 'ok' }],
+        model: 'fake-real-model',
+        stop_reason: 'end_turn',
         stop_sequence: null,
         usage: { input_tokens: 1, output_tokens: 1 },
       },
     });
     const res = await postSse(
       rig,
-      "/v1/messages",
-      { model: "coding-fast", messages: [{ role: "user", content: "hi" }], max_tokens: 32 },
-      { "x-api-key": rig.rawConsumerKey },
+      '/v1/messages',
+      { model: 'coding-fast', messages: [{ role: 'user', content: 'hi' }], max_tokens: 32 },
+      { 'x-api-key': rig.rawConsumerKey },
     );
     expect(res.statusCode).toBe(200);
     const records = await rig.db.select().from(usageRecords).all();
     const nsRec = records.find((r) => !r.stream);
     expect(nsRec).toBeTruthy();
-    expect(nsRec!.resolvedTargetType).toBe("public_model");
+    expect(nsRec!.resolvedTargetType).toBe('public_model');
     expect(nsRec!.resolvedTargetId).toBe(rig.ids.publicModelId);
   });
 });
 
-describe("M5 streaming: usage records attribute to the resolved target (group)", () => {
+describe('M5 streaming: usage records attribute to the resolved target (group)', () => {
   let rig: LiveRig;
   beforeEach(async () => {
-    const base = await makeGatewayRig({ providerType: "anthropic_compatible" });
+    const base = await makeGatewayRig({ providerType: 'anthropic_compatible' });
     rig = await startListening(base);
   });
   afterEach(async () => {
     await rig.closeAll();
   });
 
-  it("attributes a successful streaming call against a model group to the group", async () => {
+  it('attributes a successful streaming call against a model group to the group', async () => {
     rig.fake.setAnthropicStream({ events: anthropicStreamFrames });
     const res = await postSse(
       rig,
-      "/v1/messages",
-      { ...ANTHROPIC_STREAM_BODY, model: "coding" },
-      { "x-api-key": rig.rawConsumerKey, accept: "text/event-stream" },
+      '/v1/messages',
+      { ...ANTHROPIC_STREAM_BODY, model: 'coding' },
+      { 'x-api-key': rig.rawConsumerKey, accept: 'text/event-stream' },
     );
     expect(res.statusCode).toBe(200);
     const records = await rig.db.select().from(usageRecords).all();
     const streamRec = records.find((r) => r.stream);
     expect(streamRec).toBeTruthy();
-    expect(streamRec!.resolvedTargetType).toBe("model_group");
+    expect(streamRec!.resolvedTargetType).toBe('model_group');
     expect(streamRec!.resolvedTargetId).toBe(rig.ids.modelGroupId);
-    expect(streamRec!.requestedTargetName).toBe("coding");
+    expect(streamRec!.requestedTargetName).toBe('coding');
   });
 });

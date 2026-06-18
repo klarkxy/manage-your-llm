@@ -3,7 +3,7 @@ import type { ProviderModule, ProviderPreset } from './types.js';
 const preset: ProviderPreset = {
   id: 'fireworks',
   icon: '🎆',
-  name: 'Fireworks AI (International)',
+  name: 'Fireworks AI',
   endpoints: [
     {
       protocol: 'openai',

@@ -9,6 +9,7 @@ import {
   buildOpenAICompatibleRequest,
   createAnthropicCompatibleAdapter,
   createOpenAICompatibleAdapter,
+  createCozeAdapter,
   anthropicRequestToIR,
   openaiRequestToIR,
   getProviderPreset,
@@ -339,6 +340,180 @@ describe('openai-compatible adapter', () => {
   });
 });
 
+describe('coze adapter', () => {
+  function makeCozeContext(
+    overrides: Partial<ProviderRequestContext> = {},
+  ): ProviderRequestContext {
+    return makeContext({
+      ir: {
+        ...makeContext().ir,
+        sourceProtocol: 'openai',
+        requestedModel: 'my-bot',
+        messages: [
+          { role: 'user', content: 'hello' },
+          { role: 'assistant', content: 'hi' },
+          { role: 'user', content: 'how are you?' },
+        ],
+      },
+      realModelName: '748535563872637****',
+      baseUrl: 'https://api.coze.cn',
+      apiPath: '/v3/chat',
+      ...overrides,
+    });
+  }
+
+  function makeCozeSse(events: Array<{ event?: string; data: string }>): string {
+    return events
+      .map((ev) => {
+        const lines: string[] = [];
+        if (ev.event) lines.push(`event: ${ev.event}`);
+        for (const line of ev.data.split('\n')) {
+          lines.push(`data: ${line}`);
+        }
+        return lines.join('\n');
+      })
+      .join('\n\n');
+  }
+
+  it('builds the right v3/chat request shape', () => {
+    const ctx = makeCozeContext({ apiKey: 'pat_xxx' });
+    const adapter = createCozeAdapter();
+    const req = adapter.buildRequest(ctx);
+    expect(req.method).toBe('POST');
+    expect(req.url).toBe('https://api.coze.cn/v3/chat');
+    expect(req.headers['content-type']).toBe('application/json');
+    expect(req.headers['authorization']).toBe('Bearer pat_xxx');
+    const body = JSON.parse(req.body) as {
+      bot_id: string;
+      user_id: string;
+      additional_messages: Array<{ role: string; content: string; content_type: string }>;
+      stream: boolean;
+      auto_save_history: boolean;
+    };
+    expect(body.bot_id).toBe('748535563872637****');
+    expect(body.user_id).toBe('u_test');
+    expect(body.additional_messages).toEqual([
+      { role: 'user', content: 'hello', content_type: 'text' },
+      { role: 'assistant', content: 'hi', content_type: 'text' },
+      { role: 'user', content: 'how are you?', content_type: 'text' },
+    ]);
+    expect(body.stream).toBe(true);
+    expect(body.auto_save_history).toBe(true);
+  });
+
+  it('appends conversation_id query param when provided', () => {
+    const ctx = makeCozeContext({ extraParams: { conversation_id: 'conv_123' } });
+    const adapter = createCozeAdapter();
+    const req = adapter.buildRequest(ctx);
+    expect(req.url).toBe('https://api.coze.cn/v3/chat?conversation_id=conv_123');
+  });
+
+  it('normalizes a non-streaming response by aggregating SSE events', () => {
+    const adapter = createCozeAdapter();
+    const sse = makeCozeSse([
+      {
+        event: 'conversation.chat.created',
+        data: JSON.stringify({ id: 'chat_1', conversation_id: 'conv_1' }),
+      },
+      {
+        event: 'conversation.message.delta',
+        data: JSON.stringify({ id: 'msg_1', role: 'assistant', type: 'answer', content: 'I am ' }),
+      },
+      {
+        event: 'conversation.message.delta',
+        data: JSON.stringify({ id: 'msg_1', role: 'assistant', type: 'answer', content: 'fine.' }),
+      },
+      {
+        event: 'conversation.message.completed',
+        data: JSON.stringify({
+          id: 'msg_1',
+          role: 'assistant',
+          type: 'answer',
+          content: 'I am fine.',
+          usage: { input_count: 10, output_count: 5, token_count: 15 },
+        }),
+      },
+      {
+        event: 'conversation.chat.completed',
+        data: JSON.stringify({
+          id: 'chat_1',
+          usage: { input_count: 10, output_count: 5, token_count: 15 },
+        }),
+      },
+      { event: 'done', data: '{}' },
+    ]);
+    const ir = adapter.normalizeResponse({
+      response: makeResponse(200, sse),
+      request: makeCozeContext(),
+    });
+    expect(ir.content).toBe('I am fine.');
+    expect(ir.stopReason).toBe('stop');
+    expect(ir.usage).toEqual({ inputTokens: 10, outputTokens: 5, totalTokens: 15 });
+  });
+
+  it('translates Coze SSE deltas to OpenAI chunks', () => {
+    const adapter = createCozeAdapter();
+    const req = makeCozeContext();
+    const r1 = adapter.normalizeStreamEvent({
+      event: 'conversation.message.delta',
+      data: JSON.stringify({ id: 'msg_1', role: 'assistant', type: 'answer', content: 'Hello' }),
+      request: req,
+      sourceProtocol: 'openai',
+    });
+    expect(r1.kind).toBe('delta');
+    expect(r1.text).toBe('Hello');
+    const frame = r1.clientFrame as { data: string };
+    const parsed = JSON.parse(frame.data);
+    expect(parsed.object).toBe('chat.completion.chunk');
+    expect(parsed.choices[0].delta.content).toBe('Hello');
+  });
+
+  it('translates Coze SSE completion to Anthropic message_stop', () => {
+    const adapter = createCozeAdapter();
+    const req = makeCozeContext();
+    const r1 = adapter.normalizeStreamEvent({
+      event: 'conversation.message.delta',
+      data: JSON.stringify({ id: 'msg_1', role: 'assistant', type: 'answer', content: 'Hello' }),
+      request: req,
+      sourceProtocol: 'anthropic',
+    });
+    expect(r1.kind).toBe('delta');
+    const frames = r1.clientFrame as Array<{ event?: string; data: string }>;
+    expect(frames[0].event).toBe('message_start');
+    expect(frames[1].event).toBe('content_block_start');
+    expect(frames[2].event).toBe('content_block_delta');
+
+    const r2 = adapter.normalizeStreamEvent({
+      event: 'conversation.message.completed',
+      data: JSON.stringify({
+        id: 'msg_1',
+        role: 'assistant',
+        type: 'answer',
+        content: 'Hello',
+        usage: { input_count: 3, output_count: 1, token_count: 4 },
+      }),
+      request: req,
+      sourceProtocol: 'anthropic',
+    });
+    expect(r2.kind).toBe('stop');
+    const stopFrames = r2.clientFrame as Array<{ event?: string; data: string }>;
+    expect(stopFrames[stopFrames.length - 1].event).toBe('message_stop');
+  });
+
+  it('classifies Coze error codes', () => {
+    const adapter = createCozeAdapter();
+    const resp = makeResponse(400, { code: 4016, msg: 'Existing chat in progress' });
+    const err = adapter.normalizeError({
+      response: resp,
+      request: makeCozeContext(),
+      transportError: undefined,
+    });
+    expect(err.category).toBe('provider_bad_request');
+    expect(err.providerCode).toBe('4016');
+    expect(err.providerMessage).toBe('Existing chat in progress');
+  });
+});
+
 describe('provider presets', () => {
   it('exposes all mainstream official presets', () => {
     const presets = [
@@ -367,6 +542,9 @@ describe('provider presets', () => {
       'qianfan',
       'stepfun',
       'siliconflow',
+      'agnes-ai',
+      'kimi-code',
+      'coze',
     ];
     for (const id of presets) {
       const preset = getProviderPreset(id);
@@ -375,7 +553,7 @@ describe('provider presets', () => {
       expect(getModelMappings(preset!).length).toBe(0);
       for (const ep of preset!.endpoints) {
         expect(ep.protocol).toMatch(/^(anthropic|openai)$/);
-        expect(ep.providerType).toMatch(/^(anthropic_compatible|openai_compatible)$/);
+        expect(ep.providerType).toMatch(/^(anthropic_compatible|openai_compatible|coze)$/);
         expect(ep.baseUrl).toMatch(/^https?:\/\//);
       }
     }

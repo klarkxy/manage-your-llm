@@ -3,7 +3,7 @@ import type { ProviderModule, ProviderPreset } from './types.js';
 const preset: ProviderPreset = {
   id: 'opencode-go',
   icon: '🐙',
-  name: 'OpenCode Go (International)',
+  name: 'OpenCode Go',
   endpoints: [
     {
       protocol: 'openai',

@@ -3,7 +3,7 @@ import type { ProviderModule, ProviderPreset } from './types.js';
 const preset: ProviderPreset = {
   id: 'cerebras',
   icon: '🧠',
-  name: 'Cerebras (International)',
+  name: 'Cerebras',
   endpoints: [
     {
       protocol: 'openai',

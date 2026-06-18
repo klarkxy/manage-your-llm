@@ -3,7 +3,7 @@ import type { ProviderModule, ProviderPreset } from './types.js';
 const preset: ProviderPreset = {
   id: 'bytedance',
   icon: '🌋',
-  name: 'ByteDance Volcano Ark (China)',
+  name: 'ByteDance Volcano Ark',
   endpoints: [
     {
       protocol: 'openai',

@@ -2,6 +2,7 @@ export * from './types.js';
 export * from './errors.js';
 export * from './anthropic-compatible.js';
 export * from './openai-compatible.js';
+export * from './coze.js';
 export * from './registry.js';
 export * from './ir-converters.js';
 
@@ -18,6 +19,7 @@ import { getAdapter } from './registry.js';
 
 import openai from './openai.js';
 import anthropic from './anthropic.js';
+import agnesAi from './agnes-ai.js';
 import deepseek from './deepseek.js';
 import moonshot from './moonshot.js';
 import minimaxIntl from './minimax-intl.js';
@@ -41,10 +43,13 @@ import bytedance from './bytedance.js';
 import hunyuan from './hunyuan.js';
 import qianfan from './qianfan.js';
 import stepfun from './stepfun.js';
+import kimiCode from './kimi-code.js';
+import coze from './coze-preset.js';
 
 const MODULES: readonly ProviderModule[] = [
   openai,
   anthropic,
+  agnesAi,
   deepseek,
   moonshot,
   minimaxIntl,
@@ -68,6 +73,8 @@ const MODULES: readonly ProviderModule[] = [
   hunyuan,
   qianfan,
   stepfun,
+  kimiCode,
+  coze,
 ].sort((a, b) => a.preset.name.localeCompare(b.preset.name));
 
 const MODULES_BY_ID: Readonly<Record<string, ProviderModule>> = Object.fromEntries(
@@ -127,7 +134,9 @@ export function getProviderAdapter(candidate: {
   providerType: ProviderType;
   providerPresetId: string | null;
 }): ProviderAdapter {
-  const module = candidate.providerPresetId ? getProviderModule(candidate.providerPresetId) : undefined;
+  const module = candidate.providerPresetId
+    ? getProviderModule(candidate.providerPresetId)
+    : undefined;
   const base = module?.createAdapter ? module.createAdapter() : getAdapter(candidate.providerType);
   return module ? wrapAdapter(module, base) : base;
 }

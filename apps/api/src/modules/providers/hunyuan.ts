@@ -3,7 +3,7 @@ import type { ProviderModule, ProviderPreset } from './types.js';
 const preset: ProviderPreset = {
   id: 'hunyuan',
   icon: '🐧',
-  name: 'Tencent Hunyuan (China)',
+  name: 'Tencent Hunyuan',
   endpoints: [
     {
       protocol: 'openai',

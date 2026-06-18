@@ -340,58 +340,6 @@ describe('upstream keys admin', () => {
     expect(JSON.parse(row!.extraParamsJson!)).toEqual({ seed: 42 });
   });
 
-  it('stores and updates planType', async () => {
-    const create = await rig.app.inject({
-      method: 'POST',
-      url: '/api/admin/upstream-keys',
-      headers: { cookie: rig.cookie },
-      payload: {
-        name: 'plan-1',
-        apiKey: 'sk-plan',
-        providerPresetId: 'openai',
-        planType: 'coding-plan',
-      },
-    });
-    expect(create.statusCode).toBe(200);
-    const { id } = create.json() as { id: string; planType: string | null };
-    expect((create.json() as { planType: string | null }).planType).toBe('coding-plan');
-
-    let row = await rig.db.select().from(upstreamKeys).where(eq(upstreamKeys.id, id)).get();
-    expect(row!.planType).toBe('coding-plan');
-
-    const patch1 = await rig.app.inject({
-      method: 'PATCH',
-      url: `/api/admin/upstream-keys/${id}`,
-      headers: { cookie: rig.cookie },
-      payload: { planType: 'token-plan' },
-    });
-    expect(patch1.statusCode).toBe(200);
-    expect((patch1.json() as { planType: string | null }).planType).toBe('token-plan');
-
-    row = await rig.db.select().from(upstreamKeys).where(eq(upstreamKeys.id, id)).get();
-    expect(row!.planType).toBe('token-plan');
-
-    const patch2 = await rig.app.inject({
-      method: 'PATCH',
-      url: `/api/admin/upstream-keys/${id}`,
-      headers: { cookie: rig.cookie },
-      payload: { planType: null },
-    });
-    expect(patch2.statusCode).toBe(200);
-    expect((patch2.json() as { planType: string | null }).planType).toBeNull();
-
-    row = await rig.db.select().from(upstreamKeys).where(eq(upstreamKeys.id, id)).get();
-    expect(row!.planType).toBeNull();
-
-    const bad = await rig.app.inject({
-      method: 'PATCH',
-      url: `/api/admin/upstream-keys/${id}`,
-      headers: { cookie: rig.cookie },
-      payload: { planType: 'unknown-plan' },
-    });
-    expect(bad.statusCode).toBe(400);
-  });
-
   it('pings a candidate model through the upstream key', async () => {
     const fake = await startFakeUpstream();
     try {

@@ -23,7 +23,6 @@ export interface UpstreamKey {
   candidateCount: number;
   endpoints?: ProviderPresetEndpoint[];
   providerPresetId: string | null;
-  planType: 'coding-plan' | 'token-plan' | null;
   enabled: boolean;
   frozen: boolean;
   frozenReason: string | null;
@@ -62,7 +61,6 @@ export interface UpstreamKeyCreatePayload {
   extraHeaders?: Record<string, string>;
   extraParams?: Record<string, unknown>;
   providerPresetId?: string;
-  planType?: 'coding-plan' | 'token-plan' | null;
   modelMappings?: Array<{ realName: string; publicName?: string; enabled?: boolean }>;
   quota?: {
     period: 'hour' | 'day' | 'week' | 'month' | 'total';

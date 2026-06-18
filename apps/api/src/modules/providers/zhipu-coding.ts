@@ -3,7 +3,7 @@ import type { ProviderModule, ProviderPreset } from './types.js';
 const preset: ProviderPreset = {
   id: 'zhipu-coding',
   icon: '🧬',
-  name: 'Zhipu GLM Coding Plan (China)',
+  name: 'Zhipu GLM Coding Plan',
   endpoints: [
     {
       protocol: 'anthropic',

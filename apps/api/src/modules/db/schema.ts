@@ -1,5 +1,5 @@
 import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import type { ProviderType, SourceProtocol, UpstreamKeyPlanType } from '@modelharbor/shared';
+import type { ProviderType, SourceProtocol } from '@modelharbor/shared';
 
 // --- Admin (M1) ---
 
@@ -87,6 +87,7 @@ export const consumerKeyAccess = sqliteTable(
 export const PROVIDER_TYPES = [
   'anthropic_compatible',
   'openai_compatible',
+  'coze',
 ] as const satisfies readonly ProviderType[];
 
 export const QUOTA_PERIODS = ['hour', 'day', 'week', 'month', 'total'] as const;
@@ -105,7 +106,6 @@ export const upstreamKeys = sqliteTable('upstream_keys', {
   supportedModelsJson: text('supported_models_json').notNull().default('[]'),
   endpointsJson: text('endpoints_json'),
   providerPresetId: text('provider_preset_id'),
-  planType: text('plan_type').$type<UpstreamKeyPlanType | null>(),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
   frozen: integer('frozen', { mode: 'boolean' }).notNull().default(false),
   frozenReason: text('frozen_reason'),

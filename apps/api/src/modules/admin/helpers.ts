@@ -43,14 +43,6 @@ export function assertQuotaPeriod(
   }
 }
 
-export function assertUpstreamKeyPlanType(
-  value: string,
-): asserts value is 'coding-plan' | 'token-plan' {
-  if (value !== 'coding-plan' && value !== 'token-plan') {
-    throw new ValidationError('planType must be coding-plan or token-plan');
-  }
-}
-
 export function assertPositiveInt(name: string, value: unknown, max = 2 ** 31 - 1): number | null {
   if (value === undefined || value === null) return null;
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > max) {

@@ -1,20 +1,14 @@
 import type { ProviderModule, ProviderPreset } from './types.js';
 
 const preset: ProviderPreset = {
-  id: 'zhipu',
-  icon: '🧬',
-  name: 'Zhipu GLM',
+  id: 'agnes-ai',
+  icon: '✨',
+  name: 'Agnes AI',
   endpoints: [
     {
-      protocol: 'anthropic',
-      baseUrl: 'https://open.bigmodel.cn/api/anthropic',
-      providerType: 'anthropic_compatible',
-    },
-    {
       protocol: 'openai',
-      baseUrl: 'https://open.bigmodel.cn/api/paas',
+      baseUrl: 'https://apihub.agnes-ai.com/v1',
       providerType: 'openai_compatible',
-      apiPath: '/v4/chat/completions',
     },
   ],
 };

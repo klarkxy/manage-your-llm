@@ -3,7 +3,7 @@ import type { ProviderModule, ProviderPreset } from './types.js';
 const preset: ProviderPreset = {
   id: 'deepseek',
   icon: '🐋',
-  name: 'DeepSeek (International)',
+  name: 'DeepSeek',
   endpoints: [
     {
       protocol: 'anthropic',

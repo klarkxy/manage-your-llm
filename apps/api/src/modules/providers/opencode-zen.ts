@@ -3,7 +3,7 @@ import type { ProviderModule, ProviderPreset } from './types.js';
 const preset: ProviderPreset = {
   id: 'opencode-zen',
   icon: '🐙',
-  name: 'OpenCode Zen (International)',
+  name: 'OpenCode Zen',
   endpoints: [
     {
       protocol: 'openai',

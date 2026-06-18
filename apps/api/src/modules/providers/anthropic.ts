@@ -3,7 +3,7 @@ import type { ProviderModule, ProviderPreset } from './types.js';
 const preset: ProviderPreset = {
   id: 'anthropic',
   icon: '🟣',
-  name: 'Anthropic (International)',
+  name: 'Anthropic',
   endpoints: [
     {
       protocol: 'anthropic',

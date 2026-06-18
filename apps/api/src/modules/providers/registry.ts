@@ -1,11 +1,13 @@
-import type { ProviderType } from "@modelharbor/shared";
-import { createAnthropicCompatibleAdapter } from "./anthropic-compatible.js";
-import { createOpenAICompatibleAdapter } from "./openai-compatible.js";
-import type { ProviderAdapter } from "./types.js";
+import type { ProviderType } from '@modelharbor/shared';
+import { createAnthropicCompatibleAdapter } from './anthropic-compatible.js';
+import { createOpenAICompatibleAdapter } from './openai-compatible.js';
+import { createCozeAdapter } from './coze.js';
+import type { ProviderAdapter } from './types.js';
 
 const REGISTRY: Readonly<Record<ProviderType, () => ProviderAdapter>> = {
   anthropic_compatible: createAnthropicCompatibleAdapter,
   openai_compatible: createOpenAICompatibleAdapter,
+  coze: createCozeAdapter,
 };
 
 export function getAdapter(type: ProviderType): ProviderAdapter {

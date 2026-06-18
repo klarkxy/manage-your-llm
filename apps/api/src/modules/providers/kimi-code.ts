@@ -1,20 +1,14 @@
 import type { ProviderModule, ProviderPreset } from './types.js';
 
 const preset: ProviderPreset = {
-  id: 'zhipu',
-  icon: '🧬',
-  name: 'Zhipu GLM',
+  id: 'kimi-code',
+  icon: '💻',
+  name: 'Kimi Code',
   endpoints: [
     {
       protocol: 'anthropic',
-      baseUrl: 'https://open.bigmodel.cn/api/anthropic',
+      baseUrl: 'https://api.kimi.com/coding',
       providerType: 'anthropic_compatible',
-    },
-    {
-      protocol: 'openai',
-      baseUrl: 'https://open.bigmodel.cn/api/paas',
-      providerType: 'openai_compatible',
-      apiPath: '/v4/chat/completions',
     },
   ],
 };

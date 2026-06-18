@@ -3,7 +3,7 @@ import type { ProviderModule, ProviderPreset } from './types.js';
 const preset: ProviderPreset = {
   id: 'openrouter',
   icon: '🌐',
-  name: 'OpenRouter (International)',
+  name: 'OpenRouter',
   endpoints: [
     {
       protocol: 'openai',
