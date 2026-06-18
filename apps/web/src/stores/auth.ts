@@ -1,9 +1,9 @@
-import { defineStore } from "pinia";
-import { ref, computed } from "vue";
-import { authApi, type AdminSummary } from "../api/auth.js";
-import { ApiClientError } from "../api/client.js";
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import { authApi, type AdminSummary } from '../api/auth.js';
+import { ApiClientError } from '../api/client.js';
 
-export const useAuthStore = defineStore("auth", () => {
+export const useAuthStore = defineStore('auth', () => {
   const user = ref<AdminSummary | null>(null);
   const ready = ref(false);
   const isAuthenticated = computed(() => user.value !== null);

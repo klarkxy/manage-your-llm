@@ -93,13 +93,18 @@ export const PROVIDER_TYPES = [
 export const QUOTA_PERIODS = ['hour', 'day', 'week', 'month', 'total'] as const;
 export type QuotaPeriod = (typeof QUOTA_PERIODS)[number];
 
+export const UPSTREAM_AUTH_TYPES = ['pat', 'coze_oauth_jwt', 'codex_oauth'] as const;
+export type UpstreamAuthType = (typeof UPSTREAM_AUTH_TYPES)[number];
+
 export const upstreamKeys = sqliteTable('upstream_keys', {
   id: text('id').primaryKey(),
   name: text('name').notNull().unique(),
   providerType: text('provider_type', { enum: PROVIDER_TYPES }).notNull(),
   baseUrl: text('base_url').notNull(),
+  authType: text('auth_type', { enum: UPSTREAM_AUTH_TYPES }).notNull().default('pat'),
   apiKeyCiphertext: text('api_key_ciphertext').notNull(),
   apiKeyPrefix: text('api_key_prefix').notNull(),
+  authConfigCiphertext: text('auth_config_ciphertext'),
   defaultHeadersJson: text('default_headers_json'),
   extraHeadersJson: text('extra_headers_json'),
   extraParamsJson: text('extra_params_json'),

@@ -1,9 +1,9 @@
-import { createHmac, createHash } from "node:crypto";
+import { createHmac, createHash } from 'node:crypto';
 
-const SEP = ".";
+const SEP = '.';
 
 function sign(payload: string, secret: string): string {
-  return createHmac("sha256", secret).update(payload).digest("base64url");
+  return createHmac('sha256', secret).update(payload).digest('base64url');
 }
 
 export function issueSessionToken(sessionId: string, secret: string): string {
@@ -28,5 +28,5 @@ export function verifySessionToken(token: string, secret: string): string | null
 }
 
 export function hashSessionId(sessionId: string): string {
-  return createHash("sha256").update(sessionId).digest("base64url");
+  return createHash('sha256').update(sessionId).digest('base64url');
 }

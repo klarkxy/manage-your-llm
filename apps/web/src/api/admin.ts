@@ -13,8 +13,9 @@ export interface UpstreamKeyQuota {
 export interface UpstreamKey {
   id: string;
   name: string;
-  providerType: 'anthropic_compatible' | 'openai_compatible';
+  providerType: 'anthropic_compatible' | 'openai_compatible' | 'coze';
   baseUrl: string;
+  authType: 'pat' | 'coze_oauth_jwt' | 'codex_oauth';
   apiKeyPrefix: string;
   defaultHeaders: Record<string, string>;
   extraHeaders: Record<string, string>;
@@ -53,9 +54,11 @@ export interface UpstreamKeyCandidate {
 
 export interface UpstreamKeyCreatePayload {
   name: string;
-  providerType?: 'anthropic_compatible' | 'openai_compatible';
+  providerType?: 'anthropic_compatible' | 'openai_compatible' | 'coze';
   baseUrl?: string;
-  apiKey: string;
+  apiKey?: string;
+  authType?: 'pat' | 'coze_oauth_jwt' | 'codex_oauth';
+  authConfig?: Record<string, unknown>;
   supportedModels?: string[];
   defaultHeaders?: Record<string, string>;
   extraHeaders?: Record<string, string>;
@@ -74,9 +77,12 @@ export interface UpstreamKeyCreatePayload {
 export interface DiscoverModelsPayload {
   baseUrl: string;
   apiKey?: string;
-  providerType: 'anthropic_compatible' | 'openai_compatible';
+  providerType: 'anthropic_compatible' | 'openai_compatible' | 'coze';
   providerPresetId?: string;
   upstreamKeyId?: string;
+  workspaceId?: string;
+  authType?: 'pat' | 'coze_oauth_jwt' | 'codex_oauth';
+  authConfig?: Record<string, unknown>;
 }
 
 export interface UpstreamKeyPingPayload {
@@ -132,7 +138,7 @@ export const upstreamKeysApi = {
 export interface ProviderPresetEndpoint {
   protocol: 'anthropic' | 'openai';
   baseUrl: string;
-  providerType: 'anthropic_compatible' | 'openai_compatible';
+  providerType: 'anthropic_compatible' | 'openai_compatible' | 'coze';
   apiPath?: string;
 }
 
@@ -145,6 +151,10 @@ export interface ProviderPreset {
   defaultHeaders?: Record<string, string>;
   defaultExtraHeaders?: Record<string, string>;
   defaultExtraParams?: Record<string, unknown>;
+  authStrategies?: {
+    default: string;
+    available: string[];
+  };
 }
 
 export const providerPresetsApi = {

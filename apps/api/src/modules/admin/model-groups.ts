@@ -1,6 +1,6 @@
-import { eq, desc } from "drizzle-orm";
-import type { FastifyInstance } from "fastify";
-import { generateId, ValidationError } from "@modelharbor/shared";
+import { eq, desc } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { generateId, ValidationError } from '@modelharbor/shared';
 import {
   type Db,
   type ModelGroupRow,
@@ -8,15 +8,15 @@ import {
   modelGroupMembers,
   publicModels,
   targetNames,
-} from "../db/index.js";
+} from '../db/index.js';
 import {
   assertTargetName,
   deleteTargetRow,
   findModelGroupById,
   replaceRowsInTransaction,
-} from "./helpers.js";
-import { auditMetaFromRequest } from "./upstream-keys.js";
-import { recordAuditEvent } from "../observability/index.js";
+} from './helpers.js';
+import { auditMetaFromRequest } from './upstream-keys.js';
+import { recordAuditEvent } from '../observability/index.js';
 
 export interface ModelGroupRouteDeps {
   db: Db;
@@ -72,7 +72,7 @@ function presentGroup(row: ModelGroupRow, memberCount: number) {
 export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupRouteDeps): void {
   const { db } = deps;
 
-  app.get("/api/admin/model-groups", async () => {
+  app.get('/api/admin/model-groups', async () => {
     const rows = await db.select().from(modelGroups).orderBy(desc(modelGroups.createdAt)).all();
     const members = await db.select().from(modelGroupMembers).all();
     const counts = new Map<string, number>();
@@ -82,24 +82,35 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
     return { items: rows.map((r) => presentGroup(r, counts.get(r.id) ?? 0)) };
   });
 
-  app.get("/api/admin/model-groups/:id", async (req, reply) => {
+  app.get('/api/admin/model-groups/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const row = await findModelGroupById(db, id);
     if (!row) {
-      reply.code(404).send({ error: { message: "model group not found", type: "target_not_found", code: "target_not_found" } });
+      reply.code(404).send({
+        error: {
+          message: 'model group not found',
+          type: 'target_not_found',
+          code: 'target_not_found',
+        },
+      });
       return;
     }
     const members = await loadMembers(db, id);
     return { ...presentGroup(row, members.length), members };
   });
 
-  app.post("/api/admin/model-groups", async (req) => {
-    const body = (req.body ?? {}) as { name?: unknown; displayName?: unknown; description?: unknown; members?: unknown };
-    const name = typeof body.name === "string" ? body.name.trim() : "";
+  app.post('/api/admin/model-groups', async (req) => {
+    const body = (req.body ?? {}) as {
+      name?: unknown;
+      displayName?: unknown;
+      description?: unknown;
+      members?: unknown;
+    };
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
     assertTargetName(name);
-    const displayName = typeof body.displayName === "string" ? body.displayName.trim() : null;
-    const description = typeof body.description === "string" ? body.description.trim() : null;
-    const id = generateId("modelGroup");
+    const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : null;
+    const description = typeof body.description === 'string' ? body.description.trim() : null;
+    const id = generateId('modelGroup');
     const now = new Date();
 
     // Validate and normalize the full members batch up front so a bad row never
@@ -118,16 +129,16 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
     const referencedPublicModelIds = new Set<string>();
     for (const raw of memberInputs) {
       const m = raw as MemberInput;
-      if (typeof m.publicModelId !== "string") {
-        throw new ValidationError("member requires publicModelId");
+      if (typeof m.publicModelId !== 'string') {
+        throw new ValidationError('member requires publicModelId');
       }
       referencedPublicModelIds.add(m.publicModelId);
       normalizedMembers.push({
-        id: generateId("modelGroup") + "_m",
+        id: generateId('modelGroup') + '_m',
         modelGroupId: id,
         publicModelId: m.publicModelId,
-        priority: typeof m.priority === "number" ? m.priority : 100,
-        weight: typeof m.weight === "number" ? m.weight : 1,
+        priority: typeof m.priority === 'number' ? m.priority : 100,
+        weight: typeof m.weight === 'number' ? m.weight : 1,
         enabled: m.enabled === false ? false : true,
         createdAt: now,
         updatedAt: now,
@@ -160,14 +171,14 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
         displayName,
         description,
         enabled: true,
-        routingPolicy: "priority",
+        routingPolicy: 'priority',
         createdAt: now,
         updatedAt: now,
       });
       await tx.insert(targetNames).values({
-        id: `tn_${generateId("modelGroup").slice(-8)}`,
+        id: `tn_${generateId('modelGroup').slice(-8)}`,
         name,
-        targetType: "model_group",
+        targetType: 'model_group',
         targetId: id,
         createdAt: now,
       });
@@ -177,72 +188,89 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
     });
 
     const row = await findModelGroupById(db, id);
-    if (!row) throw new Error("insert failed");
+    if (!row) throw new Error('insert failed');
     const members = await loadMembers(db, id);
     await recordAuditEvent(db, {
       ...auditMetaFromRequest(req),
-      action: "model_group.create",
-      resourceType: "model_group",
+      action: 'model_group.create',
+      resourceType: 'model_group',
       resourceId: row.id,
       details: { name: row.name, members: members.length },
     });
     return { ...presentGroup(row, members.length), members };
   });
 
-  app.patch("/api/admin/model-groups/:id", async (req, reply) => {
+  app.patch('/api/admin/model-groups/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const body = (req.body ?? {}) as { displayName?: unknown; description?: unknown; enabled?: unknown; routingPolicy?: unknown };
+    const body = (req.body ?? {}) as {
+      displayName?: unknown;
+      description?: unknown;
+      enabled?: unknown;
+      routingPolicy?: unknown;
+    };
     const existing = await findModelGroupById(db, id);
     if (!existing) {
-      reply.code(404).send({ error: { message: "model group not found", type: "target_not_found", code: "target_not_found" } });
+      reply.code(404).send({
+        error: {
+          message: 'model group not found',
+          type: 'target_not_found',
+          code: 'target_not_found',
+        },
+      });
       return;
     }
     const update: Partial<typeof modelGroups.$inferInsert> = { updatedAt: new Date() };
-    if (typeof body.displayName === "string" || body.displayName === null) {
-      update.displayName = typeof body.displayName === "string" ? body.displayName.trim() : null;
+    if (typeof body.displayName === 'string' || body.displayName === null) {
+      update.displayName = typeof body.displayName === 'string' ? body.displayName.trim() : null;
     }
-    if (typeof body.description === "string" || body.description === null) {
-      update.description = typeof body.description === "string" ? body.description.trim() : null;
+    if (typeof body.description === 'string' || body.description === null) {
+      update.description = typeof body.description === 'string' ? body.description.trim() : null;
     }
-    if (typeof body.enabled === "boolean") update.enabled = body.enabled;
-    if (typeof body.routingPolicy === "string") update.routingPolicy = body.routingPolicy;
+    if (typeof body.enabled === 'boolean') update.enabled = body.enabled;
+    if (typeof body.routingPolicy === 'string') update.routingPolicy = body.routingPolicy;
     await db.update(modelGroups).set(update).where(eq(modelGroups.id, id));
     const row = await findModelGroupById(db, id);
-    if (!row) throw new Error("not found");
+    if (!row) throw new Error('not found');
     const members = await loadMembers(db, id);
     await recordAuditEvent(db, {
       ...auditMetaFromRequest(req),
-      action: "model_group.update",
-      resourceType: "model_group",
+      action: 'model_group.update',
+      resourceType: 'model_group',
       resourceId: row.id,
       details: { name: row.name, enabled: row.enabled },
     });
     return { ...presentGroup(row, members.length), members };
   });
 
-  app.put("/api/admin/model-groups/:id/members", async (req, reply) => {
+  app.put('/api/admin/model-groups/:id/members', async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = (req.body ?? {}) as { members?: unknown };
     const existing = await findModelGroupById(db, id);
     if (!existing) {
-      reply.code(404).send({ error: { message: "model group not found", type: "target_not_found", code: "target_not_found" } });
+      reply.code(404).send({
+        error: {
+          message: 'model group not found',
+          type: 'target_not_found',
+          code: 'target_not_found',
+        },
+      });
       return;
     }
     if (!Array.isArray(body.members)) {
-      throw new ValidationError("members must be an array");
+      throw new ValidationError('members must be an array');
     }
     const now = new Date();
     const normalized = body.members.map((raw) => {
       const m = raw as MemberInput;
-      if (typeof m.publicModelId !== "string") {
-        throw new ValidationError("member requires publicModelId");
+      if (typeof m.publicModelId !== 'string') {
+        throw new ValidationError('member requires publicModelId');
       }
       return {
-        id: generateId("modelGroup") + "_m",
+        id: generateId('modelGroup') + '_m',
         modelGroupId: id,
         publicModelId: m.publicModelId,
-        priority: typeof m.priority === "number" ? m.priority : 100,
-        weight: typeof m.weight === "number" ? m.weight : 1,
+        priority: typeof m.priority === 'number' ? m.priority : 100,
+        weight: typeof m.weight === 'number' ? m.weight : 1,
         enabled: m.enabled === false ? false : true,
         createdAt: now,
         updatedAt: now,
@@ -261,8 +289,8 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
     });
     await recordAuditEvent(db, {
       ...auditMetaFromRequest(req),
-      action: "model_group.update",
-      resourceType: "model_group",
+      action: 'model_group.update',
+      resourceType: 'model_group',
       resourceId: id,
       details: { membersCount: normalized.length },
     });
@@ -270,22 +298,30 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
     return { members };
   });
 
-  app.delete("/api/admin/model-groups/:id", async (req, reply) => {
+  app.delete('/api/admin/model-groups/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const existing = await findModelGroupById(db, id);
     if (!existing) {
-      reply.code(404).send({ error: { message: "model group not found", type: "target_not_found", code: "target_not_found" } });
+      reply.code(404).send({
+        error: {
+          message: 'model group not found',
+          type: 'target_not_found',
+          code: 'target_not_found',
+        },
+      });
       return;
     }
     await deleteTargetRow(db, {
-      targetType: "model_group",
+      targetType: 'model_group',
       targetId: id,
-      deleteTarget: async (tx) => { await tx.delete(modelGroups).where(eq(modelGroups.id, id)); },
+      deleteTarget: async (tx) => {
+        await tx.delete(modelGroups).where(eq(modelGroups.id, id));
+      },
     });
     await recordAuditEvent(db, {
       ...auditMetaFromRequest(req),
-      action: "model_group.delete",
-      resourceType: "model_group",
+      action: 'model_group.delete',
+      resourceType: 'model_group',
       resourceId: id,
     });
     return { id, deleted: true };

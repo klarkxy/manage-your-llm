@@ -17,7 +17,7 @@ import {
 } from '@modelharbor/shared';
 import { eq } from 'drizzle-orm';
 import { type Db, upstreamKeys } from '../db/index.js';
-import { decryptSecret } from '../auth/crypto.js';
+import { resolveAuthorizationHeader } from '../providers/auth/index.js';
 import {
   type ResolvedCandidate,
   expandCandidates,
@@ -103,7 +103,7 @@ async function tryCandidates(
     lastCandidate = candidate;
     attempts += 1;
     const adapter = getProviderAdapter(candidate);
-    const request = buildHttpRequest(ctx, { ir: args.ir, candidate, adapter });
+    const request = await buildHttpRequest(ctx, { ir: args.ir, candidate, adapter });
     console.error(
       `[modelharbor upstream] candidate provider=${candidate.providerType} model=${candidate.realModelName} upstreamKeyId=${candidate.upstreamKeyId} baseUrl=${request.url}`,
     );
@@ -160,11 +160,23 @@ async function tryCandidates(
   throw new NoRouteAvailableError('no available upstream');
 }
 
-function buildHttpRequest(
+async function buildHttpRequest(
   ctx: GatewayRequestContext,
   args: { ir: ChatRequestIR; candidate: ResolvedCandidate; adapter: ProviderAdapter },
-): ProviderHttpRequest {
-  const apiKey = decryptSecret(args.candidate.apiKeyCiphertext, ctx.secretKey);
+): Promise<ProviderHttpRequest> {
+  const authHeader = await resolveAuthorizationHeader({
+    row: {
+      id: args.candidate.upstreamKeyId,
+      authType: args.candidate.authType,
+      apiKeyCiphertext: args.candidate.apiKeyCiphertext,
+      authConfigCiphertext: args.candidate.authConfigCiphertext,
+    },
+    secretKey: ctx.secretKey,
+    baseUrl: args.candidate.endpointBaseUrl,
+    db: ctx.db,
+  });
+  // Preserve legacy adapter contract: the Authorization header value is passed as
+  // apiKey; adapters for PAT providers place it in the expected header.
   const providerCtx: ProviderRequestContext = {
     ir: args.ir,
     realModelName: args.candidate.realModelName,
@@ -173,7 +185,7 @@ function buildHttpRequest(
     stream: args.ir.stream,
     baseUrl: args.candidate.endpointBaseUrl,
     apiPath: args.candidate.endpointApiPath,
-    apiKey,
+    apiKey: authHeader.replace(/^Bearer\s+/i, ''),
     extraHeaders: args.candidate.extraHeaders,
     extraParams: args.candidate.extraParams,
   };

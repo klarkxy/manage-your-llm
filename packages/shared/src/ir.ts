@@ -1,4 +1,4 @@
-import type { SourceProtocol } from "./protocols.js";
+import type { SourceProtocol } from './protocols.js';
 
 // --- Internal Request Representation ---
 //
@@ -8,7 +8,7 @@ import type { SourceProtocol } from "./protocols.js";
 // upstream wire format. Keeping the IR protocol-neutral means the router
 // engine does not need to know which provider it is talking to.
 
-export type ChatRole = "user" | "assistant" | "system" | "tool";
+export type ChatRole = 'user' | 'assistant' | 'system' | 'tool';
 
 export interface ChatMessageIR {
   role: ChatRole;
@@ -66,12 +66,12 @@ export interface NormalizedChatResponse {
 // ignores tools/tool_choice/structured-output/etc. for now.
 
 export interface AnthropicMessage {
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string | AnthropicContentBlock[];
 }
 
 export interface AnthropicContentBlock {
-  type: "text" | "image" | "tool_use" | "tool_result" | string;
+  type: 'text' | 'image' | 'tool_use' | 'tool_result' | string;
   text?: string;
   // tool_use / tool_result / image have additional fields; left loose for M3.
   [key: string]: unknown;
@@ -93,8 +93,8 @@ export interface AnthropicMessagesRequest {
 
 export interface AnthropicMessagesResponse {
   id: string;
-  type: "message";
-  role: "assistant";
+  type: 'message';
+  role: 'assistant';
   content: AnthropicContentBlock[];
   model: string;
   stop_reason: string | null;
@@ -109,7 +109,7 @@ export interface AnthropicMessagesResponse {
 }
 
 export interface OpenAIChatMessage {
-  role: "system" | "user" | "assistant" | "tool" | "function";
+  role: 'system' | 'user' | 'assistant' | 'tool' | 'function';
   // For tool/function messages, OpenAI uses `content` to carry the result text.
   content?: string | null;
   // For assistant messages, tool calls may be present.
@@ -141,17 +141,24 @@ export interface OpenAIChatCompletionsRequest {
 export interface OpenAIChatChoice {
   index: number;
   message: {
-    role: "assistant";
+    role: 'assistant';
     content: string | null;
     refusal?: string | null;
   };
-  finish_reason: "stop" | "length" | "tool_calls" | "content_filter" | "function_call" | string | null;
+  finish_reason:
+    | 'stop'
+    | 'length'
+    | 'tool_calls'
+    | 'content_filter'
+    | 'function_call'
+    | string
+    | null;
   logprobs?: unknown;
 }
 
 export interface OpenAIChatCompletionsResponse {
   id: string;
-  object: "chat.completion";
+  object: 'chat.completion';
   created: number;
   model: string;
   choices: OpenAIChatChoice[];
@@ -168,7 +175,7 @@ export interface OpenAIChatCompletionsResponse {
 // classes; the gateway then maps the class to a status code.
 
 export interface AnthropicErrorBody {
-  type: "error";
+  type: 'error';
   error: {
     type: string;
     message: string;

@@ -377,7 +377,12 @@ describe('upstream keys admin', () => {
       const candidate = await rig.db
         .select()
         .from(publicModelCandidates)
-        .where(and(eq(publicModelCandidates.upstreamKeyId, id), eq(publicModelCandidates.realModelName, 'fake-model')))
+        .where(
+          and(
+            eq(publicModelCandidates.upstreamKeyId, id),
+            eq(publicModelCandidates.realModelName, 'fake-model'),
+          ),
+        )
         .get();
       expect(candidate).toBeTruthy();
       expect(candidate!.lastPingOk).toBe(true);
@@ -419,7 +424,11 @@ describe('upstream keys admin', () => {
         payload: { realModelName: 'fake-model' },
       });
       expect(ping.statusCode).toBe(200);
-      const result = ping.json() as { ok: boolean; status?: number; error?: { type: string; message: string } };
+      const result = ping.json() as {
+        ok: boolean;
+        status?: number;
+        error?: { type: string; message: string };
+      };
       expect(result.ok).toBe(false);
       expect(result.status).toBe(401);
       expect(result.error).toBeTruthy();
@@ -431,7 +440,12 @@ describe('upstream keys admin', () => {
       const candidate = await rig.db
         .select()
         .from(publicModelCandidates)
-        .where(and(eq(publicModelCandidates.upstreamKeyId, id), eq(publicModelCandidates.realModelName, 'fake-model')))
+        .where(
+          and(
+            eq(publicModelCandidates.upstreamKeyId, id),
+            eq(publicModelCandidates.realModelName, 'fake-model'),
+          ),
+        )
         .get();
       expect(candidate).toBeTruthy();
       expect(candidate!.lastPingOk).toBe(false);

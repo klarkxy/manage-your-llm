@@ -22,6 +22,8 @@ export interface ResolvedCandidate {
   upstreamKeyName: string;
   providerType: ProviderType;
   baseUrl: string;
+  authType: string | null;
+  authConfigCiphertext: string | null;
   apiKeyCiphertext: string;
   realModelName: string;
   // Upstream state at expand time. Re-checked by the filter using `now` because
@@ -123,6 +125,8 @@ function toResolvedCandidate(row: CandidateRow): ResolvedCandidate {
     upstreamKeyName: row.upstreamKey.name,
     providerType: row.upstreamKey.providerType,
     baseUrl: row.upstreamKey.baseUrl,
+    authType: row.upstreamKey.authType,
+    authConfigCiphertext: row.upstreamKey.authConfigCiphertext,
     apiKeyCiphertext: row.upstreamKey.apiKeyCiphertext,
     realModelName: row.candidate.realModelName,
     upstreamEnabled: row.upstreamKey.enabled,
@@ -138,7 +142,10 @@ function toResolvedCandidate(row: CandidateRow): ResolvedCandidate {
     endpointBaseUrl: row.upstreamKey.baseUrl,
     endpointsJson: row.upstreamKey.endpointsJson,
     providerPresetId: row.upstreamKey.providerPresetId,
-    extraHeaders: parseExtraHeaders(row.upstreamKey.extraHeadersJson, row.upstreamKey.defaultHeadersJson),
+    extraHeaders: parseExtraHeaders(
+      row.upstreamKey.extraHeadersJson,
+      row.upstreamKey.defaultHeadersJson,
+    ),
     extraParams: parseExtraParams(row.upstreamKey.extraParamsJson),
   };
 }

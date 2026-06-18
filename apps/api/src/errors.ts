@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance } from 'fastify';
 import {
   AuthenticationError,
   NoRouteAvailableError,
@@ -11,7 +11,7 @@ import {
   TargetNotFoundError,
   ValidationError,
   isNormalizedError,
-} from "@modelharbor/shared";
+} from '@modelharbor/shared';
 
 export function registerErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((err, req, reply) => {
@@ -19,12 +19,12 @@ export function registerErrorHandler(app: FastifyInstance): void {
       reply.status(statusFor(err)).send(err.toClientShape());
       return;
     }
-    req.log.error({ err }, "unhandled error");
+    req.log.error({ err }, 'unhandled error');
     reply.status(500).send({
       error: {
-        message: "Internal server error",
-        type: "internal_error",
-        code: "internal_error",
+        message: 'Internal server error',
+        type: 'internal_error',
+        code: 'internal_error',
       },
     });
   });

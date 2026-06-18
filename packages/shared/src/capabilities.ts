@@ -1,6 +1,6 @@
-import type { SourceProtocol } from "./protocols.js";
+import type { SourceProtocol } from './protocols.js';
 
-export type UsageAvailability = "always" | "on_demand" | "unavailable";
+export type UsageAvailability = 'always' | 'on_demand' | 'unavailable';
 
 export interface ProviderCapabilities {
   protocols: readonly SourceProtocol[];

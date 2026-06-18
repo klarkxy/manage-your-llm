@@ -1,11 +1,11 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq } from 'drizzle-orm';
 import {
   type ConsumerKeyAccessRow,
   type Db,
   type TargetType,
   consumerKeyAccess,
-} from "../db/index.js";
-import { PermissionError } from "@modelharbor/shared";
+} from '../db/index.js';
+import { PermissionError } from '@modelharbor/shared';
 
 // Throw PermissionError if the consumer key does not have an access grant
 // pointing at (targetType, targetId). The grant table is the authoritative

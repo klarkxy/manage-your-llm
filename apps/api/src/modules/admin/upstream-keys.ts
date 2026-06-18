@@ -1,6 +1,11 @@
 import { eq, desc, and, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { generateId, ValidationError, type ProviderType, type ChatRequestIR } from '@modelharbor/shared';
+import {
+  generateId,
+  ValidationError,
+  type ProviderType,
+  type ChatRequestIR,
+} from '@modelharbor/shared';
 import {
   type UpstreamKeyCounterRow,
   type UpstreamKeyQuotaRow,
@@ -25,6 +30,14 @@ import {
 import { buildOpenAICompatibleRequest } from '../providers/openai-compatible.js';
 import { buildAnthropicCompatibleRequest } from '../providers/anthropic-compatible.js';
 import { sendUpstreamRequest } from '../gateway/sender.js';
+import {
+  assertAuthType,
+  resolveAuthorizationHeader,
+  resolveAuthorizationHeaderFromCredentials,
+  validateAuthConfig,
+  type UpstreamAuthType,
+} from '../providers/auth/index.js';
+import { encryptSecret } from '../auth/crypto.js';
 import {
   getUpstreamKeyCandidates,
   onboardUpstreamKeyWithMappings,
@@ -88,6 +101,8 @@ interface CreateUpstreamKeyBody {
   providerType?: unknown;
   baseUrl?: unknown;
   apiKey?: unknown;
+  authType?: unknown;
+  authConfig?: unknown;
   defaultHeaders?: unknown;
   extraHeaders?: unknown;
   extraParams?: unknown;
@@ -115,6 +130,7 @@ function presentUpstreamKey(
     name: row.name,
     providerType: row.providerType,
     baseUrl: row.baseUrl,
+    authType: row.authType,
     apiKeyPrefix: row.apiKeyPrefix,
     defaultHeaders: parseJsonObject(row.defaultHeadersJson),
     extraHeaders: parseJsonObject(row.extraHeadersJson),
@@ -302,12 +318,55 @@ function extractModelIds(json: unknown): string[] {
   return ids;
 }
 
+function buildCozeBotsUrl(baseUrl: string, workspaceId: string): string {
+  const normalized = baseUrl.trim().replace(/\/+$/, '');
+  const url = new URL('/v1/bots', normalized);
+  url.searchParams.set('workspace_id', workspaceId);
+  url.searchParams.set('connector_id', '1024');
+  url.searchParams.set('page_num', '1');
+  url.searchParams.set('page_size', '100');
+  return url.toString();
+}
+
+interface CozeBotItem {
+  id: string;
+  name: string;
+}
+
+function extractCozeBots(json: unknown): CozeBotItem[] {
+  if (!json || typeof json !== 'object') return [];
+  const items: unknown[] = [];
+  const data = (json as { data?: unknown }).data;
+  if (
+    data &&
+    typeof data === 'object' &&
+    'items' in data &&
+    Array.isArray((data as { items?: unknown[] }).items)
+  ) {
+    items.push(...(data as { items: unknown[] }).items);
+  }
+  const out: CozeBotItem[] = [];
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue;
+    const id = (item as { id?: unknown }).id;
+    const name = (item as { name?: unknown }).name;
+    if (typeof id === 'string' && id.length > 0 && typeof name === 'string') {
+      out.push({ id, name });
+    }
+  }
+  return out;
+}
+
 interface DiscoverModelsBody {
   baseUrl?: unknown;
   apiKey?: unknown;
   providerType?: unknown;
   providerPresetId?: unknown;
   upstreamKeyId?: unknown;
+  // Coze requires a workspace_id to list bots via /v1/bots.
+  workspaceId?: unknown;
+  authType?: unknown;
+  authConfig?: unknown;
 }
 
 interface PingUpstreamKeyBody {
@@ -361,17 +420,32 @@ async function pingUpstreamModel(
   row: UpstreamKeyRow,
   realModelName: string,
   secretKey: string,
-): Promise<{ ok: boolean; status?: number; latencyMs: number; error?: { type: string; message: string } }> {
-  const apiKey = decryptUpstreamApiKey(row.apiKeyCiphertext, secretKey);
+  db: Db,
+): Promise<{
+  ok: boolean;
+  status?: number;
+  latencyMs: number;
+  error?: { type: string; message: string };
+}> {
   const endpoints = row.endpointsJson ? parseEndpoints(row.endpointsJson) : [];
   const endpoint = endpoints[0];
   const providerType = endpoint?.providerType ?? row.providerType;
   const baseUrl = endpoint?.baseUrl ?? row.baseUrl;
   const apiPath = endpoint?.apiPath;
+  const authHeader = await resolveAuthorizationHeader({ row, secretKey, baseUrl, db });
+  const apiKey = authHeader.replace(/^Bearer\s+/i, '');
   const extraHeaders = parseJsonObject(row.extraHeadersJson);
   const extraParams = parseJsonRecord(row.extraParamsJson) ?? {};
 
-  const req = buildPingRequest(providerType, baseUrl, apiPath, apiKey, extraHeaders, extraParams, realModelName);
+  const req = buildPingRequest(
+    providerType,
+    baseUrl,
+    apiPath,
+    apiKey,
+    extraHeaders,
+    extraParams,
+    realModelName,
+  );
   const start = performance.now();
   const outcome = await sendUpstreamRequest(req, { timeoutMs: 10_000 });
 
@@ -440,24 +514,9 @@ async function discoverUpstreamModels(
 ): Promise<Array<{ realName: string; publicName: string }>> {
   const { body, db, secretKey } = ctx;
   const fallbackBaseUrl = typeof body.baseUrl === 'string' ? body.baseUrl.trim() : '';
-  let apiKey = typeof body.apiKey === 'string' ? body.apiKey : '';
   const rawProviderType = typeof body.providerType === 'string' ? body.providerType : '';
   const upstreamKeyId = typeof body.upstreamKeyId === 'string' ? body.upstreamKeyId : '';
 
-  let upstreamKey: UpstreamKeyRow | undefined;
-  if (!apiKey && upstreamKeyId) {
-    upstreamKey = await db
-      .select()
-      .from(upstreamKeys)
-      .where(eq(upstreamKeys.id, upstreamKeyId))
-      .get();
-    if (!upstreamKey) {
-      throw new ValidationError('upstream key not found');
-    }
-    apiKey = decryptUpstreamApiKey(upstreamKey.apiKeyCiphertext, secretKey);
-  }
-
-  if (!apiKey) throw new ValidationError('apiKey is required');
   assertProviderType(rawProviderType);
 
   const presetId = typeof body.providerPresetId === 'string' ? body.providerPresetId : '';
@@ -469,8 +528,43 @@ async function discoverUpstreamModels(
   );
   if (!baseUrl) throw new ValidationError('baseUrl is required');
 
+  let upstreamKey: UpstreamKeyRow | undefined;
+  if (upstreamKeyId) {
+    upstreamKey = await db
+      .select()
+      .from(upstreamKeys)
+      .where(eq(upstreamKeys.id, upstreamKeyId))
+      .get();
+    if (!upstreamKey) {
+      throw new ValidationError('upstream key not found');
+    }
+  }
+
+  let authHeader: string;
+  if (upstreamKey) {
+    authHeader = await resolveAuthorizationHeader({ row: upstreamKey, secretKey, baseUrl, db });
+  } else {
+    const rawAuthType = body.authType;
+    const authType: UpstreamAuthType =
+      typeof rawAuthType === 'string' ? assertAuthType(rawAuthType) : 'pat';
+    if (authType === 'pat') {
+      const apiKey = typeof body.apiKey === 'string' ? body.apiKey : '';
+      if (!apiKey) throw new ValidationError('apiKey is required');
+      authHeader = `Bearer ${apiKey}`;
+    } else {
+      const authConfig =
+        parseJsonRecord(typeof body.authConfig === 'string' ? body.authConfig : null) ?? {};
+      authHeader = await resolveAuthorizationHeaderFromCredentials(baseUrl, secretKey, {
+        authType,
+        authConfig,
+      });
+    }
+  }
+
   const extraHeaders: Record<string, string> = {
-    ...parseJsonObject(preset?.defaultExtraHeaders ? JSON.stringify(preset.defaultExtraHeaders) : null),
+    ...parseJsonObject(
+      preset?.defaultExtraHeaders ? JSON.stringify(preset.defaultExtraHeaders) : null,
+    ),
     ...parseJsonObject(upstreamKey?.extraHeadersJson ?? null),
   };
 
@@ -479,15 +573,63 @@ async function discoverUpstreamModels(
     ...extraHeaders,
   };
   if (providerType === 'anthropic_compatible') {
-    headers['x-api-key'] = apiKey;
+    headers['x-api-key'] = authHeader.replace(/^Bearer\s+/i, '');
     headers['anthropic-version'] = '2023-06-01';
   } else {
-    headers.authorization = `Bearer ${apiKey}`;
+    headers.authorization = authHeader;
   }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
   try {
+    if (providerType === 'coze') {
+      const workspaceId = typeof body.workspaceId === 'string' ? body.workspaceId.trim() : '';
+      if (!workspaceId) {
+        throw new ValidationError('workspaceId is required for Coze discovery');
+      }
+      const botsUrl = buildCozeBotsUrl(baseUrl, workspaceId);
+      console.error(
+        `[modelharbor upstream] discover bots --> GET ${botsUrl} (providerType=coze, keySource=${upstreamKeyId ? 'stored' : 'payload'})`,
+      );
+      const res = await fetch(botsUrl, {
+        method: 'GET',
+        headers,
+        signal: controller.signal,
+      });
+      const bodyText = await res.text();
+      const bodyPreview = bodyText.slice(0, 500);
+      console.error(
+        `[modelharbor upstream] discover bots <-- ${res.status} ${botsUrl} body=${bodyPreview}`,
+      );
+      if (!res.ok) {
+        throw new Error(
+          `upstream returned ${res.status}${bodyText ? `: ${bodyText.slice(0, 200)}` : ''}`,
+        );
+      }
+      let json: unknown;
+      try {
+        json = JSON.parse(bodyText);
+      } catch {
+        throw new Error('upstream returned invalid JSON');
+      }
+      const bots = extractCozeBots(json);
+      if (bots.length === 0) {
+        throw new Error('upstream returned no bots');
+      }
+
+      const realToPublic = new Map<string, string>();
+      if (preset) {
+        for (const mapping of getModelMappings(preset)) {
+          realToPublic.set(mapping.realName, mapping.publicName);
+        }
+      }
+
+      return bots.map((bot) => ({
+        realName: bot.id,
+        publicName: realToPublic.get(bot.id) ?? bot.name,
+      }));
+    }
+
     const modelsUrl = buildModelsUrl(baseUrl);
     console.error(
       `[modelharbor upstream] discover models --> GET ${modelsUrl} (providerType=${providerType}, keySource=${upstreamKeyId ? 'stored' : 'payload'})`,
@@ -535,7 +677,9 @@ async function discoverUpstreamModels(
       `[modelharbor upstream] discover models <-- transport/error ${buildModelsUrl(baseUrl)}`,
       { message },
     );
-    if (message === 'upstream returned no models') throw err;
+    if (message === 'upstream returned no models' || message === 'upstream returned no bots') {
+      throw err;
+    }
     throw new Error(`failed to fetch models: ${message}`);
   } finally {
     clearTimeout(timer);
@@ -606,7 +750,6 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
       ? body.supportedModels.filter((x): x is string => typeof x === 'string')
       : [];
     if (!name) throw new ValidationError('name is required');
-    if (!apiKey) throw new ValidationError('apiKey is required');
 
     // Resolve provider preset or explicit endpoints.
     const presetId = typeof body.providerPresetId === 'string' ? body.providerPresetId : '';
@@ -640,6 +783,31 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
       baseUrl = rawBaseUrl;
     }
 
+    // Resolve authentication strategy. Presets may declare a default strategy
+    // (e.g. Coze defaults to OAuth JWT); otherwise fall back to PAT.
+    const rawAuthType = body.authType;
+    const authType: UpstreamAuthType =
+      typeof rawAuthType === 'string'
+        ? assertAuthType(rawAuthType)
+        : preset?.authStrategies?.default
+          ? assertAuthType(preset.authStrategies.default)
+          : 'pat';
+
+    let apiKeyCiphertext = '';
+    let apiKeyPrefix = '';
+    let authConfigCiphertext: string | null = null;
+    if (authType === 'pat') {
+      if (!apiKey) throw new ValidationError('apiKey is required');
+      const enc = encryptUpstreamApiKey(apiKey, secretKey);
+      apiKeyCiphertext = enc.ciphertext;
+      apiKeyPrefix = enc.prefix;
+    } else {
+      const rawAuthConfig =
+        parseJsonRecord(typeof body.authConfig === 'string' ? body.authConfig : null) ?? {};
+      const validated = validateAuthConfig(authType, rawAuthConfig);
+      authConfigCiphertext = encryptSecret(JSON.stringify(validated), secretKey).ciphertext;
+    }
+
     // Resolve model mappings. Preset defaults are used unless the admin supplied
     // a custom list in the UI.
     let modelMappings: OnboardingMapping[] | undefined;
@@ -661,24 +829,27 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
       return;
     }
 
-    const { ciphertext, prefix } = encryptUpstreamApiKey(apiKey, secretKey);
     const id = generateId('upstreamKey');
     const now = new Date();
 
-    const extraHeaders = body.extraHeaders !== undefined
-      ? normalizeExtraHeaders(body.extraHeaders)
-      : preset?.defaultExtraHeaders ?? {};
-    const extraParams = body.extraParams !== undefined
-      ? normalizeExtraParams(body.extraParams)
-      : preset?.defaultExtraParams ?? {};
+    const extraHeaders =
+      body.extraHeaders !== undefined
+        ? normalizeExtraHeaders(body.extraHeaders)
+        : (preset?.defaultExtraHeaders ?? {});
+    const extraParams =
+      body.extraParams !== undefined
+        ? normalizeExtraParams(body.extraParams)
+        : (preset?.defaultExtraParams ?? {});
 
     await db.insert(upstreamKeys).values({
       id,
       name,
       providerType,
       baseUrl,
-      apiKeyCiphertext: ciphertext,
-      apiKeyPrefix: prefix,
+      authType,
+      apiKeyCiphertext,
+      apiKeyPrefix,
+      authConfigCiphertext,
       defaultHeadersJson: safeJsonString(body.defaultHeaders, '{}'),
       extraHeadersJson: safeJsonString(extraHeaders, '{}'),
       extraParamsJson: safeJsonString(extraParams, '{}'),
@@ -800,6 +971,16 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
       update.supportedModelsJson = JSON.stringify(
         body.supportedModels.filter((x): x is string => typeof x === 'string'),
       );
+    }
+    if (typeof body.authType === 'string') {
+      update.authType = assertAuthType(body.authType);
+    }
+    if (body.authConfig !== undefined) {
+      const currentAuthType = (update.authType ?? existing.authType) as UpstreamAuthType;
+      const rawAuthConfig =
+        parseJsonRecord(typeof body.authConfig === 'string' ? body.authConfig : null) ?? {};
+      const validated = validateAuthConfig(currentAuthType, rawAuthConfig);
+      update.authConfigCiphertext = encryptSecret(JSON.stringify(validated), secretKey).ciphertext;
     }
     if (body.defaultHeaders !== undefined) {
       update.defaultHeadersJson = safeJsonString(body.defaultHeaders, '{}');
@@ -966,7 +1147,7 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
       return;
     }
 
-    const result = await pingUpstreamModel(existing, realModelName, secretKey);
+    const result = await pingUpstreamModel(existing, realModelName, secretKey, db);
     const now = new Date();
     await db
       .update(upstreamKeys)

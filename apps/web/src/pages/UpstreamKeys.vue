@@ -12,6 +12,7 @@ import {
   NForm,
   NFormItem,
   NInput,
+  NInputNumber,
   NList,
   NListItem,
   NModal,
@@ -59,6 +60,19 @@ const form = ref<UpstreamKeyCreatePayload>({
   baseUrl: '',
   apiKey: '',
 });
+const authType = ref<'pat' | 'coze_oauth_jwt' | 'codex_oauth'>('pat');
+const cozeAuthConfig = ref({
+  appId: '',
+  kid: '',
+  privateKey: '',
+  durationSeconds: 900,
+});
+const codexAuthConfig = ref({
+  refreshToken: '',
+  clientId: '',
+  tokenUrl: '',
+});
+const workspaceId = ref('');
 const modelMappings = ref<ModelMappingItem[]>([]);
 const extraHeaders = ref<KeyValueItem[]>([]);
 const extraParams = ref<KeyValueItem[]>([]);
@@ -78,6 +92,19 @@ function resetForm() {
     baseUrl: '',
     apiKey: '',
   };
+  authType.value = 'pat';
+  cozeAuthConfig.value = {
+    appId: '',
+    kid: '',
+    privateKey: '',
+    durationSeconds: 900,
+  };
+  codexAuthConfig.value = {
+    refreshToken: '',
+    clientId: '',
+    tokenUrl: '',
+  };
+  workspaceId.value = '';
   selectedPresetId.value = null;
   modelMappings.value = [];
   extraHeaders.value = [];
@@ -117,6 +144,7 @@ async function openEdit(row: UpstreamKey) {
   form.value.providerType = row.providerType;
   form.value.baseUrl = row.baseUrl;
   form.value.apiKey = '';
+  authType.value = row.authType ?? 'pat';
   selectedPresetId.value = row.providerPresetId;
   extraHeaders.value = Object.entries(row.extraHeaders ?? {}).map(([key, value]) => ({
     key,
@@ -143,9 +171,17 @@ async function openEdit(row: UpstreamKey) {
 
 async function onSubmit() {
   const isPreset = Boolean(selectedPresetId.value);
+  const needsApiKey = authType.value === 'pat' && !isEdit.value;
+  const needsCozeAuthConfig = authType.value === 'coze_oauth_jwt' && !isEdit.value;
+  const needsCodexAuthConfig = authType.value === 'codex_oauth' && !isEdit.value;
   if (
     !form.value.name ||
-    (!isEdit.value && !form.value.apiKey) ||
+    (needsApiKey && !form.value.apiKey) ||
+    (needsCozeAuthConfig &&
+      (!cozeAuthConfig.value.appId.trim() ||
+        !cozeAuthConfig.value.kid.trim() ||
+        !cozeAuthConfig.value.privateKey.trim())) ||
+    (needsCodexAuthConfig && !codexAuthConfig.value.refreshToken.trim()) ||
     (!isPreset && !form.value.baseUrl)
   ) {
     message.error(t('upstreamKeys.validation.required'));
@@ -189,6 +225,33 @@ async function onSubmit() {
         updates.providerType = form.value.providerType;
         updates.baseUrl = form.value.baseUrl;
       }
+      if (
+        authType.value !== 'pat' ||
+        cozeAuthConfig.value.appId.trim() ||
+        codexAuthConfig.value.refreshToken.trim()
+      ) {
+        updates.authType = authType.value;
+        if (authType.value === 'coze_oauth_jwt' && cozeAuthConfig.value.privateKey.trim()) {
+          updates.authConfig = {
+            appId: cozeAuthConfig.value.appId.trim(),
+            kid: cozeAuthConfig.value.kid.trim(),
+            privateKey: cozeAuthConfig.value.privateKey.trim(),
+            durationSeconds: cozeAuthConfig.value.durationSeconds,
+          };
+        }
+        if (authType.value === 'codex_oauth' && codexAuthConfig.value.refreshToken.trim()) {
+          const cfg: Record<string, unknown> = {
+            refreshToken: codexAuthConfig.value.refreshToken.trim(),
+          };
+          if (codexAuthConfig.value.clientId.trim()) {
+            cfg.clientId = codexAuthConfig.value.clientId.trim();
+          }
+          if (codexAuthConfig.value.tokenUrl.trim()) {
+            cfg.tokenUrl = codexAuthConfig.value.tokenUrl.trim();
+          }
+          updates.authConfig = cfg;
+        }
+      }
       await upstreamKeysApi.update(id, updates);
       if (form.value.apiKey) {
         await upstreamKeysApi.rotateSecret(id, form.value.apiKey);
@@ -200,7 +263,6 @@ async function onSubmit() {
     } else {
       const payload: UpstreamKeyCreatePayload = {
         name: form.value.name,
-        apiKey: form.value.apiKey,
         modelMappings: mappings,
         extraHeaders: headersPayload,
         extraParams: paramsPayload,
@@ -210,6 +272,28 @@ async function onSubmit() {
       } else {
         payload.providerType = form.value.providerType;
         payload.baseUrl = form.value.baseUrl;
+      }
+      payload.authType = authType.value;
+      if (authType.value === 'pat') {
+        payload.apiKey = form.value.apiKey;
+      } else if (authType.value === 'coze_oauth_jwt') {
+        payload.authConfig = {
+          appId: cozeAuthConfig.value.appId.trim(),
+          kid: cozeAuthConfig.value.kid.trim(),
+          privateKey: cozeAuthConfig.value.privateKey.trim(),
+          durationSeconds: cozeAuthConfig.value.durationSeconds,
+        };
+      } else if (authType.value === 'codex_oauth') {
+        const cfg: Record<string, unknown> = {
+          refreshToken: codexAuthConfig.value.refreshToken.trim(),
+        };
+        if (codexAuthConfig.value.clientId.trim()) {
+          cfg.clientId = codexAuthConfig.value.clientId.trim();
+        }
+        if (codexAuthConfig.value.tokenUrl.trim()) {
+          cfg.tokenUrl = codexAuthConfig.value.tokenUrl.trim();
+        }
+        payload.authConfig = cfg;
       }
       const created = await upstreamKeysApi.create(payload);
       items.value = [created, ...items.value];
@@ -336,6 +420,13 @@ function latencyTagType(latencyMs: number): 'success' | 'warning' | 'error' {
 const providerOptions = computed(() => [
   { label: t('upstreamKeys.drawer.providers.anthropic'), value: 'anthropic_compatible' },
   { label: t('upstreamKeys.drawer.providers.openai'), value: 'openai_compatible' },
+  { label: t('upstreamKeys.drawer.providers.coze'), value: 'coze' },
+]);
+
+const authTypeOptions = computed(() => [
+  { label: t('upstreamKeys.drawer.authType.pat'), value: 'pat' },
+  { label: t('upstreamKeys.drawer.authType.cozeOauthJwt'), value: 'coze_oauth_jwt' },
+  { label: t('upstreamKeys.drawer.authType.codexOauth'), value: 'codex_oauth' },
 ]);
 
 const presetOptions = computed(() => {
@@ -371,6 +462,10 @@ function applyPreset(preset: ProviderPreset | undefined) {
     form.value.providerType = endpoint.providerType;
     form.value.baseUrl = endpoint.baseUrl;
   }
+  // Use the preset's recommended authentication strategy (e.g. OAuth JWT for Coze).
+  if (preset.authStrategies) {
+    authType.value = preset.authStrategies.default as 'pat' | 'coze_oauth_jwt' | 'codex_oauth';
+  }
   // Never pre-fill hardcoded model mappings; the admin fetches from upstream.
   if (!isEdit.value) {
     modelMappings.value = [];
@@ -391,9 +486,30 @@ watch(selectedPresetId, (id) => {
   applyPreset(presets.value.find((p) => p.id === id));
 });
 
-const canFetchModels = computed(() =>
-  Boolean(form.value.baseUrl?.trim() && (form.value.apiKey.trim() || isEdit.value)),
+const isCoze = computed(
+  () => form.value.providerType === 'coze' || selectedPreset.value?.id === 'coze',
 );
+
+const isCodex = computed(() => selectedPreset.value?.id === 'codex');
+
+const canFetchModels = computed(() => {
+  if (!form.value.baseUrl?.trim()) return false;
+  if (isCoze.value) {
+    if (!workspaceId.value.trim()) return false;
+    if (authType.value === 'pat') {
+      return Boolean(form.value.apiKey?.trim() || isEdit.value);
+    }
+    return Boolean(
+      cozeAuthConfig.value.appId.trim() &&
+      cozeAuthConfig.value.kid.trim() &&
+      cozeAuthConfig.value.privateKey.trim(),
+    );
+  }
+  if (authType.value === 'codex_oauth') {
+    return Boolean(codexAuthConfig.value.refreshToken.trim() || isEdit.value);
+  }
+  return Boolean(form.value.apiKey?.trim() || isEdit.value);
+});
 
 async function handleFetchModels() {
   if (!canFetchModels.value) {
@@ -406,8 +522,31 @@ async function handleFetchModels() {
       baseUrl: form.value.baseUrl?.trim() ?? '',
       providerType: form.value.providerType ?? 'anthropic_compatible',
       providerPresetId: selectedPresetId.value || undefined,
+      authType: authType.value,
     };
-    if (form.value.apiKey.trim()) {
+    if (isCoze.value) {
+      payload.workspaceId = workspaceId.value.trim();
+      if (authType.value === 'pat' && form.value.apiKey?.trim()) {
+        payload.apiKey = form.value.apiKey.trim();
+      } else if (authType.value === 'coze_oauth_jwt') {
+        payload.authConfig = {
+          appId: cozeAuthConfig.value.appId.trim(),
+          kid: cozeAuthConfig.value.kid.trim(),
+          privateKey: cozeAuthConfig.value.privateKey.trim(),
+          durationSeconds: cozeAuthConfig.value.durationSeconds,
+        };
+      }
+    } else if (authType.value === 'codex_oauth') {
+      payload.authConfig = {
+        refreshToken: codexAuthConfig.value.refreshToken.trim(),
+        ...(codexAuthConfig.value.clientId.trim()
+          ? { clientId: codexAuthConfig.value.clientId.trim() }
+          : {}),
+        ...(codexAuthConfig.value.tokenUrl.trim()
+          ? { tokenUrl: codexAuthConfig.value.tokenUrl.trim() }
+          : {}),
+      };
+    } else if (form.value.apiKey?.trim()) {
       payload.apiKey = form.value.apiKey.trim();
     } else if (isEdit.value && editingId.value) {
       payload.upstreamKeyId = editingId.value;
@@ -555,18 +694,80 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
               :disabled="Boolean(selectedPreset)"
             />
           </NFormItem>
-          <NFormItem :label="t('upstreamKeys.drawer.apiKey')" :required="!isEdit">
-            <NInput
-              v-model:value="form.apiKey"
-              type="password"
-              show-password-on="click"
-              :placeholder="
-                isEdit
-                  ? t('upstreamKeys.drawer.placeholders.apiKeyEdit')
-                  : t('upstreamKeys.drawer.placeholders.apiKey')
-              "
-            />
+          <NFormItem
+            v-if="selectedPreset?.authStrategies"
+            :label="t('upstreamKeys.drawer.authType.label')"
+          >
+            <NSelect v-model:value="authType" :options="authTypeOptions" />
           </NFormItem>
+          <template v-if="authType === 'coze_oauth_jwt'">
+            <NFormItem :label="t('upstreamKeys.drawer.coze.appId')" required>
+              <NInput v-model:value="cozeAuthConfig.appId" />
+            </NFormItem>
+            <NFormItem :label="t('upstreamKeys.drawer.coze.kid')" required>
+              <NInput v-model:value="cozeAuthConfig.kid" />
+            </NFormItem>
+            <NFormItem :label="t('upstreamKeys.drawer.coze.privateKey')" required>
+              <NInput
+                v-model:value="cozeAuthConfig.privateKey"
+                type="textarea"
+                :rows="6"
+                :placeholder="t('upstreamKeys.drawer.placeholders.privateKey')"
+              />
+            </NFormItem>
+            <NFormItem :label="t('upstreamKeys.drawer.coze.durationSeconds')">
+              <NInputNumber
+                v-model:value="cozeAuthConfig.durationSeconds"
+                :min="1"
+                :max="86399"
+                style="width: 100%"
+              />
+            </NFormItem>
+          </template>
+          <template v-else-if="authType === 'codex_oauth'">
+            <NFormItem :label="t('upstreamKeys.drawer.codex.refreshToken')" required>
+              <NInput
+                v-model:value="codexAuthConfig.refreshToken"
+                type="password"
+                show-password-on="click"
+                :placeholder="t('upstreamKeys.drawer.placeholders.refreshToken')"
+              />
+            </NFormItem>
+            <NFormItem :label="t('upstreamKeys.drawer.codex.clientId')">
+              <NInput
+                v-model:value="codexAuthConfig.clientId"
+                :placeholder="t('upstreamKeys.drawer.placeholders.clientId')"
+              />
+            </NFormItem>
+            <NFormItem :label="t('upstreamKeys.drawer.codex.tokenUrl')">
+              <NInput
+                v-model:value="codexAuthConfig.tokenUrl"
+                :placeholder="t('upstreamKeys.drawer.placeholders.tokenUrl')"
+              />
+            </NFormItem>
+          </template>
+          <template v-else>
+            <NFormItem :label="t('upstreamKeys.drawer.apiKey')" :required="!isEdit">
+              <NInput
+                v-model:value="form.apiKey"
+                type="password"
+                show-password-on="click"
+                :placeholder="
+                  isEdit
+                    ? t('upstreamKeys.drawer.placeholders.apiKeyEdit')
+                    : t('upstreamKeys.drawer.placeholders.apiKey')
+                "
+              />
+            </NFormItem>
+          </template>
+          <template v-if="isCoze">
+            <NFormItem :label="t('upstreamKeys.drawer.workspaceId')" required>
+              <NInput
+                v-model:value="workspaceId"
+                :placeholder="t('upstreamKeys.drawer.placeholders.workspaceId')"
+              />
+            </NFormItem>
+          </template>
           <NFormItem :label="t('upstreamKeys.drawer.extraHeaders.label')">
             <KeyValueEditor
               v-model="extraHeaders"
@@ -641,7 +842,9 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
                       size="small"
                       >{{ t('upstreamKeys.ping.success', { ms: c.result.latencyMs }) }}</NTag
                     >
-                    <NTag v-else type="error" size="small">{{ t('upstreamKeys.ping.failed') }}</NTag>
+                    <NTag v-else type="error" size="small">{{
+                      t('upstreamKeys.ping.failed')
+                    }}</NTag>
                     <NText depth="3" style="font-size: 11px">
                       {{ t('upstreamKeys.ping.lastTest') }} {{ formatLastPing(c.resultTime) }}
                     </NText>

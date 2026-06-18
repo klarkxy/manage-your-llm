@@ -5,7 +5,7 @@
 // grouped by the right id, summed for tokens and counts. SQLite handles the
 // indexed range scan (created_at has an index) without any extra help.
 
-import { and, count, eq, gte, sql } from "drizzle-orm";
+import { and, count, eq, gte, sql } from 'drizzle-orm';
 import {
   type Db,
   type UsageRecordRow,
@@ -15,7 +15,7 @@ import {
   modelGroups,
   upstreamKeys,
   usageRecords,
-} from "../db/index.js";
+} from '../db/index.js';
 
 export interface TimeWindow {
   since: Date;
@@ -53,7 +53,10 @@ export async function getTotalsForWindow(db: Db, window: TimeWindow): Promise<To
     })
     .from(usageRecords)
     .where(
-      and(gte(usageRecords.createdAt, window.since), sql`${usageRecords.createdAt} <= ${window.until}`),
+      and(
+        gte(usageRecords.createdAt, window.since),
+        sql`${usageRecords.createdAt} <= ${window.until}`,
+      ),
     )
     .get();
   const total = Number(row?.total ?? 0);
@@ -87,7 +90,10 @@ export interface BreakdownEntry {
 async function breakdown(
   db: Db,
   args: {
-    idColumn: typeof usageRecords.appId | typeof usageRecords.consumerKeyId | typeof usageRecords.upstreamKeyId;
+    idColumn:
+      | typeof usageRecords.appId
+      | typeof usageRecords.consumerKeyId
+      | typeof usageRecords.upstreamKeyId;
     nameTable: typeof apps | typeof consumerKeys | typeof upstreamKeys;
     nameColumn: typeof apps.id | typeof consumerKeys.id | typeof upstreamKeys.id;
     window: TimeWindow;
@@ -107,7 +113,10 @@ async function breakdown(
     .from(usageRecords)
     .innerJoin(args.nameTable, eq(args.idColumn, args.nameColumn))
     .where(
-      and(gte(usageRecords.createdAt, args.window.since), sql`${usageRecords.createdAt} <= ${args.window.until}`),
+      and(
+        gte(usageRecords.createdAt, args.window.since),
+        sql`${usageRecords.createdAt} <= ${args.window.until}`,
+      ),
     )
     .groupBy(args.idColumn, args.nameTable.name)
     .all();
@@ -132,7 +141,10 @@ export async function getAppBreakdown(db: Db, window: TimeWindow): Promise<Break
   });
 }
 
-export async function getConsumerKeyBreakdown(db: Db, window: TimeWindow): Promise<BreakdownEntry[]> {
+export async function getConsumerKeyBreakdown(
+  db: Db,
+  window: TimeWindow,
+): Promise<BreakdownEntry[]> {
   return breakdown(db, {
     idColumn: usageRecords.consumerKeyId,
     nameTable: consumerKeys,
@@ -141,7 +153,10 @@ export async function getConsumerKeyBreakdown(db: Db, window: TimeWindow): Promi
   });
 }
 
-export async function getUpstreamKeyBreakdown(db: Db, window: TimeWindow): Promise<BreakdownEntry[]> {
+export async function getUpstreamKeyBreakdown(
+  db: Db,
+  window: TimeWindow,
+): Promise<BreakdownEntry[]> {
   return breakdown(db, {
     idColumn: usageRecords.upstreamKeyId,
     nameTable: upstreamKeys,
@@ -151,10 +166,13 @@ export async function getUpstreamKeyBreakdown(db: Db, window: TimeWindow): Promi
 }
 
 export interface TargetBreakdownEntry extends BreakdownEntry {
-  targetType: "public_model" | "model_group";
+  targetType: 'public_model' | 'model_group';
 }
 
-export async function getTargetBreakdown(db: Db, window: TimeWindow): Promise<TargetBreakdownEntry[]> {
+export async function getTargetBreakdown(
+  db: Db,
+  window: TimeWindow,
+): Promise<TargetBreakdownEntry[]> {
   const rows = await db
     .select({
       id: usageRecords.resolvedTargetId,
@@ -168,15 +186,18 @@ export async function getTargetBreakdown(db: Db, window: TimeWindow): Promise<Ta
     })
     .from(usageRecords)
     .where(
-      and(gte(usageRecords.createdAt, window.since), sql`${usageRecords.createdAt} <= ${window.until}`),
+      and(
+        gte(usageRecords.createdAt, window.since),
+        sql`${usageRecords.createdAt} <= ${window.until}`,
+      ),
     )
     .groupBy(usageRecords.resolvedTargetId, usageRecords.resolvedTargetType)
     .all();
   if (rows.length === 0) return [];
   // Resolve target names from the namespace table. Public model and model
   // group ids come from different tables; do one query per kind.
-  const pmIds = rows.filter((r) => r.targetType === "public_model").map((r) => r.id);
-  const mgIds = rows.filter((r) => r.targetType === "model_group").map((r) => r.id);
+  const pmIds = rows.filter((r) => r.targetType === 'public_model').map((r) => r.id);
+  const mgIds = rows.filter((r) => r.targetType === 'model_group').map((r) => r.id);
   const pmRows = pmIds.length > 0 ? await db.select().from(publicModels).all() : [];
   const mgRows = mgIds.length > 0 ? await db.select().from(modelGroups).all() : [];
   const pmName = new Map(pmRows.map((p) => [p.id, p.name]));
@@ -185,7 +206,7 @@ export async function getTargetBreakdown(db: Db, window: TimeWindow): Promise<Ta
     id: row.id,
     targetType: row.targetType,
     name:
-      row.targetType === "public_model"
+      row.targetType === 'public_model'
         ? (pmName.get(row.id) ?? row.id)
         : (mgName.get(row.id) ?? row.id),
     totalRequests: Number(row.total),
@@ -218,6 +239,14 @@ export interface RecentRequest {
   createdAt: Date;
 }
 
-export async function getRecentRequests(db: Db, args: { limit: number }): Promise<UsageRecordRow[]> {
-  return await db.select().from(usageRecords).orderBy(sql`${usageRecords.createdAt} DESC`).limit(args.limit).all();
+export async function getRecentRequests(
+  db: Db,
+  args: { limit: number },
+): Promise<UsageRecordRow[]> {
+  return await db
+    .select()
+    .from(usageRecords)
+    .orderBy(sql`${usageRecords.createdAt} DESC`)
+    .limit(args.limit)
+    .all();
 }

@@ -9,7 +9,7 @@ import {
 } from '../db/index.js';
 import { decryptSecret, encryptSecret, randomBase64Url } from '../auth/crypto.js';
 import { hashSessionId } from '../auth/session.js';
-import { ValidationError, TargetNotFoundError } from '@modelharbor/shared';
+import { ValidationError, TargetNotFoundError, ALL_PROVIDER_TYPES } from '@modelharbor/shared';
 
 const TARGET_NAME_REGEX = /^[a-zA-Z0-9._-]+$/;
 
@@ -23,9 +23,9 @@ export function assertTargetName(name: string): void {
 
 export function assertProviderType(
   value: string,
-): asserts value is 'anthropic_compatible' | 'openai_compatible' {
-  if (value !== 'anthropic_compatible' && value !== 'openai_compatible') {
-    throw new ValidationError('providerType must be anthropic_compatible or openai_compatible');
+): asserts value is (typeof ALL_PROVIDER_TYPES)[number] {
+  if (!ALL_PROVIDER_TYPES.includes(value as (typeof ALL_PROVIDER_TYPES)[number])) {
+    throw new ValidationError(`providerType must be one of ${ALL_PROVIDER_TYPES.join(', ')}`);
   }
 }
 

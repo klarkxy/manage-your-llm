@@ -45,6 +45,7 @@ import qianfan from './qianfan.js';
 import stepfun from './stepfun.js';
 import kimiCode from './kimi-code.js';
 import coze from './coze-preset.js';
+import codex from './codex.js';
 
 const MODULES: readonly ProviderModule[] = [
   openai,
@@ -75,6 +76,7 @@ const MODULES: readonly ProviderModule[] = [
   stepfun,
   kimiCode,
   coze,
+  codex,
 ].sort((a, b) => a.preset.name.localeCompare(b.preset.name));
 
 const MODULES_BY_ID: Readonly<Record<string, ProviderModule>> = Object.fromEntries(

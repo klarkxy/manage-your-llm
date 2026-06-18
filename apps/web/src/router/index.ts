@@ -1,47 +1,47 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router";
-import { useAuthStore } from "../stores/auth.js";
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
+import { useAuthStore } from '../stores/auth.js';
 
 const routes: RouteRecordRaw[] = [
   {
-    path: "/login",
-    name: "login",
-    component: () => import("../pages/Login.vue"),
+    path: '/login',
+    name: 'login',
+    component: () => import('../pages/Login.vue'),
     meta: { standalone: true },
   },
   {
-    path: "/",
-    name: "overview",
-    component: () => import("../pages/Overview.vue"),
+    path: '/',
+    name: 'overview',
+    component: () => import('../pages/Overview.vue'),
   },
   {
-    path: "/upstream-keys",
-    name: "upstream-keys",
-    component: () => import("../pages/UpstreamKeys.vue"),
+    path: '/upstream-keys',
+    name: 'upstream-keys',
+    component: () => import('../pages/UpstreamKeys.vue'),
   },
   {
-    path: "/public-models",
-    name: "public-models",
-    component: () => import("../pages/PublicModels.vue"),
+    path: '/public-models',
+    name: 'public-models',
+    component: () => import('../pages/PublicModels.vue'),
   },
   {
-    path: "/model-groups",
-    name: "model-groups",
-    component: () => import("../pages/ModelGroups.vue"),
+    path: '/model-groups',
+    name: 'model-groups',
+    component: () => import('../pages/ModelGroups.vue'),
   },
   {
-    path: "/apps",
-    name: "apps",
-    component: () => import("../pages/Apps.vue"),
+    path: '/apps',
+    name: 'apps',
+    component: () => import('../pages/Apps.vue'),
   },
   {
-    path: "/usage",
-    name: "usage",
-    component: () => import("../pages/Usage.vue"),
+    path: '/usage',
+    name: 'usage',
+    component: () => import('../pages/Usage.vue'),
   },
   {
-    path: "/settings",
-    name: "settings",
-    component: () => import("../pages/Settings.vue"),
+    path: '/settings',
+    name: 'settings',
+    component: () => import('../pages/Settings.vue'),
   },
 ];
 
@@ -59,14 +59,14 @@ router.beforeEach(async (to) => {
       auth.$patch({ user: null, ready: true });
     }
   }
-  if (to.name === "login") {
+  if (to.name === 'login') {
     if (auth.isAuthenticated) {
-      return { name: "overview" };
+      return { name: 'overview' };
     }
     return true;
   }
   if (!auth.isAuthenticated) {
-    return { name: "login", query: { redirect: to.fullPath } };
+    return { name: 'login', query: { redirect: to.fullPath } };
   }
   return true;
 });

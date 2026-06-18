@@ -91,6 +91,7 @@ const messages: Messages = {
     'agnes-ai': 'Agnes AI',
     'kimi-code': 'Kimi Code',
     coze: '扣子',
+    codex: 'OpenAI Codex',
   },
   layout: {
     brand: 'ModelHarbor',
@@ -194,7 +195,26 @@ const messages: Messages = {
       providers: {
         anthropic: 'Anthropic 兼容',
         openai: 'OpenAI 兼容',
+        coze: 'Coze',
       },
+      authType: {
+        label: '认证方式',
+        pat: 'PAT（静态令牌）',
+        cozeOauthJwt: 'OAuth JWT（推荐）',
+        codexOauth: 'Codex OAuth（刷新令牌）',
+      },
+      codex: {
+        refreshToken: 'Refresh token',
+        clientId: 'Client ID（可选）',
+        tokenUrl: 'Token URL（可选）',
+      },
+      coze: {
+        appId: '应用 ID',
+        kid: '公钥指纹（KID）',
+        privateKey: '私钥（PEM）',
+        durationSeconds: '令牌有效期（秒）',
+      },
+      workspaceId: '工作区 ID',
       extraHeaders: {
         label: '额外 Headers',
         key: 'Header 名称',
@@ -219,6 +239,11 @@ const messages: Messages = {
         baseUrl: 'https://api.example.com',
         apiKey: 'sk-...',
         apiKeyEdit: '留空则保持原密钥不变',
+        workspaceId: '从 Coze 工作区 URL 中粘贴',
+        privateKey: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
+        refreshToken: '粘贴 Codex OAuth refresh token',
+        clientId: 'app_EMoamEEZ73f0CkXaXp7hrann',
+        tokenUrl: 'https://auth.openai.com/oauth/token',
       },
     },
     ping: {

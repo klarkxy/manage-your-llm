@@ -1,6 +1,6 @@
-import { eq, desc } from "drizzle-orm";
-import type { FastifyInstance } from "fastify";
-import { generateId, ValidationError } from "@modelharbor/shared";
+import { eq, desc } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { generateId, ValidationError } from '@modelharbor/shared';
 import {
   type Db,
   type PublicModelRow,
@@ -8,15 +8,15 @@ import {
   publicModelCandidates,
   targetNames,
   upstreamKeys,
-} from "../db/index.js";
+} from '../db/index.js';
 import {
   assertTargetName,
   deleteTargetRow,
   findPublicModelById,
   replaceRowsInTransaction,
-} from "./helpers.js";
-import { auditMetaFromRequest } from "./upstream-keys.js";
-import { recordAuditEvent } from "../observability/index.js";
+} from './helpers.js';
+import { auditMetaFromRequest } from './upstream-keys.js';
+import { recordAuditEvent } from '../observability/index.js';
 
 export interface PublicModelRouteDeps {
   db: Db;
@@ -37,7 +37,13 @@ interface PresentCandidate {
   priority: number;
   weight: number;
   enabled: boolean;
-  upstreamKey: { id: string; name: string; providerType: string; enabled: boolean; frozen: boolean } | null;
+  upstreamKey: {
+    id: string;
+    name: string;
+    providerType: string;
+    enabled: boolean;
+    frozen: boolean;
+  } | null;
 }
 
 async function loadCandidates(db: Db, publicModelId: string): Promise<PresentCandidate[]> {
@@ -82,7 +88,7 @@ function presentPublicModel(row: PublicModelRow, candidateCount: number) {
 export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicModelRouteDeps): void {
   const { db } = deps;
 
-  app.get("/api/admin/public-models", async () => {
+  app.get('/api/admin/public-models', async () => {
     const rows = await db.select().from(publicModels).orderBy(desc(publicModels.createdAt)).all();
     const candidates = await db.select().from(publicModelCandidates).all();
     const counts = new Map<string, number>();
@@ -92,24 +98,35 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
     return { items: rows.map((r) => presentPublicModel(r, counts.get(r.id) ?? 0)) };
   });
 
-  app.get("/api/admin/public-models/:id", async (req, reply) => {
+  app.get('/api/admin/public-models/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const row = await findPublicModelById(db, id);
     if (!row) {
-      reply.code(404).send({ error: { message: "public model not found", type: "target_not_found", code: "target_not_found" } });
+      reply.code(404).send({
+        error: {
+          message: 'public model not found',
+          type: 'target_not_found',
+          code: 'target_not_found',
+        },
+      });
       return;
     }
     const candidates = await loadCandidates(db, id);
     return { ...presentPublicModel(row, candidates.length), candidates };
   });
 
-  app.post("/api/admin/public-models", async (req) => {
-    const body = (req.body ?? {}) as { name?: unknown; displayName?: unknown; description?: unknown; candidates?: unknown };
-    const name = typeof body.name === "string" ? body.name.trim() : "";
+  app.post('/api/admin/public-models', async (req) => {
+    const body = (req.body ?? {}) as {
+      name?: unknown;
+      displayName?: unknown;
+      description?: unknown;
+      candidates?: unknown;
+    };
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
     assertTargetName(name);
-    const displayName = typeof body.displayName === "string" ? body.displayName.trim() : null;
-    const description = typeof body.description === "string" ? body.description.trim() : null;
-    const id = generateId("publicModel");
+    const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : null;
+    const description = typeof body.description === 'string' ? body.description.trim() : null;
+    const id = generateId('publicModel');
     const now = new Date();
 
     // Validate and normalize the full candidates batch up front so a bad row
@@ -129,17 +146,17 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
     const referencedUpstreamIds = new Set<string>();
     for (const raw of candidateInputs) {
       const c = raw as CandidateInput;
-      if (typeof c.upstreamKeyId !== "string" || typeof c.realModelName !== "string") {
-        throw new ValidationError("candidate requires upstreamKeyId and realModelName");
+      if (typeof c.upstreamKeyId !== 'string' || typeof c.realModelName !== 'string') {
+        throw new ValidationError('candidate requires upstreamKeyId and realModelName');
       }
       referencedUpstreamIds.add(c.upstreamKeyId);
       normalizedCandidates.push({
-        id: generateId("publicModel") + "_c",
+        id: generateId('publicModel') + '_c',
         publicModelId: id,
         upstreamKeyId: c.upstreamKeyId,
         realModelName: c.realModelName,
-        priority: typeof c.priority === "number" ? c.priority : 100,
-        weight: typeof c.weight === "number" ? c.weight : 1,
+        priority: typeof c.priority === 'number' ? c.priority : 100,
+        weight: typeof c.weight === 'number' ? c.weight : 1,
         enabled: c.enabled === false ? false : true,
         createdAt: now,
         updatedAt: now,
@@ -149,10 +166,7 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
     // roll back the target insert, but a 422 with a clear message is friendlier
     // than the raw SQLite constraint error.
     if (referencedUpstreamIds.size > 0) {
-      const existing = await db
-        .select({ id: upstreamKeys.id })
-        .from(upstreamKeys)
-        .all();
+      const existing = await db.select({ id: upstreamKeys.id }).from(upstreamKeys).all();
       const known = new Set(existing.map((r) => r.id));
       for (const upstreamId of referencedUpstreamIds) {
         if (!known.has(upstreamId)) {
@@ -184,9 +198,9 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
         updatedAt: now,
       });
       await tx.insert(targetNames).values({
-        id: `tn_${generateId("publicModel").slice(-8)}`,
+        id: `tn_${generateId('publicModel').slice(-8)}`,
         name,
-        targetType: "public_model",
+        targetType: 'public_model',
         targetId: id,
         createdAt: now,
       });
@@ -196,73 +210,89 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
     });
 
     const row = await findPublicModelById(db, id);
-    if (!row) throw new Error("insert failed");
+    if (!row) throw new Error('insert failed');
     const candidates = await loadCandidates(db, id);
     await recordAuditEvent(db, {
       ...auditMetaFromRequest(req),
-      action: "public_model.create",
-      resourceType: "public_model",
+      action: 'public_model.create',
+      resourceType: 'public_model',
       resourceId: row.id,
       details: { name: row.name, candidates: candidates.length },
     });
     return { ...presentPublicModel(row, candidates.length), candidates };
   });
 
-  app.patch("/api/admin/public-models/:id", async (req, reply) => {
+  app.patch('/api/admin/public-models/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const body = (req.body ?? {}) as { displayName?: unknown; description?: unknown; enabled?: unknown };
+    const body = (req.body ?? {}) as {
+      displayName?: unknown;
+      description?: unknown;
+      enabled?: unknown;
+    };
     const existing = await findPublicModelById(db, id);
     if (!existing) {
-      reply.code(404).send({ error: { message: "public model not found", type: "target_not_found", code: "target_not_found" } });
+      reply.code(404).send({
+        error: {
+          message: 'public model not found',
+          type: 'target_not_found',
+          code: 'target_not_found',
+        },
+      });
       return;
     }
     const update: Partial<typeof publicModels.$inferInsert> = { updatedAt: new Date() };
-    if (typeof body.displayName === "string" || body.displayName === null) {
-      update.displayName = typeof body.displayName === "string" ? body.displayName.trim() : null;
+    if (typeof body.displayName === 'string' || body.displayName === null) {
+      update.displayName = typeof body.displayName === 'string' ? body.displayName.trim() : null;
     }
-    if (typeof body.description === "string" || body.description === null) {
-      update.description = typeof body.description === "string" ? body.description.trim() : null;
+    if (typeof body.description === 'string' || body.description === null) {
+      update.description = typeof body.description === 'string' ? body.description.trim() : null;
     }
-    if (typeof body.enabled === "boolean") update.enabled = body.enabled;
+    if (typeof body.enabled === 'boolean') update.enabled = body.enabled;
     await db.update(publicModels).set(update).where(eq(publicModels.id, id));
     const row = await findPublicModelById(db, id);
-    if (!row) throw new Error("not found");
+    if (!row) throw new Error('not found');
     const candidates = await loadCandidates(db, id);
     await recordAuditEvent(db, {
       ...auditMetaFromRequest(req),
-      action: "public_model.update",
-      resourceType: "public_model",
+      action: 'public_model.update',
+      resourceType: 'public_model',
       resourceId: row.id,
       details: { name: row.name, enabled: row.enabled },
     });
     return { ...presentPublicModel(row, candidates.length), candidates };
   });
 
-  app.put("/api/admin/public-models/:id/candidates", async (req, reply) => {
+  app.put('/api/admin/public-models/:id/candidates', async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = (req.body ?? {}) as { candidates?: unknown };
     const existing = await findPublicModelById(db, id);
     if (!existing) {
-      reply.code(404).send({ error: { message: "public model not found", type: "target_not_found", code: "target_not_found" } });
+      reply.code(404).send({
+        error: {
+          message: 'public model not found',
+          type: 'target_not_found',
+          code: 'target_not_found',
+        },
+      });
       return;
     }
     if (!Array.isArray(body.candidates)) {
-      throw new ValidationError("candidates must be an array");
+      throw new ValidationError('candidates must be an array');
     }
     const now = new Date();
     // Validate and normalize the full batch up front so a bad row never partially applies.
     const normalized = body.candidates.map((raw) => {
       const c = raw as CandidateInput;
-      if (typeof c.upstreamKeyId !== "string" || typeof c.realModelName !== "string") {
-        throw new ValidationError("candidate requires upstreamKeyId and realModelName");
+      if (typeof c.upstreamKeyId !== 'string' || typeof c.realModelName !== 'string') {
+        throw new ValidationError('candidate requires upstreamKeyId and realModelName');
       }
       return {
-        id: generateId("publicModel") + "_c",
+        id: generateId('publicModel') + '_c',
         publicModelId: id,
         upstreamKeyId: c.upstreamKeyId,
         realModelName: c.realModelName,
-        priority: typeof c.priority === "number" ? c.priority : 100,
-        weight: typeof c.weight === "number" ? c.weight : 1,
+        priority: typeof c.priority === 'number' ? c.priority : 100,
+        weight: typeof c.weight === 'number' ? c.weight : 1,
         enabled: c.enabled === false ? false : true,
         createdAt: now,
         updatedAt: now,
@@ -281,8 +311,8 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
     });
     await recordAuditEvent(db, {
       ...auditMetaFromRequest(req),
-      action: "public_model.update",
-      resourceType: "public_model",
+      action: 'public_model.update',
+      resourceType: 'public_model',
       resourceId: id,
       details: { candidatesCount: normalized.length },
     });
@@ -290,22 +320,30 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
     return { candidates };
   });
 
-  app.delete("/api/admin/public-models/:id", async (req, reply) => {
+  app.delete('/api/admin/public-models/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const existing = await findPublicModelById(db, id);
     if (!existing) {
-      reply.code(404).send({ error: { message: "public model not found", type: "target_not_found", code: "target_not_found" } });
+      reply.code(404).send({
+        error: {
+          message: 'public model not found',
+          type: 'target_not_found',
+          code: 'target_not_found',
+        },
+      });
       return;
     }
     await deleteTargetRow(db, {
-      targetType: "public_model",
+      targetType: 'public_model',
       targetId: id,
-      deleteTarget: async (tx) => { await tx.delete(publicModels).where(eq(publicModels.id, id)); },
+      deleteTarget: async (tx) => {
+        await tx.delete(publicModels).where(eq(publicModels.id, id));
+      },
     });
     await recordAuditEvent(db, {
       ...auditMetaFromRequest(req),
-      action: "public_model.delete",
-      resourceType: "public_model",
+      action: 'public_model.delete',
+      resourceType: 'public_model',
       resourceId: id,
     });
     return { id, deleted: true };

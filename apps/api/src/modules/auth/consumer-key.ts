@@ -1,5 +1,5 @@
-import { eq, and, isNull } from "drizzle-orm";
-import type { FastifyReply, FastifyRequest } from "fastify";
+import { eq, and, isNull } from 'drizzle-orm';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
   type AppRow,
   type ConsumerKeyAccessRow,
@@ -8,9 +8,9 @@ import {
   apps,
   consumerKeyAccess,
   consumerKeys,
-} from "../db/index.js";
-import { AuthenticationError, PermissionError } from "@modelharbor/shared";
-import { hashSessionId } from "./session.js";
+} from '../db/index.js';
+import { AuthenticationError, PermissionError } from '@modelharbor/shared';
+import { hashSessionId } from './session.js';
 
 export interface AuthenticatedConsumerRequest extends FastifyRequest {
   consumerKey: ConsumerKeyRow;
@@ -24,17 +24,17 @@ export interface AuthenticatedConsumerRequest extends FastifyRequest {
 // Returns the raw key (or null if neither header is present). The caller is
 // responsible for hashing + looking it up.
 export function extractRawConsumerKey(req: FastifyRequest): string | null {
-  const auth = req.headers["authorization"];
-  if (typeof auth === "string" && auth.length > 0) {
+  const auth = req.headers['authorization'];
+  if (typeof auth === 'string' && auth.length > 0) {
     const trimmed = auth.trim();
     const match = /^Bearer\s+(.+)$/i.exec(trimmed);
     if (match) return match[1]!.trim();
     // Some clients send the raw key without the `Bearer ` prefix. Accept it as
     // long as it starts with the documented prefix `mh_`.
-    if (trimmed.startsWith("mh_")) return trimmed;
+    if (trimmed.startsWith('mh_')) return trimmed;
   }
-  const xApiKey = req.headers["x-api-key"];
-  if (typeof xApiKey === "string" && xApiKey.length > 0) {
+  const xApiKey = req.headers['x-api-key'];
+  if (typeof xApiKey === 'string' && xApiKey.length > 0) {
     return xApiKey.trim();
   }
   return null;
@@ -46,7 +46,7 @@ export async function findActiveConsumerKey(
   db: Db,
   rawKey: string,
 ): Promise<{ key: ConsumerKeyRow; app: AppRow } | null> {
-  if (!rawKey || !rawKey.startsWith("mh_")) return null;
+  if (!rawKey || !rawKey.startsWith('mh_')) return null;
   const hash = hashSessionId(rawKey);
   const row = await db
     .select({ key: consumerKeys, app: apps })
@@ -85,11 +85,11 @@ export function requireConsumerKey(
   return async (req, _reply) => {
     const raw = extractRawConsumerKey(req);
     if (!raw) {
-      throw new AuthenticationError("Missing consumer key");
+      throw new AuthenticationError('Missing consumer key');
     }
     const found = await findActiveConsumerKey(db, raw);
     if (!found) {
-      throw new AuthenticationError("Invalid or revoked consumer key");
+      throw new AuthenticationError('Invalid or revoked consumer key');
     }
     (req as AuthenticatedConsumerRequest).consumerKey = found.key;
     (req as AuthenticatedConsumerRequest).app = found.app;

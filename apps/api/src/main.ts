@@ -1,16 +1,16 @@
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-import { buildServer, getBackgroundJobsHandle } from "./server.js";
-import { createDb, initSchema } from "./modules/db/index.js";
-import { bootstrapAdmin } from "./modules/auth/index.js";
-import { createEnv } from "./config/env.js";
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { buildServer, getBackgroundJobsHandle } from './server.js';
+import { createDb, initSchema } from './modules/db/index.js';
+import { bootstrapAdmin } from './modules/auth/index.js';
+import { createEnv } from './config/env.js';
 
 async function main(): Promise<void> {
   const env = createEnv();
 
-  if (env.DATABASE_URL.startsWith("file:")) {
-    const filePath = env.DATABASE_URL.slice("file:".length);
-    if (filePath !== ":memory:") {
+  if (env.DATABASE_URL.startsWith('file:')) {
+    const filePath = env.DATABASE_URL.slice('file:'.length);
+    if (filePath !== ':memory:') {
       mkdirSync(dirname(filePath), { recursive: true });
     }
   }
@@ -48,8 +48,8 @@ async function main(): Promise<void> {
     client.close();
     process.exit(0);
   };
-  process.on("SIGINT", () => void shutdown());
-  process.on("SIGTERM", () => void shutdown());
+  process.on('SIGINT', () => void shutdown());
+  process.on('SIGTERM', () => void shutdown());
 }
 
 void main();

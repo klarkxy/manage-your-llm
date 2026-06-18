@@ -1,5 +1,5 @@
-import { generateId, type ProviderType, type SourceProtocol } from "@modelharbor/shared";
-import { type Db, type TargetType, type UsageRecordInsert, usageRecords } from "../db/index.js";
+import { generateId, type ProviderType, type SourceProtocol } from '@modelharbor/shared';
+import { type Db, type TargetType, type UsageRecordInsert, usageRecords } from '../db/index.js';
 
 export interface UsageRecordInput {
   appId: string;
@@ -17,7 +17,7 @@ export interface UsageRecordInput {
   inputTokens: number | null;
   outputTokens: number | null;
   totalTokens: number | null;
-  status: "success" | "error";
+  status: 'success' | 'error';
   errorCode: string | null;
   latencyMs: number;
 }
@@ -27,7 +27,7 @@ export interface UsageRecordInput {
 // here are best-effort: a failure to write must not surface to the client.
 export async function writeUsageRecord(db: Db, input: UsageRecordInput): Promise<void> {
   const row: UsageRecordInsert = {
-    id: generateId("usageRecord"),
+    id: generateId('usageRecord'),
     appId: input.appId,
     consumerKeyId: input.consumerKeyId,
     requestedTargetName: input.requestedTargetName,

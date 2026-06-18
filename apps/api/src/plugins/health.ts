@@ -6,29 +6,32 @@
 // short error message; load balancers and orchestrators can then stop
 // sending traffic to this instance until it recovers.
 
-import { sql } from "drizzle-orm";
-import type { FastifyInstance } from "fastify";
-import { type Db } from "../modules/db/index.js";
+import { sql } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { type Db } from '../modules/db/index.js';
 
 export interface HealthRouteDeps {
   db?: Db;
 }
 
-export async function healthRoutes(app: FastifyInstance, deps: HealthRouteDeps = {}): Promise<void> {
-  app.get("/healthz", async () => ({ status: "ok" }));
+export async function healthRoutes(
+  app: FastifyInstance,
+  deps: HealthRouteDeps = {},
+): Promise<void> {
+  app.get('/healthz', async () => ({ status: 'ok' }));
 
-  app.get("/readyz", async (_req, reply) => {
+  app.get('/readyz', async (_req, reply) => {
     if (!deps.db) {
-      return { status: "ok" };
+      return { status: 'ok' };
     }
     try {
       await deps.db.get(sql`SELECT 1`);
-      return { status: "ok" };
+      return { status: 'ok' };
     } catch (err) {
       reply.code(503);
       return {
-        status: "degraded",
-        error: err instanceof Error ? err.message : "unknown",
+        status: 'degraded',
+        error: err instanceof Error ? err.message : 'unknown',
       };
     }
   });

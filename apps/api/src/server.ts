@@ -6,17 +6,17 @@
 // it for shutdown but tests can keep using the bare Fastify API (`.inject`,
 // `.listen`, etc.) without unwrapping.
 
-import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
-import fastifyCookie from "@fastify/cookie";
-import fastifyStatic from "@fastify/static";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-import { createEnv } from "./config/env.js";
-import { healthRoutes } from "./plugins/health.js";
-import { registerErrorHandler } from "./errors.js";
-import { type Db } from "./modules/db/index.js";
-import { registerAdminAuthRoutes, requireAdmin } from "./modules/auth/index.js";
-import { registerGatewayRoutes } from "./modules/gateway/index.js";
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import fastifyCookie from '@fastify/cookie';
+import fastifyStatic from '@fastify/static';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { createEnv } from './config/env.js';
+import { healthRoutes } from './plugins/health.js';
+import { registerErrorHandler } from './errors.js';
+import { type Db } from './modules/db/index.js';
+import { registerAdminAuthRoutes, requireAdmin } from './modules/auth/index.js';
+import { registerGatewayRoutes } from './modules/gateway/index.js';
 import {
   registerAppRoutes,
   registerAuditRoutes,
@@ -25,14 +25,14 @@ import {
   registerObservabilityRoutes,
   registerPublicModelRoutes,
   registerUpstreamKeyRoutes,
-} from "./modules/admin/index.js";
-import { startBackgroundJobs, type BackgroundJobsHandle } from "./modules/jobs/index.js";
-import { wrapLogger } from "./modules/observability/index.js";
+} from './modules/admin/index.js';
+import { startBackgroundJobs, type BackgroundJobsHandle } from './modules/jobs/index.js';
+import { wrapLogger } from './modules/observability/index.js';
 
-export const BackgroundJobsSymbol = Symbol.for("modelharbor.backgroundJobs");
+export const BackgroundJobsSymbol = Symbol.for('modelharbor.backgroundJobs');
 
 export interface BuildServerOptions {
-  logger?: boolean | FastifyServerOptions["logger"];
+  logger?: boolean | FastifyServerOptions['logger'];
   db?: Db;
   secretKey?: string;
   isProduction?: boolean;
@@ -52,7 +52,7 @@ export function getBackgroundJobsHandle(app: FastifyInstance): BackgroundJobsHan
 
 export async function buildServer(options: BuildServerOptions = {}): Promise<FastifyInstance> {
   const env = createEnv();
-  const isProduction = options.isProduction ?? env.NODE_ENV === "production";
+  const isProduction = options.isProduction ?? env.NODE_ENV === 'production';
   const secretKey = options.secretKey ?? env.SECRET_KEY;
   const logger =
     options.logger !== undefined
@@ -76,9 +76,9 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
   // We replace it on the way in so any structured field a handler logs via
   // `req.log` is redacted too — otherwise request-scoped logs would bypass
   // the wrapped base logger entirely.
-  app.addHook("onRequest", async (req) => {
+  app.addHook('onRequest', async (req) => {
     const requestLogger = (req as { log?: unknown }).log;
-    if (requestLogger && typeof requestLogger === "object") {
+    if (requestLogger && typeof requestLogger === 'object') {
       (req as unknown as { log: unknown }).log = wrapLogger(
         requestLogger as Parameters<typeof wrapLogger>[0],
       );
@@ -86,21 +86,17 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
   });
 
   // Allow empty body when content-type is application/json (e.g. logout).
-  app.addContentTypeParser(
-    "application/json",
-    { parseAs: "string" },
-    (_req, body, done) => {
-      if (typeof body === "string" && body.length === 0) {
-        done(null, {});
-        return;
-      }
-      try {
-        done(null, JSON.parse(body as string));
-      } catch (err) {
-        done(err as Error, undefined);
-      }
-    },
-  );
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    if (typeof body === 'string' && body.length === 0) {
+      done(null, {});
+      return;
+    }
+    try {
+      done(null, JSON.parse(body as string));
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  });
 
   registerErrorHandler(app);
   await app.register(fastifyCookie);
@@ -110,9 +106,9 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     registerAdminAuthRoutes(app, { db: options.db, secretKey, isProduction });
     // Guard everything under /api/admin except /api/admin/auth/*.
     const guard = requireAdmin(options.db, secretKey);
-    app.addHook("preHandler", async (req, reply) => {
+    app.addHook('preHandler', async (req, reply) => {
       const url = req.url;
-      if (url.startsWith("/api/admin/") && !url.startsWith("/api/admin/auth/")) {
+      if (url.startsWith('/api/admin/') && !url.startsWith('/api/admin/auth/')) {
         await guard(req, reply);
       }
     });
@@ -127,22 +123,27 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
 
     // Serve built web assets in production, or in development when explicitly
     // requested (useful for single-port full-stack debugging).
-    const serveWeb = isProduction || process.env["MODELHARBOR_SERVE_WEB"] === "1";
+    const serveWeb = isProduction || process.env['MODELHARBOR_SERVE_WEB'] === '1';
     if (serveWeb) {
-      const staticRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "web", "dist");
+      const staticRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'web', 'dist');
       await app.register(fastifyStatic, {
         root: staticRoot,
-        prefix: "/",
+        prefix: '/',
         wildcard: false,
       });
       // SPA fallback: serve index.html for any non-API route
       app.setNotFoundHandler(async (req, reply) => {
         const url = req.url;
-        if (url.startsWith("/api/") || url.startsWith("/v1/") || url.startsWith("/healthz") || url.startsWith("/readyz")) {
+        if (
+          url.startsWith('/api/') ||
+          url.startsWith('/v1/') ||
+          url.startsWith('/healthz') ||
+          url.startsWith('/readyz')
+        ) {
           reply.callNotFound();
           return;
         }
-        await reply.sendFile("index.html", staticRoot);
+        await reply.sendFile('index.html', staticRoot);
       });
     }
 
@@ -151,7 +152,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
         intervalMs: options.backgroundJobsIntervalMs ?? 5 * 60 * 1000,
       });
       (app as FastifyWithJobs)[BackgroundJobsSymbol] = jobs;
-      app.addHook("onClose", async () => {
+      app.addHook('onClose', async () => {
         jobs.stop();
       });
     }

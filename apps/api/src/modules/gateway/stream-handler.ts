@@ -14,7 +14,7 @@ import {
   getProviderAdapter,
 } from '../providers/index.js';
 import { type Db } from '../db/index.js';
-import { decryptSecret } from '../auth/crypto.js';
+import { resolveAuthorizationHeader } from '../providers/auth/index.js';
 import { assertConsumerKeyAccess } from '../router/access.js';
 import {
   expandCandidates,
@@ -179,7 +179,7 @@ export async function handleStreamRequest(
   for (const candidate of sorted) {
     lastCandidate = candidate;
     const adapter = getProviderAdapter(candidate);
-    const providerReq = buildProviderRequest(ctx, { ir: streamCtx.ir, candidate });
+    const providerReq = await buildProviderRequest(ctx, { ir: streamCtx.ir, candidate });
     abortController = new AbortController();
     const startResult = await startUpstreamStream(providerReq, {
       timeoutMs: ctx.defaultUpstreamTimeoutMs ?? 60_000,
@@ -282,11 +282,21 @@ function toNormalizedError(err: NormalizedErrorLite): Error {
   }
 }
 
-function buildProviderRequest(
+async function buildProviderRequest(
   ctx: StreamGatewayContext,
   args: { ir: ChatRequestIR; candidate: ResolvedCandidate },
-): ProviderHttpRequest {
-  const apiKey = decryptSecret(args.candidate.apiKeyCiphertext, ctx.secretKey);
+): Promise<ProviderHttpRequest> {
+  const authHeader = await resolveAuthorizationHeader({
+    row: {
+      id: args.candidate.upstreamKeyId,
+      authType: args.candidate.authType,
+      apiKeyCiphertext: args.candidate.apiKeyCiphertext,
+      authConfigCiphertext: args.candidate.authConfigCiphertext,
+    },
+    secretKey: ctx.secretKey,
+    baseUrl: args.candidate.endpointBaseUrl,
+    db: ctx.db,
+  });
   const providerCtx: ProviderRequestContext = {
     ir: args.ir,
     realModelName: args.candidate.realModelName,
@@ -295,7 +305,7 @@ function buildProviderRequest(
     stream: true,
     baseUrl: args.candidate.endpointBaseUrl,
     apiPath: args.candidate.endpointApiPath,
-    apiKey,
+    apiKey: authHeader.replace(/^Bearer\s+/i, ''),
     extraHeaders: args.candidate.extraHeaders,
     extraParams: args.candidate.extraParams,
   };

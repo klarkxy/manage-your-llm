@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
-import { type Db, upstreamKeys } from "../db/index.js";
-import type { NormalizedProviderError } from "../providers/types.js";
+import { eq } from 'drizzle-orm';
+import { type Db, upstreamKeys } from '../db/index.js';
+import type { NormalizedProviderError } from '../providers/types.js';
 
 // Cooldown durations applied when the upstream reports the matching error
 // category. M4 only reacts to upstream signals (no proactive quota counters
@@ -20,12 +20,12 @@ export interface CooldownUpdate {
   lastErrorMessage: string;
 }
 
-export function shouldCooldown(category: NormalizedProviderError["category"]): boolean {
+export function shouldCooldown(category: NormalizedProviderError['category']): boolean {
   return Object.prototype.hasOwnProperty.call(COOLDOWN_MS, category);
 }
 
 export function computeCooldownUpdate(
-  category: NormalizedProviderError["category"],
+  category: NormalizedProviderError['category'],
   providerCode: string | null,
   providerMessage: string | null,
   now: Date,
@@ -34,7 +34,7 @@ export function computeCooldownUpdate(
   return {
     cooldownUntil: ms > 0 ? new Date(now.getTime() + ms) : null,
     lastErrorCode: providerCode ?? category,
-    lastErrorMessage: providerMessage ?? "",
+    lastErrorMessage: providerMessage ?? '',
   };
 }
 

@@ -66,8 +66,10 @@ const STATEMENTS: readonly string[] = [
      name TEXT NOT NULL UNIQUE,
      provider_type TEXT NOT NULL,
      base_url TEXT NOT NULL,
+     auth_type TEXT NOT NULL DEFAULT 'pat',
      api_key_ciphertext TEXT NOT NULL,
      api_key_prefix TEXT NOT NULL,
+     auth_config_ciphertext TEXT,
      default_headers_json TEXT,
      supported_models_json TEXT NOT NULL DEFAULT '[]',
      endpoints_json TEXT,
@@ -83,13 +85,15 @@ const STATEMENTS: readonly string[] = [
      created_at INTEGER NOT NULL,
      updated_at INTEGER NOT NULL
    )`,
-  // Migration: add multi-endpoint / preset columns to existing databases.
-  // SQLite does not support ADD COLUMN IF NOT EXISTS, so we catch the
-  // duplicate-column error and treat it as a no-op.
+  // Migration: add columns to existing databases. SQLite does not support ADD
+  // COLUMN IF NOT EXISTS, so we catch the duplicate-column error and treat it
+  // as a no-op.
   `ALTER TABLE upstream_keys ADD COLUMN endpoints_json TEXT`,
   `ALTER TABLE upstream_keys ADD COLUMN provider_preset_id TEXT`,
   `ALTER TABLE upstream_keys ADD COLUMN extra_headers_json TEXT`,
   `ALTER TABLE upstream_keys ADD COLUMN extra_params_json TEXT`,
+  `ALTER TABLE upstream_keys ADD COLUMN auth_type TEXT NOT NULL DEFAULT 'pat'`,
+  `ALTER TABLE upstream_keys ADD COLUMN auth_config_ciphertext TEXT`,
   `CREATE TABLE IF NOT EXISTS upstream_key_quotas (
      id TEXT PRIMARY KEY,
      upstream_key_id TEXT NOT NULL UNIQUE,

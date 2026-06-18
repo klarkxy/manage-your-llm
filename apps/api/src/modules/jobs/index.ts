@@ -12,11 +12,11 @@
 // Each job is a no-op when there is nothing to do. Errors are logged and
 // swallowed so one bad job does not crash the loop.
 
-import type { Db } from "../db/index.js";
-import { eq, lte } from "drizzle-orm";
-import { upstreamKeys } from "../db/index.js";
-import { resetExpiredCounters } from "../quota/index.js";
-import { pruneExpiredStickyBindings } from "../sticky/index.js";
+import type { Db } from '../db/index.js';
+import { eq, lte } from 'drizzle-orm';
+import { upstreamKeys } from '../db/index.js';
+import { resetExpiredCounters } from '../quota/index.js';
+import { pruneExpiredStickyBindings } from '../sticky/index.js';
 
 export interface JobResult {
   countersRemoved: number;
@@ -75,7 +75,9 @@ export function startBackgroundJobs(
       /* swallow */
     }
   };
-  const handle = setInterval(() => { void tick(); }, interval);
+  const handle = setInterval(() => {
+    void tick();
+  }, interval);
   return {
     stop(): void {
       stopped = true;

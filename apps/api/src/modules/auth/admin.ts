@@ -1,6 +1,6 @@
-import { eq, and, gt } from "drizzle-orm";
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { generateId } from "@modelharbor/shared";
+import { eq, and, gt } from 'drizzle-orm';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { generateId } from '@modelharbor/shared';
 import {
   adminSessions,
   adminUsers,
@@ -9,17 +9,17 @@ import {
   type AdminUserInsert,
   type AdminUserRow,
   type Db,
-} from "../db/index.js";
-import { hashPassword, verifyPassword } from "./password.js";
-import { hashSessionId, issueSessionToken, verifySessionToken } from "./session.js";
+} from '../db/index.js';
+import { hashPassword, verifyPassword } from './password.js';
+import { hashSessionId, issueSessionToken, verifySessionToken } from './session.js';
 import {
   inspectLoginRateLimit,
   recordAuditEvent,
   recordLoginAttempt,
   resetLoginFailures,
-} from "../observability/index.js";
+} from '../observability/index.js';
 
-export const SESSION_COOKIE = "mh_session";
+export const SESSION_COOKIE = 'mh_session';
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export interface AdminBootstrapOptions {
@@ -28,22 +28,33 @@ export interface AdminBootstrapOptions {
   displayName?: string;
 }
 
-export async function bootstrapAdmin(db: Db, options: AdminBootstrapOptions): Promise<AdminUserRow> {
-  const existing = await db.select().from(adminUsers).where(eq(adminUsers.username, options.username)).get();
+export async function bootstrapAdmin(
+  db: Db,
+  options: AdminBootstrapOptions,
+): Promise<AdminUserRow> {
+  const existing = await db
+    .select()
+    .from(adminUsers)
+    .where(eq(adminUsers.username, options.username))
+    .get();
   if (existing) return existing;
   const now = new Date();
   const row: AdminUserInsert = {
-    id: generateId("admin"),
+    id: generateId('admin'),
     username: options.username,
     passwordHash: hashPassword(options.password),
-    displayName: options.displayName ?? "Admin",
+    displayName: options.displayName ?? 'Admin',
     enabled: true,
     createdAt: now,
     updatedAt: now,
   };
   await db.insert(adminUsers).values(row);
-  const created = await db.select().from(adminUsers).where(eq(adminUsers.username, options.username)).get();
-  if (!created) throw new Error("admin bootstrap failed");
+  const created = await db
+    .select()
+    .from(adminUsers)
+    .where(eq(adminUsers.username, options.username))
+    .get();
+  if (!created) throw new Error('admin bootstrap failed');
   return created;
 }
 
@@ -58,7 +69,7 @@ export async function createSession(db: Db, input: CreateSessionInput): Promise<
   const ttl = input.ttlMs ?? SESSION_TTL_MS;
   const expiresAt = new Date(now.getTime() + ttl);
   const row: AdminSessionInsert = {
-    id: generateId("session"),
+    id: generateId('session'),
     adminUserId: input.adminUserId,
     sessionHash: hashSessionId(input.sessionId),
     expiresAt,
@@ -114,21 +125,33 @@ export function requireAdmin(
     const raw = cookies?.[SESSION_COOKIE];
     if (!raw) {
       reply.code(401).send({
-        error: { message: "Authentication required", type: "authentication_error", code: "authentication_error" },
+        error: {
+          message: 'Authentication required',
+          type: 'authentication_error',
+          code: 'authentication_error',
+        },
       });
       return;
     }
     const sessionId = verifySessionToken(raw, secretKey);
     if (!sessionId) {
       reply.code(401).send({
-        error: { message: "Invalid session", type: "authentication_error", code: "authentication_error" },
+        error: {
+          message: 'Invalid session',
+          type: 'authentication_error',
+          code: 'authentication_error',
+        },
       });
       return;
     }
     const found = await findSessionById(db, sessionId);
     if (!found) {
       reply.code(401).send({
-        error: { message: "Session expired", type: "authentication_error", code: "authentication_error" },
+        error: {
+          message: 'Session expired',
+          type: 'authentication_error',
+          code: 'authentication_error',
+        },
       });
       return;
     }
@@ -147,14 +170,18 @@ export interface AdminAuthDeps {
 export function registerAdminAuthRoutes(app: FastifyInstance, deps: AdminAuthDeps): void {
   const { db, secretKey, isProduction } = deps;
 
-  app.post("/api/admin/auth/login", async (req, reply) => {
+  app.post('/api/admin/auth/login', async (req, reply) => {
     const body = (req.body ?? {}) as { username?: unknown; password?: unknown };
-    const username = typeof body.username === "string" ? body.username.trim() : "";
-    const password = typeof body.password === "string" ? body.password : "";
-    const ip = req.ip ?? "unknown";
+    const username = typeof body.username === 'string' ? body.username.trim() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    const ip = req.ip ?? 'unknown';
     if (!username || !password) {
       reply.code(400).send({
-        error: { message: "username and password required", type: "validation_error", code: "validation_error" },
+        error: {
+          message: 'username and password required',
+          type: 'validation_error',
+          code: 'validation_error',
+        },
       });
       return;
     }
@@ -162,12 +189,12 @@ export function registerAdminAuthRoutes(app: FastifyInstance, deps: AdminAuthDep
     // counts only failures; success resets the window for this pair.
     const rate = await inspectLoginRateLimit(db, { username, ip, now: new Date() });
     if (!rate.allowed) {
-      reply.header("retry-after", String(Math.ceil(rate.retryAfterMs / 1000)));
+      reply.header('retry-after', String(Math.ceil(rate.retryAfterMs / 1000)));
       reply.code(429).send({
         error: {
-          message: "Too many login attempts; please retry later",
-          type: "rate_limited",
-          code: "rate_limited",
+          message: 'Too many login attempts; please retry later',
+          type: 'rate_limited',
+          code: 'rate_limited',
         },
       });
       return;
@@ -179,16 +206,20 @@ export function registerAdminAuthRoutes(app: FastifyInstance, deps: AdminAuthDep
       await recordAuditEvent(db, {
         actorAdminId: null,
         actorUsername: username,
-        action: "admin.login.failure",
-        resourceType: "admin_session",
+        action: 'admin.login.failure',
+        resourceType: 'admin_session',
         ip,
       });
       reply.code(401).send({
-        error: { message: "Invalid credentials", type: "authentication_error", code: "authentication_error" },
+        error: {
+          message: 'Invalid credentials',
+          type: 'authentication_error',
+          code: 'authentication_error',
+        },
       });
       return;
     }
-    const sessionId = `${generateId("admin")}_${Math.random().toString(36).slice(2, 10)}`;
+    const sessionId = `${generateId('admin')}_${Math.random().toString(36).slice(2, 10)}`;
     await createSession(db, { sessionId, adminUserId: user!.id });
     await db.update(adminUsers).set({ lastLoginAt: new Date() }).where(eq(adminUsers.id, user!.id));
     await resetLoginFailures(db, { username, ip });
@@ -196,17 +227,17 @@ export function registerAdminAuthRoutes(app: FastifyInstance, deps: AdminAuthDep
     await recordAuditEvent(db, {
       actorAdminId: user!.id,
       actorUsername: user!.username,
-      action: "admin.login.success",
-      resourceType: "admin_session",
+      action: 'admin.login.success',
+      resourceType: 'admin_session',
       resourceId: sessionId,
       ip,
     });
     const token = issueSessionToken(sessionId, secretKey);
     reply.setCookie(SESSION_COOKIE, token, {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: 'lax',
       secure: isProduction,
-      path: "/",
+      path: '/',
       maxAge: SESSION_TTL_MS / 1000,
     });
     reply.send({
@@ -218,27 +249,31 @@ export function registerAdminAuthRoutes(app: FastifyInstance, deps: AdminAuthDep
     });
   });
 
-  app.post("/api/admin/auth/logout", { preHandler: requireAdmin(db, secretKey) }, async (req, reply) => {
-    const auth = req as AuthenticatedRequest;
-    const cookies = req.cookies as Record<string, string | undefined> | undefined;
-    const raw = cookies?.[SESSION_COOKIE];
-    if (raw) {
-      const sessionId = verifySessionToken(raw, secretKey);
-      if (sessionId) await deleteSession(db, sessionId);
-    }
-    reply.clearCookie(SESSION_COOKIE, { path: "/" });
-    await recordAuditEvent(db, {
-      actorAdminId: auth.admin.id,
-      actorUsername: auth.admin.username,
-      action: "admin.logout",
-      resourceType: "admin_session",
-      resourceId: auth.sessionId,
-      ip: req.ip ?? null,
-    });
-    reply.code(204).send();
-  });
+  app.post(
+    '/api/admin/auth/logout',
+    { preHandler: requireAdmin(db, secretKey) },
+    async (req, reply) => {
+      const auth = req as AuthenticatedRequest;
+      const cookies = req.cookies as Record<string, string | undefined> | undefined;
+      const raw = cookies?.[SESSION_COOKIE];
+      if (raw) {
+        const sessionId = verifySessionToken(raw, secretKey);
+        if (sessionId) await deleteSession(db, sessionId);
+      }
+      reply.clearCookie(SESSION_COOKIE, { path: '/' });
+      await recordAuditEvent(db, {
+        actorAdminId: auth.admin.id,
+        actorUsername: auth.admin.username,
+        action: 'admin.logout',
+        resourceType: 'admin_session',
+        resourceId: auth.sessionId,
+        ip: req.ip ?? null,
+      });
+      reply.code(204).send();
+    },
+  );
 
-  app.get("/api/admin/auth/me", { preHandler: requireAdmin(db, secretKey) }, async (req) => {
+  app.get('/api/admin/auth/me', { preHandler: requireAdmin(db, secretKey) }, async (req) => {
     const admin = (req as AuthenticatedRequest).admin;
     return {
       admin: {
@@ -252,29 +287,45 @@ export function registerAdminAuthRoutes(app: FastifyInstance, deps: AdminAuthDep
   // Change own password. Requires the current password to prevent a stolen
   // session from being used to lock out the real owner.
   app.post(
-    "/api/admin/auth/change-password",
+    '/api/admin/auth/change-password',
     { preHandler: requireAdmin(db, secretKey) },
     async (req, reply) => {
       const auth = req as AuthenticatedRequest;
       const body = (req.body ?? {}) as { currentPassword?: unknown; newPassword?: unknown };
-      const currentPassword = typeof body.currentPassword === "string" ? body.currentPassword : "";
-      const newPassword = typeof body.newPassword === "string" ? body.newPassword : "";
+      const currentPassword = typeof body.currentPassword === 'string' ? body.currentPassword : '';
+      const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
       if (!currentPassword || !newPassword) {
         reply.code(400).send({
-          error: { message: "currentPassword and newPassword required", type: "validation_error", code: "validation_error" },
+          error: {
+            message: 'currentPassword and newPassword required',
+            type: 'validation_error',
+            code: 'validation_error',
+          },
         });
         return;
       }
       if (newPassword.length < 8) {
         reply.code(400).send({
-          error: { message: "newPassword must be at least 8 characters", type: "validation_error", code: "validation_error" },
+          error: {
+            message: 'newPassword must be at least 8 characters',
+            type: 'validation_error',
+            code: 'validation_error',
+          },
         });
         return;
       }
-      const fresh = await db.select().from(adminUsers).where(eq(adminUsers.id, auth.admin.id)).get();
+      const fresh = await db
+        .select()
+        .from(adminUsers)
+        .where(eq(adminUsers.id, auth.admin.id))
+        .get();
       if (!fresh || !verifyPassword(currentPassword, fresh.passwordHash)) {
         reply.code(401).send({
-          error: { message: "Current password is incorrect", type: "authentication_error", code: "authentication_error" },
+          error: {
+            message: 'Current password is incorrect',
+            type: 'authentication_error',
+            code: 'authentication_error',
+          },
         });
         return;
       }
@@ -285,8 +336,8 @@ export function registerAdminAuthRoutes(app: FastifyInstance, deps: AdminAuthDep
       await recordAuditEvent(db, {
         actorAdminId: auth.admin.id,
         actorUsername: auth.admin.username,
-        action: "admin.password.change",
-        resourceType: "admin_user",
+        action: 'admin.password.change',
+        resourceType: 'admin_user',
         resourceId: auth.admin.id,
         ip: req.ip ?? null,
       });
@@ -296,15 +347,19 @@ export function registerAdminAuthRoutes(app: FastifyInstance, deps: AdminAuthDep
 
   // Update own profile (displayName). Audit-logged.
   app.patch(
-    "/api/admin/auth/profile",
+    '/api/admin/auth/profile',
     { preHandler: requireAdmin(db, secretKey) },
     async (req, reply) => {
       const auth = req as AuthenticatedRequest;
       const body = (req.body ?? {}) as { displayName?: unknown };
       if (body.displayName !== undefined) {
-        if (typeof body.displayName !== "string") {
+        if (typeof body.displayName !== 'string') {
           reply.code(400).send({
-            error: { message: "displayName must be a string", type: "validation_error", code: "validation_error" },
+            error: {
+              message: 'displayName must be a string',
+              type: 'validation_error',
+              code: 'validation_error',
+            },
           });
           return;
         }
@@ -314,10 +369,14 @@ export function registerAdminAuthRoutes(app: FastifyInstance, deps: AdminAuthDep
           .set({ displayName: trimmed.length > 0 ? trimmed : null, updatedAt: new Date() })
           .where(eq(adminUsers.id, auth.admin.id));
       }
-      const fresh = await db.select().from(adminUsers).where(eq(adminUsers.id, auth.admin.id)).get();
+      const fresh = await db
+        .select()
+        .from(adminUsers)
+        .where(eq(adminUsers.id, auth.admin.id))
+        .get();
       if (!fresh) {
         reply.code(404).send({
-          error: { message: "Admin not found", type: "target_not_found", code: "target_not_found" },
+          error: { message: 'Admin not found', type: 'target_not_found', code: 'target_not_found' },
         });
         return;
       }

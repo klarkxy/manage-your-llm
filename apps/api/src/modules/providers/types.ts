@@ -160,6 +160,11 @@ export interface ProviderPresetEndpoint {
   apiPath?: string;
 }
 
+export interface ProviderPresetAuthStrategies {
+  default: string;
+  available: string[];
+}
+
 export interface ProviderPreset {
   id: string;
   // English display name. The frontend should use the preset id as an i18n key
@@ -176,6 +181,9 @@ export interface ProviderPreset {
   // upstream-key config and can be overridden per key in the admin UI.
   defaultExtraHeaders?: Record<string, string>;
   defaultExtraParams?: Record<string, unknown>;
+  // Supported authentication strategies for this provider. When omitted the
+  // upstream key falls back to the generic PAT (static apiKey) strategy.
+  authStrategies?: ProviderPresetAuthStrategies;
 }
 
 export interface ModelMapping {

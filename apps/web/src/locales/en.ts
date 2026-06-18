@@ -89,6 +89,7 @@ const messages = {
     'agnes-ai': 'Agnes AI',
     'kimi-code': 'Kimi Code',
     coze: 'Coze',
+    codex: 'OpenAI Codex',
   },
   layout: {
     brand: 'ModelHarbor',
@@ -193,7 +194,26 @@ const messages = {
       providers: {
         anthropic: 'Anthropic compatible',
         openai: 'OpenAI compatible',
+        coze: 'Coze',
       },
+      authType: {
+        label: 'Authentication',
+        pat: 'PAT (static token)',
+        cozeOauthJwt: 'OAuth JWT (recommended)',
+        codexOauth: 'Codex OAuth (refresh token)',
+      },
+      codex: {
+        refreshToken: 'Refresh token',
+        clientId: 'Client ID (optional)',
+        tokenUrl: 'Token URL (optional)',
+      },
+      coze: {
+        appId: 'App ID',
+        kid: 'Public key fingerprint (KID)',
+        privateKey: 'Private key (PEM)',
+        durationSeconds: 'Token duration (seconds)',
+      },
+      workspaceId: 'Workspace ID',
       extraHeaders: {
         label: 'Extra headers',
         key: 'Header name',
@@ -218,6 +238,11 @@ const messages = {
         baseUrl: 'https://api.example.com',
         apiKey: 'sk-...',
         apiKeyEdit: 'Leave blank to keep the existing key',
+        workspaceId: 'Paste from your Coze workspace URL',
+        privateKey: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
+        refreshToken: 'Paste the Codex OAuth refresh token',
+        clientId: 'app_EMoamEEZ73f0CkXaXp7hrann',
+        tokenUrl: 'https://auth.openai.com/oauth/token',
       },
     },
     ping: {

@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { eq } from "drizzle-orm";
-import { consumerKeys, consumerKeyAccess } from "../src/modules/db/index.js";
-import { makeAdminRig, seedFullRoute, type AdminTestRig } from "./helper.js";
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { consumerKeys, consumerKeyAccess } from '../src/modules/db/index.js';
+import { makeAdminRig, seedFullRoute, type AdminTestRig } from './helper.js';
 
-describe("consumer keys admin", () => {
+describe('consumer keys admin', () => {
   let rig: AdminTestRig;
   beforeEach(async () => {
     rig = await makeAdminRig();
@@ -12,26 +12,26 @@ describe("consumer keys admin", () => {
     await rig.close();
   });
 
-  it("creates a consumer key, returns the raw key once, and never again", async () => {
+  it('creates a consumer key, returns the raw key once, and never again', async () => {
     const refs = await seedFullRoute(rig);
     const res = await rig.app.inject({
-      method: "POST",
+      method: 'POST',
       url: `/api/admin/apps/${refs.appId}/consumer-keys`,
       headers: { cookie: rig.cookie },
       payload: {
-        name: "Cline",
-        access: [{ targetType: "model_group", targetId: refs.modelGroupId }],
+        name: 'Cline',
+        access: [{ targetType: 'model_group', targetId: refs.modelGroupId }],
       },
     });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { id: string; key: string; keyPrefix: string; name: string };
-    expect(body.key.startsWith("mh_")).toBe(true);
+    expect(body.key.startsWith('mh_')).toBe(true);
     expect(body.key.length).toBeGreaterThan(20);
     expect(body.keyPrefix).toBe(body.key.slice(0, 7));
 
     // Now GET the list: the raw key must NOT appear in any item.
     const list = await rig.app.inject({
-      method: "GET",
+      method: 'GET',
       url: `/api/admin/apps/${refs.appId}/consumer-keys`,
       headers: { cookie: rig.cookie },
     });
@@ -44,41 +44,49 @@ describe("consumer keys admin", () => {
     }
 
     // The newly created item (by createdAt desc) is the one we just made.
-    const fresh = listBody.items.find((i) => i.name === "Cline");
+    const fresh = listBody.items.find((i) => i.name === 'Cline');
     expect(fresh).toBeTruthy();
 
     // The underlying keyHash should match SHA-256 of the raw key.
     const row = await rig.db.select().from(consumerKeys).where(eq(consumerKeys.id, body.id)).get();
-    const { hashSessionId } = await import("../src/modules/auth/index.js");
+    const { hashSessionId } = await import('../src/modules/auth/index.js');
     expect(row!.keyHash).toBe(hashSessionId(body.key));
 
     // Access was inserted.
-    const access = await rig.db.select().from(consumerKeyAccess).where(eq(consumerKeyAccess.consumerKeyId, body.id)).all();
+    const access = await rig.db
+      .select()
+      .from(consumerKeyAccess)
+      .where(eq(consumerKeyAccess.consumerKeyId, body.id))
+      .all();
     expect(access).toHaveLength(1);
     expect(access[0]!.targetId).toBe(refs.modelGroupId);
   });
 
-  it("rotates a consumer key and returns the new raw key (and only that)", async () => {
+  it('rotates a consumer key and returns the new raw key (and only that)', async () => {
     const refs = await seedFullRoute(rig);
     const res = await rig.app.inject({
-      method: "POST",
-      url: "/api/admin/consumer-keys/" + refs.consumerKeyId + "/rotate",
+      method: 'POST',
+      url: '/api/admin/consumer-keys/' + refs.consumerKeyId + '/rotate',
       headers: { cookie: rig.cookie },
     });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { key: string; keyPrefix: string };
     expect(body.key).not.toBe(refs.rawConsumerKey);
-    expect(body.key.startsWith("mh_")).toBe(true);
-    const row = await rig.db.select().from(consumerKeys).where(eq(consumerKeys.id, refs.consumerKeyId)).get();
-    const { hashSessionId } = await import("../src/modules/auth/index.js");
+    expect(body.key.startsWith('mh_')).toBe(true);
+    const row = await rig.db
+      .select()
+      .from(consumerKeys)
+      .where(eq(consumerKeys.id, refs.consumerKeyId))
+      .get();
+    const { hashSessionId } = await import('../src/modules/auth/index.js');
     expect(row!.keyHash).toBe(hashSessionId(body.key));
   });
 
-  it("revokes a consumer key and prevents future use", async () => {
+  it('revokes a consumer key and prevents future use', async () => {
     const refs = await seedFullRoute(rig);
     const rev = await rig.app.inject({
-      method: "POST",
-      url: "/api/admin/consumer-keys/" + refs.consumerKeyId + "/revoke",
+      method: 'POST',
+      url: '/api/admin/consumer-keys/' + refs.consumerKeyId + '/revoke',
       headers: { cookie: rig.cookie },
     });
     expect(rev.statusCode).toBe(200);
@@ -87,32 +95,36 @@ describe("consumer keys admin", () => {
     expect(body.revokedAt).toBeTruthy();
   });
 
-  it("PUT access replaces the access list", async () => {
+  it('PUT access replaces the access list', async () => {
     const refs = await seedFullRoute(rig);
     const put = await rig.app.inject({
-      method: "PUT",
-      url: "/api/admin/consumer-keys/" + refs.consumerKeyId + "/access",
+      method: 'PUT',
+      url: '/api/admin/consumer-keys/' + refs.consumerKeyId + '/access',
       headers: { cookie: rig.cookie },
       payload: {
-        access: [{ targetType: "public_model", targetId: refs.publicModelId }],
+        access: [{ targetType: 'public_model', targetId: refs.publicModelId }],
       },
     });
     expect(put.statusCode).toBe(200);
-    const access = await rig.db.select().from(consumerKeyAccess).where(eq(consumerKeyAccess.consumerKeyId, refs.consumerKeyId)).all();
+    const access = await rig.db
+      .select()
+      .from(consumerKeyAccess)
+      .where(eq(consumerKeyAccess.consumerKeyId, refs.consumerKeyId))
+      .all();
     expect(access).toHaveLength(1);
-    expect(access[0]!.targetType).toBe("public_model");
+    expect(access[0]!.targetType).toBe('public_model');
     expect(access[0]!.targetId).toBe(refs.publicModelId);
   });
 
-  it("rejects access to non-existent target", async () => {
+  it('rejects access to non-existent target', async () => {
     const refs = await seedFullRoute(rig);
     const res = await rig.app.inject({
-      method: "POST",
+      method: 'POST',
       url: `/api/admin/apps/${refs.appId}/consumer-keys`,
       headers: { cookie: rig.cookie },
       payload: {
-        name: "Bad",
-        access: [{ targetType: "public_model", targetId: "pm_doesnotexist" }],
+        name: 'Bad',
+        access: [{ targetType: 'public_model', targetId: 'pm_doesnotexist' }],
       },
     });
     expect(res.statusCode).toBeGreaterThanOrEqual(400);

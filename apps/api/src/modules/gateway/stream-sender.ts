@@ -1,4 +1,4 @@
-import type { ProviderHttpRequest } from "../providers/types.js";
+import type { ProviderHttpRequest } from '../providers/types.js';
 
 export interface StreamSendOptions {
   timeoutMs: number;
@@ -11,14 +11,14 @@ export interface RawStreamEvent {
 }
 
 export interface StreamStartOk {
-  kind: "ok";
+  kind: 'ok';
   status: number;
   headers: Record<string, string>;
   events: AsyncIterable<RawStreamEvent>;
 }
 
 export interface StreamStartErrorBody {
-  kind: "error-body";
+  kind: 'error-body';
   status: number;
   headers: Record<string, string>;
   bodyText: string;
@@ -26,7 +26,7 @@ export interface StreamStartErrorBody {
 }
 
 export interface StreamStartTransport {
-  kind: "transport";
+  kind: 'transport';
   error: { name: string; message: string; code?: string };
 }
 
@@ -48,7 +48,7 @@ export async function startUpstreamStream(
   const onParentAbort = (): void => controller.abort();
   if (options.signal) {
     if (options.signal.aborted) controller.abort();
-    else options.signal.addEventListener("abort", onParentAbort);
+    else options.signal.addEventListener('abort', onParentAbort);
   }
   try {
     const res = await fetch(req.url, {
@@ -63,7 +63,7 @@ export async function startUpstreamStream(
     });
     if (res.status >= 200 && res.status < 300) {
       return {
-        kind: "ok",
+        kind: 'ok',
         status: res.status,
         headers,
         events: parseSseStream(res.body, controller),
@@ -73,14 +73,18 @@ export async function startUpstreamStream(
     const bodyText = await res.text();
     const bodyJson = tryParseJson(bodyText);
     // Cancel the body stream in case it was partially read.
-    try { await res.body?.cancel(); } catch { /* ignore */ }
-    return { kind: "error-body", status: res.status, headers, bodyText, bodyJson };
+    try {
+      await res.body?.cancel();
+    } catch {
+      /* ignore */
+    }
+    return { kind: 'error-body', status: res.status, headers, bodyText, bodyJson };
   } catch (err) {
     const e = err as { name?: string; message?: string; cause?: { code?: string } };
-    const name = e.name === "AbortError" ? "timeout" : (e.name ?? "error");
-    const code = e.cause?.code ?? (e.name === "AbortError" ? "ETIMEDOUT" : undefined);
+    const name = e.name === 'AbortError' ? 'timeout' : (e.name ?? 'error');
+    const code = e.cause?.code ?? (e.name === 'AbortError' ? 'ETIMEDOUT' : undefined);
     return {
-      kind: "transport",
+      kind: 'transport',
       error: {
         name,
         message: e.message ?? String(err),
@@ -89,7 +93,7 @@ export async function startUpstreamStream(
     };
   } finally {
     clearTimeout(timer);
-    if (options.signal) options.signal.removeEventListener("abort", onParentAbort);
+    if (options.signal) options.signal.removeEventListener('abort', onParentAbort);
   }
 }
 
@@ -116,25 +120,25 @@ async function* parseSseStream(
   controller: AbortController,
 ): AsyncIterable<RawStreamEvent> {
   if (!body) return;
-  const decoder = new TextDecoder("utf-8");
+  const decoder = new TextDecoder('utf-8');
   const reader = body.getReader();
-  let buffer = "";
+  let buffer = '';
   try {
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
       // Split on blank line boundaries. SSE uses \n\n or \r\n\r\n.
-      let boundary = buffer.indexOf("\n\n");
+      let boundary = buffer.indexOf('\n\n');
       while (boundary >= 0) {
         const raw = buffer.slice(0, boundary);
         buffer = buffer.slice(boundary + 2);
         const event = parseSseBlock(raw);
         if (event) yield event;
-        boundary = buffer.indexOf("\n\n");
+        boundary = buffer.indexOf('\n\n');
       }
       // Also handle CRLF boundaries that may straddle chunks.
-      boundary = buffer.indexOf("\r\n\r\n");
+      boundary = buffer.indexOf('\r\n\r\n');
       if (boundary >= 0) {
         const raw = buffer.slice(0, boundary);
         buffer = buffer.slice(boundary + 4);
@@ -152,11 +156,15 @@ async function* parseSseStream(
     // Aborting the fetch surfaces as an AbortError on the reader; treat any
     // reader error as the end of the stream and let the caller decide what
     // to do with the half-streamed state.
-    if ((err as { name?: string }).name === "AbortError") return;
+    if ((err as { name?: string }).name === 'AbortError') return;
     // Re-throw unexpected errors so the gateway can record them.
     throw err;
   } finally {
-    try { reader.releaseLock(); } catch { /* ignore */ }
+    try {
+      reader.releaseLock();
+    } catch {
+      /* ignore */
+    }
     // Ensure the controller sees the close even on success; harmless if
     // it was already aborted.
     if (!controller.signal.aborted) controller.abort();
@@ -168,18 +176,18 @@ function parseSseBlock(block: string): RawStreamEvent | null {
   const dataParts: string[] = [];
   for (const rawLine of block.split(/\r?\n/)) {
     if (rawLine.length === 0) continue;
-    if (rawLine.startsWith(":")) continue; // comment
-    const colon = rawLine.indexOf(":");
+    if (rawLine.startsWith(':')) continue; // comment
+    const colon = rawLine.indexOf(':');
     if (colon < 0) continue;
     const field = rawLine.slice(0, colon);
     let value = rawLine.slice(colon + 1);
-    if (value.startsWith(" ")) value = value.slice(1);
-    if (field === "event") {
+    if (value.startsWith(' ')) value = value.slice(1);
+    if (field === 'event') {
       event = value;
-    } else if (field === "data") {
+    } else if (field === 'data') {
       dataParts.push(value);
     }
   }
   if (dataParts.length === 0) return null;
-  return { event, data: dataParts.join("\n") };
+  return { event, data: dataParts.join('\n') };
 }

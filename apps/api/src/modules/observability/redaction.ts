@@ -7,15 +7,9 @@
 // nested objects so a redacted header field nested under `headers` is still
 // caught.
 
-const REDACTED = "[redacted]";
+const REDACTED = '[redacted]';
 
-const HEADER_KEYS = new Set([
-  "authorization",
-  "x-api-key",
-  "x-auth-token",
-  "cookie",
-  "set-cookie",
-]);
+const HEADER_KEYS = new Set(['authorization', 'x-api-key', 'x-auth-token', 'cookie', 'set-cookie']);
 
 const PREFIX_PATTERNS: RegExp[] = [
   /\bmh_[A-Za-z0-9_-]+/g, // consumer keys
@@ -34,8 +28,9 @@ export function redactString(input: string): string {
 export function redactValue(value: unknown, depth = 0): unknown {
   if (depth > 6) return REDACTED;
   if (value === null || value === undefined) return value;
-  if (typeof value === "string") return redactString(value);
-  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return value;
+  if (typeof value === 'string') return redactString(value);
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint')
+    return value;
   if (Array.isArray(value)) return value.map((v) => redactValue(v, depth + 1));
   if (value instanceof Error) {
     // Errors serialize their message + name. We preserve the type so callers
@@ -49,7 +44,7 @@ export function redactValue(value: unknown, depth = 0): unknown {
     out.stack = value.stack;
     return out;
   }
-  if (typeof value === "object") {
+  if (typeof value === 'object') {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       if (HEADER_KEYS.has(k.toLowerCase())) {
@@ -85,7 +80,7 @@ export function wrapLogger<T extends RedactingLoggerDelegate>(logger: T): T {
 
 function redactArg(arg: unknown): unknown {
   if (arg === null || arg === undefined) return arg;
-  if (typeof arg === "string") return redactString(arg);
-  if (typeof arg === "object") return redactValue(arg);
+  if (typeof arg === 'string') return redactString(arg);
+  if (typeof arg === 'object') return redactValue(arg);
   return arg;
 }

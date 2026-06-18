@@ -12,32 +12,31 @@
 // candidate becomes unavailable. The hit counter on the binding is what the
 // M7 dashboard will use to compute the sticky hit rate.
 
-import { createHash } from "node:crypto";
-import { and, eq } from "drizzle-orm";
-import { generateId } from "@modelharbor/shared";
-import {
-  type Db,
-  type StickyBindingRow,
-  stickyBindings,
-} from "../db/index.js";
-import type { ResolvedCandidate } from "../router/candidates.js";
+import { createHash } from 'node:crypto';
+import { and, eq } from 'drizzle-orm';
+import { generateId } from '@modelharbor/shared';
+import { type Db, type StickyBindingRow, stickyBindings } from '../db/index.js';
+import type { ResolvedCandidate } from '../router/candidates.js';
 
 // Conversation fingerprint. Derived from a stable prefix of the IR (system +
 // first few messages, plus the requested model and the user_id metadata if
 // present). The hash is short (16 hex chars) so it fits comfortably in a
 // unique index. Clients do not pass any sticky-specific header; the gateway
 // infers stickiness from the request shape alone.
-export function conversationFingerprint(
-  args: { requestedModel: string; system: string | null; messages: Array<{ role: string; content: string }>; metadataUserId?: string | null },
-): string {
-  const systemPart = args.system ?? "";
+export function conversationFingerprint(args: {
+  requestedModel: string;
+  system: string | null;
+  messages: Array<{ role: string; content: string }>;
+  metadataUserId?: string | null;
+}): string {
+  const systemPart = args.system ?? '';
   const msgPart = args.messages
     .slice(0, 4)
     .map((m) => `${m.role}:${m.content}`)
-    .join("\n");
-  const userPart = args.metadataUserId ?? "";
+    .join('\n');
+  const userPart = args.metadataUserId ?? '';
   const basis = `${args.requestedModel}\nSYS:${systemPart}\n${msgPart}\nUSER:${userPart}`;
-  return createHash("sha256").update(basis, "utf8").digest("hex").slice(0, 16);
+  return createHash('sha256').update(basis, 'utf8').digest('hex').slice(0, 16);
 }
 
 // How long a binding is honored for, regardless of whether it keeps being hit.
@@ -88,9 +87,7 @@ export function isStickyBindingValid(
   args: { now: Date },
 ): boolean {
   const c = accepted.find(
-    (x) =>
-      x.upstreamKeyId === binding.upstreamKeyId &&
-      x.realModelName === binding.realModelName,
+    (x) => x.upstreamKeyId === binding.upstreamKeyId && x.realModelName === binding.realModelName,
   );
   if (!c) return false;
   if (!c.upstreamEnabled) return false;
@@ -156,7 +153,7 @@ export async function upsertStickyBinding(
         updatedAt: args.now,
       };
     }
-    const id = generateId("stickyBinding");
+    const id = generateId('stickyBinding');
     const expires = new Date(args.now.getTime() + ttl);
     await db.insert(stickyBindings).values({
       id,

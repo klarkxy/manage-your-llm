@@ -5,9 +5,9 @@
 // invoking the password check. Successful logins reset the counter and are
 // always allowed.
 
-import { and, eq, gte, sql } from "drizzle-orm";
-import { generateId } from "@modelharbor/shared";
-import { type Db, loginAttempts } from "../db/index.js";
+import { and, eq, gte, sql } from 'drizzle-orm';
+import { generateId } from '@modelharbor/shared';
+import { type Db, loginAttempts } from '../db/index.js';
 
 export interface RateLimitOptions {
   windowMs: number;
@@ -60,7 +60,7 @@ export async function recordLoginAttempt(
 ): Promise<void> {
   try {
     await db.insert(loginAttempts).values({
-      id: generateId("healthEvent"),
+      id: generateId('healthEvent'),
       username: args.username,
       ip: args.ip,
       success: args.success,

@@ -13,6 +13,10 @@ const preset: ProviderPreset = {
       apiPath: '/v3/chat',
     },
   ],
+  authStrategies: {
+    default: 'coze_oauth_jwt',
+    available: ['coze_oauth_jwt', 'pat'],
+  },
 };
 
 const providerModule: ProviderModule = {

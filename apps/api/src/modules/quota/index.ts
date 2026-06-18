@@ -13,8 +13,8 @@
 // key enters cooldown. The counter engine is for the administrator's own
 // spending cap, not for smoothing out upstream bursts.
 
-import { and, eq, lte } from "drizzle-orm";
-import { generateId } from "@modelharbor/shared";
+import { and, eq, lte } from 'drizzle-orm';
+import { generateId } from '@modelharbor/shared';
 import {
   type Db,
   type QuotaPeriod,
@@ -23,7 +23,7 @@ import {
   upstreamKeyCounters,
   upstreamKeyQuotas,
   upstreamKeys,
-} from "../db/index.js";
+} from '../db/index.js';
 
 export interface PeriodBounds {
   start: Date;
@@ -35,7 +35,7 @@ export interface PeriodBounds {
 // Other periods snap to the wall clock (UTC) so two requests inside the same
 // hour always share a row.
 export function periodBounds(period: QuotaPeriod, now: Date): PeriodBounds {
-  if (period === "total") {
+  if (period === 'total') {
     return { start: new Date(0), end: new Date(8.64e15) };
   }
   const ms = (PERIOD_MS as Record<string, number>)[period]!;
@@ -43,7 +43,7 @@ export function periodBounds(period: QuotaPeriod, now: Date): PeriodBounds {
   return { start: new Date(startMs), end: new Date(startMs + ms) };
 }
 
-const PERIOD_MS: Record<Exclude<QuotaPeriod, "total">, number> = {
+const PERIOD_MS: Record<Exclude<QuotaPeriod, 'total'>, number> = {
   hour: 60 * 60 * 1000,
   day: 24 * 60 * 60 * 1000,
   week: 7 * 24 * 60 * 60 * 1000,
@@ -90,7 +90,7 @@ export interface QuotaDecision {
   overQuota: boolean;
   // The dimension that triggered the freeze, if any. Used for the freeze
   // reason and for debugging.
-  overDimension: "request" | "input" | "output" | "total" | null;
+  overDimension: 'request' | 'input' | 'output' | 'total' | null;
 }
 
 // Atomically apply the usage delta to the current counter row, creating the
@@ -131,14 +131,14 @@ export async function incrementAndCheck(
     const overOutput = quota.outputTokenLimit !== null && newOutput > quota.outputTokenLimit;
     const overTotal = quota.totalTokenLimit !== null && newTotal > quota.totalTokenLimit;
     const overQuota = overRequest || overInput || overOutput || overTotal;
-    const overDimension: QuotaDecision["overDimension"] = overRequest
-      ? "request"
+    const overDimension: QuotaDecision['overDimension'] = overRequest
+      ? 'request'
       : overInput
-        ? "input"
+        ? 'input'
         : overOutput
-          ? "output"
+          ? 'output'
           : overTotal
-            ? "total"
+            ? 'total'
             : null;
 
     const now = args.now;
@@ -166,7 +166,7 @@ export async function incrementAndCheck(
         overDimension,
       };
     }
-    const id = generateId("upstreamKey") + "_c";
+    const id = generateId('upstreamKey') + '_c';
     await db.insert(upstreamKeyCounters).values({
       id,
       upstreamKeyId: args.upstreamKeyId,
@@ -242,7 +242,7 @@ async function incrementOnly(
         overDimension: null,
       };
     }
-    const id = generateId("upstreamKey") + "_c";
+    const id = generateId('upstreamKey') + '_c';
     await db.insert(upstreamKeyCounters).values({
       id,
       upstreamKeyId: args.upstreamKeyId,
@@ -285,7 +285,7 @@ export async function freezeKeyForQuota(
   db: Db,
   args: {
     upstreamKeyId: string;
-    dimension: "request" | "input" | "output" | "total";
+    dimension: 'request' | 'input' | 'output' | 'total';
     now: Date;
   },
 ): Promise<void> {
@@ -325,10 +325,7 @@ export async function getEnabledQuotaPeriods(
     .select({ period: upstreamKeyQuotas.period })
     .from(upstreamKeyQuotas)
     .where(
-      and(
-        eq(upstreamKeyQuotas.upstreamKeyId, upstreamKeyId),
-        eq(upstreamKeyQuotas.enabled, true),
-      ),
+      and(eq(upstreamKeyQuotas.upstreamKeyId, upstreamKeyId), eq(upstreamKeyQuotas.enabled, true)),
     )
     .all();
   return rows.map((r) => r.period);
@@ -351,9 +348,9 @@ export async function recordQuotaUsage(
   // no total-quota row is configured. Incrementing a missing row is harmless
   // because `incrementAndCheck` falls through to `incrementOnly` and still
   // writes a counter row.
-  const periods: QuotaPeriod[] = args.periods.includes("total")
+  const periods: QuotaPeriod[] = args.periods.includes('total')
     ? args.periods
-    : [...args.periods, "total"];
+    : [...args.periods, 'total'];
   for (const period of periods) {
     const decision = await incrementAndCheck(db, {
       upstreamKeyId: args.upstreamKeyId,
@@ -379,7 +376,7 @@ export async function resetExpiredCounters(db: Db, now: Date): Promise<number> {
     .where(lte(upstreamKeyCounters.periodEndsAt, now))
     .all();
   for (const r of expired) {
-    if (r.period === "total") continue;
+    if (r.period === 'total') continue;
     try {
       await db.delete(upstreamKeyCounters).where(eq(upstreamKeyCounters.id, r.id));
       total += 1;
@@ -391,7 +388,7 @@ export async function resetExpiredCounters(db: Db, now: Date): Promise<number> {
   // current window for its period is stale and should be removed.
   const all = await db.select().from(upstreamKeyCounters).all();
   for (const r of all) {
-    if (r.period === "total") continue;
+    if (r.period === 'total') continue;
     const expected = periodBounds(r.period, now).start;
     if (r.periodStartedAt.getTime() !== expected.getTime()) {
       try {
