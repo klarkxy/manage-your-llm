@@ -12,8 +12,12 @@ import {
   NForm,
   NFormItem,
   NInput,
+  NList,
+  NListItem,
+  NModal,
   NSelect,
   NSpace,
+  NSpin,
   NSwitch,
   NTag,
   NText,
@@ -27,9 +31,12 @@ import {
   type DiscoverModelsPayload,
   type ProviderPreset,
   type UpstreamKey,
+  type UpstreamKeyCandidate,
   type UpstreamKeyCreatePayload,
+  type UpstreamKeyPingResult,
 } from '../api/admin.js';
 import ModelMappingEditor, { type ModelMappingItem } from '../components/ModelMappingEditor.vue';
+import KeyValueEditor, { type KeyValueItem } from '../components/KeyValueEditor.vue';
 
 const router = useRouter();
 const message = useMessage();
@@ -51,10 +58,19 @@ const form = ref<UpstreamKeyCreatePayload>({
   providerType: 'anthropic_compatible',
   baseUrl: '',
   apiKey: '',
+  planType: null,
 });
 const modelMappings = ref<ModelMappingItem[]>([]);
+const extraHeaders = ref<KeyValueItem[]>([]);
+const extraParams = ref<KeyValueItem[]>([]);
 const fetchingModels = ref(false);
 const togglingIds = ref<Set<string>>(new Set());
+
+const pingOpen = ref(false);
+const pingKey = ref<UpstreamKey | null>(null);
+const pingCandidates = ref<UpstreamKeyCandidate[]>([]);
+const pingLoading = ref<Set<string>>(new Set());
+const pingResults = ref<Record<string, UpstreamKeyPingResult>>({});
 
 function resetForm() {
   form.value = {
@@ -62,9 +78,12 @@ function resetForm() {
     providerType: 'anthropic_compatible',
     baseUrl: '',
     apiKey: '',
+    planType: null,
   };
   selectedPresetId.value = null;
   modelMappings.value = [];
+  extraHeaders.value = [];
+  extraParams.value = [];
   editingId.value = null;
 }
 
@@ -100,7 +119,18 @@ async function openEdit(row: UpstreamKey) {
   form.value.providerType = row.providerType;
   form.value.baseUrl = row.baseUrl;
   form.value.apiKey = '';
+  form.value.planType = row.planType;
   selectedPresetId.value = row.providerPresetId;
+  extraHeaders.value = Object.entries(row.extraHeaders ?? {}).map(([key, value]) => ({
+    key,
+    value: String(value),
+    enabled: true,
+  }));
+  extraParams.value = Object.entries(row.extraParams ?? {}).map(([key, value]) => ({
+    key,
+    value: JSON.stringify(value),
+    enabled: true,
+  }));
   try {
     const res = await upstreamKeysApi.getCandidates(row.id);
     modelMappings.value = res.items.map((c) => ({
@@ -136,9 +166,29 @@ async function onSubmit() {
       publicName: m.publicName.trim() || m.realName.trim(),
       enabled: m.enabled,
     }));
+    const headersPayload: Record<string, string> = {};
+    for (const h of extraHeaders.value) {
+      if (h.enabled && h.key.trim()) headersPayload[h.key.trim()] = h.value;
+    }
+    const paramsPayload: Record<string, unknown> = {};
+    for (const p of extraParams.value) {
+      if (p.enabled && p.key.trim()) {
+        try {
+          paramsPayload[p.key.trim()] = JSON.parse(p.value);
+        } catch {
+          paramsPayload[p.key.trim()] = p.value;
+        }
+      }
+    }
+
     if (isEdit.value) {
       const id = editingId.value!;
-      const updates: Parameters<typeof upstreamKeysApi.update>[1] = { name: form.value.name };
+      const updates: Parameters<typeof upstreamKeysApi.update>[1] = {
+        name: form.value.name,
+        extraHeaders: headersPayload,
+        extraParams: paramsPayload,
+        planType: form.value.planType || null,
+      };
       if (!isPreset) {
         updates.providerType = form.value.providerType;
         updates.baseUrl = form.value.baseUrl;
@@ -156,6 +206,9 @@ async function onSubmit() {
         name: form.value.name,
         apiKey: form.value.apiKey,
         modelMappings: mappings,
+        extraHeaders: headersPayload,
+        extraParams: paramsPayload,
+        planType: form.value.planType || null,
       };
       if (isPreset) {
         payload.providerPresetId = selectedPresetId.value!;
@@ -207,18 +260,114 @@ async function handleDelete(row: UpstreamKey) {
   }
 }
 
+async function openPing(row: UpstreamKey) {
+  pingKey.value = row;
+  pingResults.value = {};
+  pingLoading.value = new Set();
+  pingOpen.value = true;
+  await refreshPingCandidates(row.id);
+}
+
+async function refreshPingCandidates(id: string) {
+  try {
+    const res = await upstreamKeysApi.getCandidates(id);
+    pingCandidates.value = res.items;
+  } catch (err) {
+    message.error((err as Error).message);
+    pingCandidates.value = [];
+  }
+}
+
+async function handlePing(id: string, realName: string) {
+  pingLoading.value = new Set(pingLoading.value).add(realName);
+  try {
+    const res = await upstreamKeysApi.ping(id, { realModelName: realName });
+    pingResults.value = { ...pingResults.value, [realName]: res };
+    await refreshPingCandidates(id);
+  } catch (err) {
+    pingResults.value = {
+      ...pingResults.value,
+      [realName]: {
+        ok: false,
+        latencyMs: 0,
+        error: { type: 'client_error', message: (err as Error).message },
+      },
+    };
+  } finally {
+    const next = new Set(pingLoading.value);
+    next.delete(realName);
+    pingLoading.value = next;
+  }
+}
+
+async function handlePingAll() {
+  const candidates = pingCandidates.value.filter((c) => c.enabled);
+  for (const c of candidates) {
+    await handlePing(pingKey.value!.id, c.realName);
+  }
+}
+
+const pingCandidateRows = computed(() =>
+  pingCandidates.value.map((c) => {
+    const live = pingResults.value[c.realName];
+    const stored: UpstreamKeyPingResult | undefined =
+      c.lastPingAt && c.lastPingOk !== null
+        ? {
+            ok: c.lastPingOk,
+            status: c.lastPingStatus ?? undefined,
+            latencyMs: c.lastPingLatencyMs ?? 0,
+            error: c.lastPingError ? { type: 'stored', message: c.lastPingError } : undefined,
+          }
+        : undefined;
+    return {
+      ...c,
+      result: live ?? stored,
+      resultTime: live ? undefined : c.lastPingAt,
+    };
+  }),
+);
+
+function formatLastPing(iso: string | null | undefined): string {
+  if (!iso) return t('upstreamKeys.ping.never');
+  return new Date(iso).toLocaleString();
+}
+
+function latencyTagType(latencyMs: number): 'success' | 'warning' | 'error' {
+  if (latencyMs < 100) return 'success';
+  if (latencyMs < 1000) return 'warning';
+  return 'error';
+}
+
 const providerOptions = computed(() => [
   { label: t('upstreamKeys.drawer.providers.anthropic'), value: 'anthropic_compatible' },
   { label: t('upstreamKeys.drawer.providers.openai'), value: 'openai_compatible' },
 ]);
 
-const presetOptions = computed(() => [
-  { label: t('upstreamKeys.drawer.preset.manual'), value: '' },
-  ...presets.value.map((p) => ({
-    label: `${p.icon ? `${p.icon} ` : ''}${t(`providers.${p.id}`)}`,
-    value: p.id,
-  })),
+const planTypeOptions = computed(() => [
+  { label: t('upstreamKeys.drawer.planType.none'), value: '' },
+  { label: t('upstreamKeys.drawer.planType.codingPlan'), value: 'coding-plan' },
+  { label: t('upstreamKeys.drawer.planType.tokenPlan'), value: 'token-plan' },
 ]);
+
+const planTypeModel = computed<'coding-plan' | 'token-plan' | ''>({
+  get: () => form.value.planType ?? '',
+  set: (value) => {
+    form.value.planType = value ? (value as 'coding-plan' | 'token-plan') : null;
+  },
+});
+
+const presetOptions = computed(() => {
+  const sorted = [...presets.value].sort((a, b) =>
+    t(`providers.${a.id}`).localeCompare(t(`providers.${b.id}`)),
+  );
+  return [
+    { label: t('upstreamKeys.drawer.preset.manual'), value: '' },
+    ...sorted.map((p) => ({
+      label: `${p.icon ? `${p.icon} ` : ''}${t(`providers.${p.id}`)}`,
+      value: p.id,
+    })),
+  ];
+});
 
 const selectedPreset = computed(() => presets.value.find((p) => p.id === selectedPresetId.value));
 
@@ -243,6 +392,16 @@ function applyPreset(preset: ProviderPreset | undefined) {
   // Never pre-fill hardcoded model mappings; the admin fetches from upstream.
   if (!isEdit.value) {
     modelMappings.value = [];
+    extraHeaders.value = Object.entries(preset.defaultExtraHeaders ?? {}).map(([key, value]) => ({
+      key,
+      value: String(value),
+      enabled: true,
+    }));
+    extraParams.value = Object.entries(preset.defaultExtraParams ?? {}).map(([key, value]) => ({
+      key,
+      value: JSON.stringify(value),
+      enabled: true,
+    }));
   }
 }
 
@@ -336,9 +495,12 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
   {
     title: t('upstreamKeys.columns.actions'),
     key: 'actions',
-    width: 150,
+    width: 210,
     render: (row) =>
       h(NSpace, { size: 'small', align: 'center' }, () => [
+        h(NButton, { size: 'small', onClick: () => openPing(row) }, () =>
+          t('upstreamKeys.actions.test'),
+        ),
         h(NButton, { size: 'small', onClick: () => openEdit(row) }, () =>
           t('upstreamKeys.actions.edit'),
         ),
@@ -423,6 +585,23 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
               "
             />
           </NFormItem>
+          <NFormItem :label="t('upstreamKeys.drawer.planType.label')">
+            <NSelect v-model:value="planTypeModel" :options="planTypeOptions" clearable />
+          </NFormItem>
+          <NFormItem :label="t('upstreamKeys.drawer.extraHeaders.label')">
+            <KeyValueEditor
+              v-model="extraHeaders"
+              :key-placeholder="t('upstreamKeys.drawer.extraHeaders.key')"
+              :value-placeholder="t('upstreamKeys.drawer.extraHeaders.value')"
+            />
+          </NFormItem>
+          <NFormItem :label="t('upstreamKeys.drawer.extraParams.label')">
+            <KeyValueEditor
+              v-model="extraParams"
+              :key-placeholder="t('upstreamKeys.drawer.extraParams.key')"
+              :value-placeholder="t('upstreamKeys.drawer.extraParams.value')"
+            />
+          </NFormItem>
           <NFormItem :label="t('upstreamKeys.drawer.modelMappings.label')" required>
             <NSpace vertical style="width: 100%">
               <NButton
@@ -451,6 +630,67 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
         </template>
       </NDrawerContent>
     </NDrawer>
+
+    <NModal
+      v-model:show="pingOpen"
+      preset="card"
+      style="max-width: 640px"
+      :title="t('upstreamKeys.ping.title', { name: pingKey?.name ?? '' })"
+      @update:show="(v: boolean) => (pingOpen = v)"
+    >
+      <NSpace vertical>
+        <NText depth="3">{{ pingKey?.baseUrl }}</NText>
+        <NSpace>
+          <NButton size="small" :loading="pingLoading.size > 0" @click="handlePingAll">
+            {{ t('upstreamKeys.ping.pingAll') }}
+          </NButton>
+        </NSpace>
+        <NList bordered>
+          <NListItem v-for="c in pingCandidateRows" :key="c.id">
+            <NSpace align="center" justify="space-between" style="width: 100%">
+              <NSpace vertical :size="0">
+                <NText strong>{{ c.publicName }}</NText>
+                <NText depth="3" style="font-size: 12px">{{ c.realName }}</NText>
+              </NSpace>
+              <NSpace align="center">
+                <NSpin v-if="pingLoading.has(c.realName)" size="small" />
+                <template v-else-if="c.result">
+                  <NSpace vertical :size="0" align="end">
+                    <NTag
+                      v-if="c.result.ok"
+                      :type="latencyTagType(c.result.latencyMs)"
+                      size="small"
+                      >{{ t('upstreamKeys.ping.success', { ms: c.result.latencyMs }) }}</NTag
+                    >
+                    <NTag v-else type="error" size="small">{{ t('upstreamKeys.ping.failed') }}</NTag>
+                    <NText depth="3" style="font-size: 11px">
+                      {{ t('upstreamKeys.ping.lastTest') }} {{ formatLastPing(c.resultTime) }}
+                    </NText>
+                    <NText
+                      v-if="!c.result.ok && c.result.error"
+                      depth="3"
+                      style="font-size: 12px; max-width: 220px"
+                      >{{ c.result.error.message }}</NText
+                    >
+                  </NSpace>
+                </template>
+                <NText v-else depth="3" style="font-size: 11px">
+                  {{ t('upstreamKeys.ping.lastTest') }} {{ formatLastPing(c.resultTime) }}
+                </NText>
+                <NButton
+                  size="small"
+                  :loading="pingLoading.has(c.realName)"
+                  :disabled="pingLoading.has(c.realName)"
+                  @click="handlePing(pingKey!.id, c.realName)"
+                >
+                  {{ t('upstreamKeys.ping.button') }}
+                </NButton>
+              </NSpace>
+            </NSpace>
+          </NListItem>
+        </NList>
+      </NSpace>
+    </NModal>
   </div>
 </template>
 

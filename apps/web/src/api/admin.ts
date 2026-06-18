@@ -17,10 +17,13 @@ export interface UpstreamKey {
   baseUrl: string;
   apiKeyPrefix: string;
   defaultHeaders: Record<string, string>;
+  extraHeaders: Record<string, string>;
+  extraParams: Record<string, unknown>;
   supportedModels: string[];
   candidateCount: number;
   endpoints?: ProviderPresetEndpoint[];
   providerPresetId: string | null;
+  planType: 'coding-plan' | 'token-plan' | null;
   enabled: boolean;
   frozen: boolean;
   frozenReason: string | null;
@@ -42,6 +45,11 @@ export interface UpstreamKeyCandidate {
   enabled: boolean;
   priority: number;
   weight: number;
+  lastPingAt: string | null;
+  lastPingOk: boolean | null;
+  lastPingStatus: number | null;
+  lastPingLatencyMs: number | null;
+  lastPingError: string | null;
 }
 
 export interface UpstreamKeyCreatePayload {
@@ -51,7 +59,10 @@ export interface UpstreamKeyCreatePayload {
   apiKey: string;
   supportedModels?: string[];
   defaultHeaders?: Record<string, string>;
+  extraHeaders?: Record<string, string>;
+  extraParams?: Record<string, unknown>;
   providerPresetId?: string;
+  planType?: 'coding-plan' | 'token-plan' | null;
   modelMappings?: Array<{ realName: string; publicName?: string; enabled?: boolean }>;
   quota?: {
     period: 'hour' | 'day' | 'week' | 'month' | 'total';
@@ -68,6 +79,17 @@ export interface DiscoverModelsPayload {
   providerType: 'anthropic_compatible' | 'openai_compatible';
   providerPresetId?: string;
   upstreamKeyId?: string;
+}
+
+export interface UpstreamKeyPingPayload {
+  realModelName: string;
+}
+
+export interface UpstreamKeyPingResult {
+  ok: boolean;
+  status?: number;
+  latencyMs: number;
+  error?: { type: string; message: string };
 }
 
 export const upstreamKeysApi = {
@@ -102,6 +124,8 @@ export const upstreamKeysApi = {
     api.post<{ id: string; apiKeyPrefix: string }>(`/api/admin/upstream-keys/${id}/rotate-secret`, {
       apiKey: newApiKey,
     }),
+  ping: (id: string, payload: UpstreamKeyPingPayload) =>
+    api.post<UpstreamKeyPingResult>(`/api/admin/upstream-keys/${id}/ping`, payload),
   delete: (id: string) =>
     api.delete<{ id: string; deleted: boolean }>(`/api/admin/upstream-keys/${id}`),
 };
@@ -121,6 +145,8 @@ export interface ProviderPreset {
   endpoints: ProviderPresetEndpoint[];
   modelMappings: Array<{ publicName: string; realName: string }>;
   defaultHeaders?: Record<string, string>;
+  defaultExtraHeaders?: Record<string, string>;
+  defaultExtraParams?: Record<string, unknown>;
 }
 
 export const providerPresetsApi = {

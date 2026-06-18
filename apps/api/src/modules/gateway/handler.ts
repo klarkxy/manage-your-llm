@@ -33,7 +33,7 @@ import {
   type ProviderAdapter,
   anthropicRequestToIR,
   openaiRequestToIR,
-  getAdapter,
+  getProviderAdapter,
 } from '../providers/index.js';
 import { sendUpstreamRequest, type SendOutcome } from './sender.js';
 import { writeUsageRecord } from '../usage/index.js';
@@ -102,7 +102,7 @@ async function tryCandidates(
   for (const candidate of args.candidates) {
     lastCandidate = candidate;
     attempts += 1;
-    const adapter = getAdapter(candidate.providerType);
+    const adapter = getProviderAdapter(candidate);
     const request = buildHttpRequest(ctx, { ir: args.ir, candidate, adapter });
     console.error(
       `[modelharbor upstream] candidate provider=${candidate.providerType} model=${candidate.realModelName} upstreamKeyId=${candidate.upstreamKeyId} baseUrl=${request.url}`,
@@ -174,6 +174,8 @@ function buildHttpRequest(
     baseUrl: args.candidate.endpointBaseUrl,
     apiPath: args.candidate.endpointApiPath,
     apiKey,
+    extraHeaders: args.candidate.extraHeaders,
+    extraParams: args.candidate.extraParams,
   };
   return args.adapter.buildRequest(providerCtx);
 }

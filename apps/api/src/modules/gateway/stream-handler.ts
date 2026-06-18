@@ -11,7 +11,7 @@ import {
   type ProviderRequestContext,
   anthropicRequestToIR,
   openaiRequestToIR,
-  getAdapter,
+  getProviderAdapter,
 } from '../providers/index.js';
 import { type Db } from '../db/index.js';
 import { decryptSecret } from '../auth/crypto.js';
@@ -172,7 +172,7 @@ export async function handleStreamRequest(
 
   for (const candidate of sorted) {
     lastCandidate = candidate;
-    const adapter = getAdapter(candidate.providerType);
+    const adapter = getProviderAdapter(candidate);
     const providerReq = buildProviderRequest(ctx, { ir: streamCtx.ir, candidate });
     abortController = new AbortController();
     const startResult = await startUpstreamStream(providerReq, {
@@ -203,6 +203,7 @@ export async function handleStreamRequest(
           headers: startResult.headers,
           bodyText: startResult.bodyText,
           bodyJson: startResult.bodyJson,
+          ttfbMs: 0,
         },
         request: providerCtxOf(streamCtx.ir, candidate, providerReq),
         transportError: undefined,
@@ -289,8 +290,10 @@ function buildProviderRequest(
     baseUrl: args.candidate.endpointBaseUrl,
     apiPath: args.candidate.endpointApiPath,
     apiKey,
+    extraHeaders: args.candidate.extraHeaders,
+    extraParams: args.candidate.extraParams,
   };
-  return getAdapter(args.candidate.providerType).buildRequest(providerCtx);
+  return getProviderAdapter(args.candidate).buildRequest(providerCtx);
 }
 
 function providerCtxOf(
@@ -306,6 +309,8 @@ function providerCtxOf(
     stream: true,
     baseUrl: request.url,
     apiKey: '',
+    extraHeaders: candidate.extraHeaders,
+    extraParams: candidate.extraParams,
   };
 }
 

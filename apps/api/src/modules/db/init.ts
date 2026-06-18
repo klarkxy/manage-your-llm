@@ -88,6 +88,9 @@ const STATEMENTS: readonly string[] = [
   // duplicate-column error and treat it as a no-op.
   `ALTER TABLE upstream_keys ADD COLUMN endpoints_json TEXT`,
   `ALTER TABLE upstream_keys ADD COLUMN provider_preset_id TEXT`,
+  `ALTER TABLE upstream_keys ADD COLUMN extra_headers_json TEXT`,
+  `ALTER TABLE upstream_keys ADD COLUMN extra_params_json TEXT`,
+  `ALTER TABLE upstream_keys ADD COLUMN plan_type TEXT`,
   `CREATE TABLE IF NOT EXISTS upstream_key_quotas (
      id TEXT PRIMARY KEY,
      upstream_key_id TEXT NOT NULL UNIQUE,
@@ -137,6 +140,11 @@ const STATEMENTS: readonly string[] = [
    )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS public_model_candidate_unique ON public_model_candidates(public_model_id, upstream_key_id, real_model_name)`,
   `CREATE INDEX IF NOT EXISTS public_model_candidate_upstream_idx ON public_model_candidates(upstream_key_id)`,
+  `ALTER TABLE public_model_candidates ADD COLUMN last_ping_at INTEGER`,
+  `ALTER TABLE public_model_candidates ADD COLUMN last_ping_ok INTEGER`,
+  `ALTER TABLE public_model_candidates ADD COLUMN last_ping_status INTEGER`,
+  `ALTER TABLE public_model_candidates ADD COLUMN last_ping_latency_ms INTEGER`,
+  `ALTER TABLE public_model_candidates ADD COLUMN last_ping_error TEXT`,
 
   // Model groups
   `CREATE TABLE IF NOT EXISTS model_groups (

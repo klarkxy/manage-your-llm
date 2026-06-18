@@ -1,5 +1,5 @@
 import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import type { ProviderType, SourceProtocol } from '@modelharbor/shared';
+import type { ProviderType, SourceProtocol, UpstreamKeyPlanType } from '@modelharbor/shared';
 
 // --- Admin (M1) ---
 
@@ -100,9 +100,12 @@ export const upstreamKeys = sqliteTable('upstream_keys', {
   apiKeyCiphertext: text('api_key_ciphertext').notNull(),
   apiKeyPrefix: text('api_key_prefix').notNull(),
   defaultHeadersJson: text('default_headers_json'),
+  extraHeadersJson: text('extra_headers_json'),
+  extraParamsJson: text('extra_params_json'),
   supportedModelsJson: text('supported_models_json').notNull().default('[]'),
   endpointsJson: text('endpoints_json'),
   providerPresetId: text('provider_preset_id'),
+  planType: text('plan_type').$type<UpstreamKeyPlanType | null>(),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
   frozen: integer('frozen', { mode: 'boolean' }).notNull().default(false),
   frozenReason: text('frozen_reason'),
@@ -195,6 +198,11 @@ export const publicModelCandidates = sqliteTable(
     enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
     priority: integer('priority').notNull().default(100),
     weight: integer('weight').notNull().default(1),
+    lastPingAt: integer('last_ping_at', { mode: 'timestamp_ms' }),
+    lastPingOk: integer('last_ping_ok', { mode: 'boolean' }),
+    lastPingStatus: integer('last_ping_status'),
+    lastPingLatencyMs: integer('last_ping_latency_ms'),
+    lastPingError: text('last_ping_error'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   },

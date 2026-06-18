@@ -39,6 +39,7 @@ function buildRequestBody(context: ProviderRequestContext): OpenAIChatCompletion
     messages.push({ role: m.role, content: m.content });
   }
   const body: OpenAIChatCompletionsRequest = {
+    ...(context.extraParams ?? {}),
     model: context.realModelName,
     messages,
   };
@@ -92,6 +93,7 @@ export function createOpenAICompatibleAdapter(): ProviderAdapter {
         method: 'POST',
         url: `${base}${path}`,
         headers: {
+          ...(context.extraHeaders ?? {}),
           'content-type': 'application/json',
           accept: 'application/json',
           authorization: `Bearer ${context.apiKey}`,

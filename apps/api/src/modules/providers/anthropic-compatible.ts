@@ -33,6 +33,7 @@ function buildMessagesBody(context: ProviderRequestContext): AnthropicMessagesRe
     messages.push({ role: m.role, content: m.content });
   }
   const body: AnthropicMessagesRequest = {
+    ...(context.extraParams ?? {}),
     model: context.realModelName,
     messages,
   };
@@ -100,6 +101,7 @@ export function createAnthropicCompatibleAdapter(): ProviderAdapter {
         method: 'POST',
         url: `${base}${path}`,
         headers: {
+          ...(context.extraHeaders ?? {}),
           'content-type': 'application/json',
           'anthropic-version': ANTHROPIC_VERSION,
           'x-api-key': context.apiKey,

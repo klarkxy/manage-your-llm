@@ -25,6 +25,7 @@ export async function sendUpstreamRequest(
     if (options.signal.aborted) controller.abort();
     else options.signal.addEventListener('abort', onParentAbort);
   }
+  const start = performance.now();
   try {
     console.error(`[modelharbor upstream] --> ${req.method} ${req.url}`);
     const res = await fetch(req.url, {
@@ -33,6 +34,7 @@ export async function sendUpstreamRequest(
       body: req.body,
       signal: controller.signal,
     });
+    const ttfbMs = Math.round(performance.now() - start);
     const headers: Record<string, string> = {};
     res.headers.forEach((value, key) => {
       headers[key.toLowerCase()] = value;
@@ -47,6 +49,7 @@ export async function sendUpstreamRequest(
         headers,
         bodyText,
         bodyJson,
+        ttfbMs,
       },
     };
   } catch (err) {

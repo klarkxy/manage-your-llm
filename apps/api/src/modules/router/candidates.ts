@@ -52,6 +52,11 @@ export interface ResolvedCandidate {
   endpointApiPath?: string;
   // Raw endpoints JSON from the upstream key, used to expand multi-endpoint keys.
   endpointsJson: string | null;
+  // Preset id so the gateway can load provider-specific adapter / transforms.
+  providerPresetId: string | null;
+  // Extra headers / body params to merge into the upstream request.
+  extraHeaders: Record<string, string>;
+  extraParams: Record<string, unknown>;
 }
 
 interface CandidateRow {
@@ -132,6 +137,9 @@ function toResolvedCandidate(row: CandidateRow): ResolvedCandidate {
     endpointProtocol: protocolFor(row.upstreamKey.providerType),
     endpointBaseUrl: row.upstreamKey.baseUrl,
     endpointsJson: row.upstreamKey.endpointsJson,
+    providerPresetId: row.upstreamKey.providerPresetId,
+    extraHeaders: parseExtraHeaders(row.upstreamKey.extraHeadersJson, row.upstreamKey.defaultHeadersJson),
+    extraParams: parseExtraParams(row.upstreamKey.extraParamsJson),
   };
 }
 
@@ -140,6 +148,42 @@ interface UpstreamEndpointJson {
   baseUrl: string;
   providerType: ProviderType;
   apiPath?: string;
+}
+
+function parseRecordJson(json: string | null): Record<string, unknown> | null {
+  if (!json) return null;
+  try {
+    const parsed = JSON.parse(json) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function toStringRecord(value: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (typeof v === 'string') out[k] = v;
+  }
+  return out;
+}
+
+function parseExtraHeaders(
+  extraHeadersJson: string | null,
+  legacyDefaultHeadersJson: string | null,
+): Record<string, string> {
+  const extra = parseRecordJson(extraHeadersJson);
+  if (extra) return toStringRecord(extra);
+  const legacy = parseRecordJson(legacyDefaultHeadersJson);
+  return legacy ? toStringRecord(legacy) : {};
+}
+
+function parseExtraParams(json: string | null): Record<string, unknown> {
+  const parsed = parseRecordJson(json);
+  return parsed ?? {};
 }
 
 function parseEndpointsJson(json: string | null): UpstreamEndpointJson[] | null {

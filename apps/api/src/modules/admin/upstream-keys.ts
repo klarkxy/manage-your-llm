@@ -1,6 +1,6 @@
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { generateId, ValidationError, type ProviderType } from '@modelharbor/shared';
+import { generateId, ValidationError, type ProviderType, type ChatRequestIR } from '@modelharbor/shared';
 import {
   type UpstreamKeyCounterRow,
   type UpstreamKeyQuotaRow,
@@ -22,6 +22,9 @@ import {
   type ProviderPreset,
   type ProviderPresetEndpoint,
 } from '../providers/presets.js';
+import { buildOpenAICompatibleRequest } from '../providers/openai-compatible.js';
+import { buildAnthropicCompatibleRequest } from '../providers/anthropic-compatible.js';
+import { sendUpstreamRequest } from '../gateway/sender.js';
 import {
   getUpstreamKeyCandidates,
   onboardUpstreamKeyWithMappings,
@@ -32,12 +35,14 @@ import {
 import {
   assertProviderType,
   assertQuotaPeriod,
+  assertUpstreamKeyPlanType,
   assertPositiveInt,
   assertSourceProtocol,
   decryptUpstreamApiKey,
   encryptUpstreamApiKey,
   parseJsonArray,
   parseJsonObject,
+  parseJsonRecord,
   safeJsonString,
 } from './helpers.js';
 
@@ -85,8 +90,11 @@ interface CreateUpstreamKeyBody {
   baseUrl?: unknown;
   apiKey?: unknown;
   defaultHeaders?: unknown;
+  extraHeaders?: unknown;
+  extraParams?: unknown;
   supportedModels?: unknown;
   providerPresetId?: unknown;
+  planType?: unknown;
   endpoints?: unknown;
   modelMappings?: unknown;
   quota?: {
@@ -111,10 +119,13 @@ function presentUpstreamKey(
     baseUrl: row.baseUrl,
     apiKeyPrefix: row.apiKeyPrefix,
     defaultHeaders: parseJsonObject(row.defaultHeadersJson),
+    extraHeaders: parseJsonObject(row.extraHeadersJson),
+    extraParams: parseJsonRecord(row.extraParamsJson) ?? {},
     supportedModels: parseJsonArray(row.supportedModelsJson),
     candidateCount,
     endpoints: row.endpointsJson ? parseEndpoints(row.endpointsJson) : [],
     providerPresetId: row.providerPresetId,
+    planType: row.planType,
     enabled: row.enabled,
     frozen: row.frozen,
     frozenReason: row.frozenReason,
@@ -166,6 +177,27 @@ function normalizeEndpoints(value: unknown): ProviderPresetEndpoint[] {
     endpoints.push(endpoint);
   }
   return endpoints;
+}
+
+function normalizeExtraHeaders(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object') return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (typeof v === 'string') out[k] = v;
+  }
+  return out;
+}
+
+function normalizeExtraParams(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return { ...(value as Record<string, unknown>) };
+}
+
+function normalizePlanType(value: unknown): 'coding-plan' | 'token-plan' | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') throw new ValidationError('planType must be a string');
+  assertUpstreamKeyPlanType(value);
+  return value;
 }
 
 function normalizeModelMappings(value: unknown): OnboardingMapping[] {
@@ -288,6 +320,98 @@ interface DiscoverModelsBody {
   upstreamKeyId?: unknown;
 }
 
+interface PingUpstreamKeyBody {
+  realModelName?: unknown;
+}
+
+function sourceProtocolFor(providerType: ProviderType): 'openai' | 'anthropic' {
+  return providerType === 'anthropic_compatible' ? 'anthropic' : 'openai';
+}
+
+function buildPingRequest(
+  providerType: ProviderType,
+  baseUrl: string,
+  apiPath: string | undefined,
+  apiKey: string,
+  extraHeaders: Record<string, string>,
+  extraParams: Record<string, unknown>,
+  realModelName: string,
+): ReturnType<typeof buildOpenAICompatibleRequest> {
+  const ir: ChatRequestIR = {
+    sourceProtocol: sourceProtocolFor(providerType),
+    requestedModel: realModelName,
+    system: null,
+    messages: [{ role: 'user', content: 'hi' }],
+    maxTokens: 1,
+    temperature: null,
+    topP: null,
+    stream: false,
+    metadata: {},
+    rawRequest: null,
+  };
+  const ctx = {
+    ir,
+    realModelName,
+    upstreamKeyId: 'ping',
+    timeoutMs: 10_000,
+    stream: false,
+    baseUrl,
+    apiPath,
+    apiKey,
+    extraHeaders,
+    extraParams,
+  };
+  if (providerType === 'anthropic_compatible') {
+    return buildAnthropicCompatibleRequest(ctx);
+  }
+  return buildOpenAICompatibleRequest(ctx);
+}
+
+async function pingUpstreamModel(
+  row: UpstreamKeyRow,
+  realModelName: string,
+  secretKey: string,
+): Promise<{ ok: boolean; status?: number; latencyMs: number; error?: { type: string; message: string } }> {
+  const apiKey = decryptUpstreamApiKey(row.apiKeyCiphertext, secretKey);
+  const endpoints = row.endpointsJson ? parseEndpoints(row.endpointsJson) : [];
+  const endpoint = endpoints[0];
+  const providerType = endpoint?.providerType ?? row.providerType;
+  const baseUrl = endpoint?.baseUrl ?? row.baseUrl;
+  const apiPath = endpoint?.apiPath;
+  const extraHeaders = parseJsonObject(row.extraHeadersJson);
+  const extraParams = parseJsonRecord(row.extraParamsJson) ?? {};
+
+  const req = buildPingRequest(providerType, baseUrl, apiPath, apiKey, extraHeaders, extraParams, realModelName);
+  const start = performance.now();
+  const outcome = await sendUpstreamRequest(req, { timeoutMs: 10_000 });
+
+  if (outcome.response) {
+    const latencyMs = outcome.response.ttfbMs;
+    if (outcome.response.status >= 200 && outcome.response.status < 300) {
+      return { ok: true, status: outcome.response.status, latencyMs };
+    }
+    return {
+      ok: false,
+      status: outcome.response.status,
+      latencyMs,
+      error: {
+        type: 'upstream_error',
+        message: `upstream returned ${outcome.response.status}`,
+      },
+    };
+  }
+
+  const transportError = outcome.transportError!;
+  return {
+    ok: false,
+    latencyMs: Math.round(performance.now() - start),
+    error: {
+      type: transportError.name,
+      message: transportError.message,
+    },
+  };
+}
+
 function resolveDiscoveryEndpoint(
   preset: ProviderPreset | undefined,
   fallbackBaseUrl: string,
@@ -317,8 +441,9 @@ async function discoverUpstreamModels(
   const rawProviderType = typeof body.providerType === 'string' ? body.providerType : '';
   const upstreamKeyId = typeof body.upstreamKeyId === 'string' ? body.upstreamKeyId : '';
 
+  let upstreamKey: UpstreamKeyRow | undefined;
   if (!apiKey && upstreamKeyId) {
-    const upstreamKey = await db
+    upstreamKey = await db
       .select()
       .from(upstreamKeys)
       .where(eq(upstreamKeys.id, upstreamKeyId))
@@ -341,8 +466,14 @@ async function discoverUpstreamModels(
   );
   if (!baseUrl) throw new ValidationError('baseUrl is required');
 
+  const extraHeaders: Record<string, string> = {
+    ...parseJsonObject(preset?.defaultExtraHeaders ? JSON.stringify(preset.defaultExtraHeaders) : null),
+    ...parseJsonObject(upstreamKey?.extraHeadersJson ?? null),
+  };
+
   const headers: Record<string, string> = {
     accept: 'application/json',
+    ...extraHeaders,
   };
   if (providerType === 'anthropic_compatible') {
     headers['x-api-key'] = apiKey;
@@ -530,6 +661,14 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
     const { ciphertext, prefix } = encryptUpstreamApiKey(apiKey, secretKey);
     const id = generateId('upstreamKey');
     const now = new Date();
+
+    const extraHeaders = body.extraHeaders !== undefined
+      ? normalizeExtraHeaders(body.extraHeaders)
+      : preset?.defaultExtraHeaders ?? {};
+    const extraParams = body.extraParams !== undefined
+      ? normalizeExtraParams(body.extraParams)
+      : preset?.defaultExtraParams ?? {};
+
     await db.insert(upstreamKeys).values({
       id,
       name,
@@ -538,9 +677,12 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
       apiKeyCiphertext: ciphertext,
       apiKeyPrefix: prefix,
       defaultHeadersJson: safeJsonString(body.defaultHeaders, '{}'),
+      extraHeadersJson: safeJsonString(extraHeaders, '{}'),
+      extraParamsJson: safeJsonString(extraParams, '{}'),
       supportedModelsJson: JSON.stringify(supportedModels),
       endpointsJson: endpoints.length > 0 ? JSON.stringify(endpoints) : null,
       providerPresetId: preset ? preset.id : null,
+      planType: normalizePlanType(body.planType),
       enabled: true,
       frozen: false,
       createdAt: now,
@@ -652,7 +794,16 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
     if (body.defaultHeaders !== undefined) {
       update.defaultHeadersJson = safeJsonString(body.defaultHeaders, '{}');
     }
+    if (body.extraHeaders !== undefined) {
+      update.extraHeadersJson = safeJsonString(normalizeExtraHeaders(body.extraHeaders), '{}');
+    }
+    if (body.extraParams !== undefined) {
+      update.extraParamsJson = safeJsonString(normalizeExtraParams(body.extraParams), '{}');
+    }
     if (typeof body.enabled === 'boolean') update.enabled = body.enabled;
+    if (body.planType !== undefined) {
+      update.planType = normalizePlanType(body.planType);
+    }
     await db.update(upstreamKeys).set(update).where(eq(upstreamKeys.id, id));
 
     if (body.quota) {
@@ -787,6 +938,57 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
       candidates: candidates.length,
     });
     return { items: candidates };
+  });
+
+  app.post('/api/admin/upstream-keys/:id/ping', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = (req.body ?? {}) as PingUpstreamKeyBody;
+    const realModelName = typeof body.realModelName === 'string' ? body.realModelName.trim() : '';
+    if (!realModelName) {
+      throw new ValidationError('realModelName is required');
+    }
+    const existing = await db.select().from(upstreamKeys).where(eq(upstreamKeys.id, id)).get();
+    if (!existing) {
+      reply.code(404).send({
+        error: {
+          message: 'upstream key not found',
+          type: 'target_not_found',
+          code: 'target_not_found',
+        },
+      });
+      return;
+    }
+
+    const result = await pingUpstreamModel(existing, realModelName, secretKey);
+    const now = new Date();
+    await db
+      .update(upstreamKeys)
+      .set({
+        lastHealthStatus: result.ok ? 'healthy' : 'unhealthy',
+        lastErrorCode: result.error?.type ?? null,
+        lastErrorMessage: result.error?.message ?? null,
+        updatedAt: now,
+      })
+      .where(eq(upstreamKeys.id, id));
+
+    await db
+      .update(publicModelCandidates)
+      .set({
+        lastPingAt: now,
+        lastPingOk: result.ok,
+        lastPingStatus: result.status ?? null,
+        lastPingLatencyMs: result.latencyMs,
+        lastPingError: result.error?.message ?? null,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(publicModelCandidates.upstreamKeyId, id),
+          eq(publicModelCandidates.realModelName, realModelName),
+        ),
+      );
+
+    return result;
   });
 
   app.post('/api/admin/upstream-keys/:id/freeze', async (req, reply) => {

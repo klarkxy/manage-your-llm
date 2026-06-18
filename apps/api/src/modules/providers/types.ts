@@ -7,7 +7,9 @@ import type {
   OpenAIChatCompletionsResponse,
   ProviderCapabilities,
   ProviderType,
+  SourceProtocol,
 } from '@modelharbor/shared';
+
 
 // HTTP request the adapter asks the engine to send to the upstream.
 export interface ProviderHttpRequest {
@@ -24,6 +26,8 @@ export interface ProviderHttpResponse {
   bodyText: string;
   // bodyJson is set when the response looks like JSON and was parsed successfully.
   bodyJson: unknown;
+  // Time to first byte in milliseconds: from request start until response headers received.
+  ttfbMs: number;
 }
 
 export interface ProviderRequestContext {
@@ -52,6 +56,13 @@ export interface ProviderRequestContext {
   // (M4 sender) is responsible for decrypting the upstream key and passing
   // it in here, and for not logging the resulting `buildRequest` output.
   apiKey: string;
+  // Extra headers to merge into the outgoing request. Adapter-required headers
+  // are applied after these so the request cannot be accidentally broken.
+  extraHeaders?: Record<string, string>;
+  // Extra body parameters to merge into the outgoing request body. These are
+  // applied before adapter-specific overrides; use with care for fields like
+  // `model` or `messages`.
+  extraParams?: Record<string, unknown>;
 }
 
 export interface ProviderResponseContext {
@@ -109,6 +120,54 @@ export interface ProviderAdapter {
   // Extract usage from a successful non-streaming response body, returning
   // null when the provider doesn't include usage in the body.
   extractUsage(context: ProviderResponseContext): NormalizedChatResponse['usage'];
+}
+
+export interface ProviderPresetEndpoint {
+  // Client protocol this endpoint serves.
+  protocol: SourceProtocol;
+  // Upstream base URL for this endpoint (e.g. "https://api.minimaxi.com/anthropic").
+  baseUrl: string;
+  // Adapter used to talk to this endpoint (anthropic_compatible / openai_compatible).
+  providerType: ProviderType;
+  // Optional full request path override. When omitted the adapter appends its
+  // default protocol path ("/v1/messages" or "/v1/chat/completions"). Use this
+  // for providers whose endpoint path does not include the standard /v1 segment.
+  apiPath?: string;
+}
+
+export interface ProviderPreset {
+  id: string;
+  // English display name. The frontend should use the preset id as an i18n key
+  // (providers.{id}) and fall back to this name when no translation exists.
+  name: string;
+  // Optional icon hint for the admin UI. This can be an emoji, an SVG filename,
+  // or any identifier the frontend understands. Official provider SVGs can be
+  // dropped into apps/web/public/icons/providers/{id}.svg and referenced here.
+  icon?: string;
+  endpoints: ProviderPresetEndpoint[];
+  // Extra headers to send on every request (e.g. anthropic-version).
+  defaultHeaders?: Record<string, string>;
+  // Default extra headers / body params for this provider. They seed the
+  // upstream-key config and can be overridden per key in the admin UI.
+  defaultExtraHeaders?: Record<string, string>;
+  defaultExtraParams?: Record<string, unknown>;
+}
+
+export interface ModelMapping {
+  publicName: string;
+  realName: string;
+}
+
+export interface ProviderModule {
+  id: string;
+  // Provider preset exposed to the admin UI and used to seed upstream key config.
+  preset: ProviderPreset;
+  // Optional custom adapter. When omitted, the endpoint's providerType selects
+  // the generic anthropic_compatible / openai_compatible adapter.
+  createAdapter?: () => ProviderAdapter;
+  // Optional request transformer applied after the adapter builds the request.
+  // Use this for provider-specific URL/header/body tweaks.
+  transformRequest?: (ctx: ProviderRequestContext, req: ProviderHttpRequest) => ProviderHttpRequest;
 }
 
 // Categorized error returned by `normalizeError`. The engine maps each

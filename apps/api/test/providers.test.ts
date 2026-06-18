@@ -98,6 +98,18 @@ describe('anthropic-compatible adapter', () => {
     expect(body['metadata']).toBeUndefined();
   });
 
+  it('merges extra headers and params', () => {
+    const ctx = makeContext({
+      extraHeaders: { 'x-custom': 'foo' },
+      extraParams: { top_k: 40 },
+    });
+    const req = buildAnthropicCompatibleRequest(ctx);
+    expect(req.headers['x-custom']).toBe('foo');
+    expect(req.headers['x-api-key']).toBe('sk-test-KEY');
+    const body = JSON.parse(req.body) as Record<string, unknown>;
+    expect(body.top_k).toBe(40);
+  });
+
   it('normalizes a successful response', () => {
     const adapter = createAnthropicCompatibleAdapter();
     const ctx = makeContext();
@@ -220,6 +232,20 @@ describe('openai-compatible adapter', () => {
     expect(body.temperature).toBe(0.5);
     expect(body.top_p).toBe(0.9);
     expect(body.user).toBe('u_test');
+  });
+
+  it('merges extra headers and params', () => {
+    const ctx = makeContext({
+      ir: { ...makeContext().ir, sourceProtocol: 'openai', requestedModel: 'gpt-4o-mini' },
+      realModelName: 'gpt-4o-mini-2024-07-18',
+      extraHeaders: { 'x-custom': 'bar' },
+      extraParams: { seed: 42 },
+    });
+    const req = buildOpenAICompatibleRequest(ctx);
+    expect(req.headers['x-custom']).toBe('bar');
+    expect(req.headers['authorization']).toBe('Bearer sk-test-KEY');
+    const body = JSON.parse(req.body) as Record<string, unknown>;
+    expect(body.seed).toBe(42);
   });
 
   it('normalizes a successful response', () => {

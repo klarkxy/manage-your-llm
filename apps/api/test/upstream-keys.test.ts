@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { publicModelCandidates, publicModels, upstreamKeys } from '../src/modules/db/index.js';
 import { decryptUpstreamApiKeyForTest } from '../src/modules/admin/index.js';
 import { makeAdminRig, type AdminTestRig } from './helper.js';
+import { startFakeUpstream } from './fake-upstream.js';
 
 describe('upstream keys admin', () => {
   let rig: AdminTestRig;
@@ -309,6 +310,189 @@ describe('upstream keys admin', () => {
       .where(eq(publicModels.id, byRealName.get('my-custom-model')!.publicModelId))
       .get();
     expect(publicModel!.name).toBe('custom-public');
+  });
+
+  it('stores and returns extra headers and parameters', async () => {
+    const res = await rig.app.inject({
+      method: 'POST',
+      url: '/api/admin/upstream-keys',
+      headers: { cookie: rig.cookie },
+      payload: {
+        name: 'extras-1',
+        apiKey: 'sk-extras',
+        providerPresetId: 'openai',
+        extraHeaders: { 'x-custom': 'foo' },
+        extraParams: { seed: 42 },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      id: string;
+      extraHeaders: Record<string, string>;
+      extraParams: Record<string, unknown>;
+    };
+    expect(body.extraHeaders).toEqual({ 'x-custom': 'foo' });
+    expect(body.extraParams).toEqual({ seed: 42 });
+
+    const row = await rig.db.select().from(upstreamKeys).where(eq(upstreamKeys.id, body.id)).get();
+    expect(row).toBeTruthy();
+    expect(JSON.parse(row!.extraHeadersJson!)).toEqual({ 'x-custom': 'foo' });
+    expect(JSON.parse(row!.extraParamsJson!)).toEqual({ seed: 42 });
+  });
+
+  it('stores and updates planType', async () => {
+    const create = await rig.app.inject({
+      method: 'POST',
+      url: '/api/admin/upstream-keys',
+      headers: { cookie: rig.cookie },
+      payload: {
+        name: 'plan-1',
+        apiKey: 'sk-plan',
+        providerPresetId: 'openai',
+        planType: 'coding-plan',
+      },
+    });
+    expect(create.statusCode).toBe(200);
+    const { id } = create.json() as { id: string; planType: string | null };
+    expect((create.json() as { planType: string | null }).planType).toBe('coding-plan');
+
+    let row = await rig.db.select().from(upstreamKeys).where(eq(upstreamKeys.id, id)).get();
+    expect(row!.planType).toBe('coding-plan');
+
+    const patch1 = await rig.app.inject({
+      method: 'PATCH',
+      url: `/api/admin/upstream-keys/${id}`,
+      headers: { cookie: rig.cookie },
+      payload: { planType: 'token-plan' },
+    });
+    expect(patch1.statusCode).toBe(200);
+    expect((patch1.json() as { planType: string | null }).planType).toBe('token-plan');
+
+    row = await rig.db.select().from(upstreamKeys).where(eq(upstreamKeys.id, id)).get();
+    expect(row!.planType).toBe('token-plan');
+
+    const patch2 = await rig.app.inject({
+      method: 'PATCH',
+      url: `/api/admin/upstream-keys/${id}`,
+      headers: { cookie: rig.cookie },
+      payload: { planType: null },
+    });
+    expect(patch2.statusCode).toBe(200);
+    expect((patch2.json() as { planType: string | null }).planType).toBeNull();
+
+    row = await rig.db.select().from(upstreamKeys).where(eq(upstreamKeys.id, id)).get();
+    expect(row!.planType).toBeNull();
+
+    const bad = await rig.app.inject({
+      method: 'PATCH',
+      url: `/api/admin/upstream-keys/${id}`,
+      headers: { cookie: rig.cookie },
+      payload: { planType: 'unknown-plan' },
+    });
+    expect(bad.statusCode).toBe(400);
+  });
+
+  it('pings a candidate model through the upstream key', async () => {
+    const fake = await startFakeUpstream();
+    try {
+      const create = await rig.app.inject({
+        method: 'POST',
+        url: '/api/admin/upstream-keys',
+        headers: { cookie: rig.cookie },
+        payload: {
+          name: 'ping-ok',
+          apiKey: 'sk-ping',
+          providerType: 'openai_compatible',
+          baseUrl: fake.baseUrl,
+          modelMappings: [{ realName: 'fake-model', publicName: 'fake-model', enabled: true }],
+        },
+      });
+      expect(create.statusCode).toBe(200);
+      const { id } = create.json() as { id: string };
+
+      const ping = await rig.app.inject({
+        method: 'POST',
+        url: `/api/admin/upstream-keys/${id}/ping`,
+        headers: { cookie: rig.cookie },
+        payload: { realModelName: 'fake-model' },
+      });
+      expect(ping.statusCode).toBe(200);
+      const result = ping.json() as { ok: boolean; status?: number; latencyMs: number };
+      expect(result.ok).toBe(true);
+      expect(result.status).toBe(200);
+      expect(result.latencyMs).toBeGreaterThanOrEqual(0);
+
+      const row = await rig.db.select().from(upstreamKeys).where(eq(upstreamKeys.id, id)).get();
+      expect(row!.lastHealthStatus).toBe('healthy');
+      expect(row!.lastErrorCode).toBeNull();
+
+      const candidate = await rig.db
+        .select()
+        .from(publicModelCandidates)
+        .where(and(eq(publicModelCandidates.upstreamKeyId, id), eq(publicModelCandidates.realModelName, 'fake-model')))
+        .get();
+      expect(candidate).toBeTruthy();
+      expect(candidate!.lastPingOk).toBe(true);
+      expect(candidate!.lastPingStatus).toBe(200);
+      expect(candidate!.lastPingLatencyMs).toBeGreaterThanOrEqual(0);
+      expect(candidate!.lastPingAt).toBeTruthy();
+      expect(candidate!.lastPingError).toBeNull();
+    } finally {
+      await fake.close();
+    }
+  });
+
+  it('reports failure when ping upstream returns an error', async () => {
+    const fake = await startFakeUpstream();
+    try {
+      fake.setOpenAIResponse({
+        status: 401,
+        body: { error: { message: 'Unauthorized', type: 'authentication_error' } },
+      });
+      const create = await rig.app.inject({
+        method: 'POST',
+        url: '/api/admin/upstream-keys',
+        headers: { cookie: rig.cookie },
+        payload: {
+          name: 'ping-fail',
+          apiKey: 'sk-ping-fail',
+          providerType: 'openai_compatible',
+          baseUrl: fake.baseUrl,
+          modelMappings: [{ realName: 'fake-model', publicName: 'fake-model', enabled: true }],
+        },
+      });
+      expect(create.statusCode).toBe(200);
+      const { id } = create.json() as { id: string };
+
+      const ping = await rig.app.inject({
+        method: 'POST',
+        url: `/api/admin/upstream-keys/${id}/ping`,
+        headers: { cookie: rig.cookie },
+        payload: { realModelName: 'fake-model' },
+      });
+      expect(ping.statusCode).toBe(200);
+      const result = ping.json() as { ok: boolean; status?: number; error?: { type: string; message: string } };
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(401);
+      expect(result.error).toBeTruthy();
+
+      const row = await rig.db.select().from(upstreamKeys).where(eq(upstreamKeys.id, id)).get();
+      expect(row!.lastHealthStatus).toBe('unhealthy');
+      expect(row!.lastErrorCode).toBe('upstream_error');
+
+      const candidate = await rig.db
+        .select()
+        .from(publicModelCandidates)
+        .where(and(eq(publicModelCandidates.upstreamKeyId, id), eq(publicModelCandidates.realModelName, 'fake-model')))
+        .get();
+      expect(candidate).toBeTruthy();
+      expect(candidate!.lastPingOk).toBe(false);
+      expect(candidate!.lastPingStatus).toBe(401);
+      expect(candidate!.lastPingAt).toBeTruthy();
+      expect(candidate!.lastPingError).toContain('401');
+    } finally {
+      await fake.close();
+    }
   });
 
   it('updates an upstream key and syncs candidates', async () => {

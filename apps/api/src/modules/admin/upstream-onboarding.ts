@@ -183,6 +183,11 @@ export interface UpstreamKeyCandidate {
   enabled: boolean;
   priority: number;
   weight: number;
+  lastPingAt: Date | null;
+  lastPingOk: boolean | null;
+  lastPingStatus: number | null;
+  lastPingLatencyMs: number | null;
+  lastPingError: string | null;
 }
 
 // Fully synchronize the public-model candidates for an upstream key with the
@@ -206,6 +211,11 @@ export async function getUpstreamKeyCandidates(
     enabled: c.enabled,
     priority: c.priority,
     weight: c.weight,
+    lastPingAt: c.lastPingAt,
+    lastPingOk: c.lastPingOk,
+    lastPingStatus: c.lastPingStatus,
+    lastPingLatencyMs: c.lastPingLatencyMs,
+    lastPingError: c.lastPingError,
   }));
 }
 
@@ -282,6 +292,11 @@ export async function syncUpstreamKeyMappings(
           enabled: mapping.enabled,
           priority: c.priority,
           weight: c.weight,
+          lastPingAt: c.lastPingAt,
+          lastPingOk: c.lastPingOk,
+          lastPingStatus: c.lastPingStatus,
+          lastPingLatencyMs: c.lastPingLatencyMs,
+          lastPingError: c.lastPingError,
         });
         handled.add(key);
       }
@@ -315,6 +330,11 @@ export async function syncUpstreamKeyMappings(
         enabled: mapping.enabled,
         priority: 100,
         weight: 1,
+        lastPingAt: null,
+        lastPingOk: null,
+        lastPingStatus: null,
+        lastPingLatencyMs: null,
+        lastPingError: null,
       });
       handled.add(key);
     }
