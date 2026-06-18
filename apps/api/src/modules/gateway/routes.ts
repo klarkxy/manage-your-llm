@@ -12,12 +12,13 @@ import {
 import { listConsumerKeyAccess, requireConsumerKey } from '../auth/consumer-key.js';
 import {
   handleAnthropicRequest,
+  handleCodexRequest,
   handleOpenAIRequest,
   providerErrorToNormalized,
   touchUpstreamLastUsed,
 } from './handler.js';
 import { handleStreamRequest, buildStreamRequest } from './stream-handler.js';
-import { irToAnthropicResponse, irToOpenAIResponse } from './response-shapes.js';
+import { irToAnthropicResponse, irToCodexResponse, irToOpenAIResponse } from './response-shapes.js';
 import { anthropicErrorBody } from './error-shapes.js';
 import type { NormalizedProviderError } from '../providers/index.js';
 import {
@@ -151,6 +152,59 @@ export function registerGatewayRoutes(app: FastifyInstance, deps: GatewayRouteDe
     }
   });
 
+  // POST /v1/responses — OpenAI Responses API-compatible endpoint (Codex /
+  // GPT-5.5+). This is a separate route from /v1/chat/completions because the
+  // request/response shapes are materially different (`input` vs `messages`,
+  // `output[]` vs `choices[]`). Provider errors are returned in the OpenAI
+  // error shape so existing clients handle them consistently.
+  app.post('/v1/responses', { preHandler: guard }, async (req, reply) => {
+    const consumer = req as FastifyRequest & { consumerKey: ConsumerKeyRow; app: AppRow };
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    if (b['stream'] === true) {
+      try {
+        const streamCtx = buildStreamRequest('codex', req.body);
+        await handleStreamRequest(
+          {
+            db,
+            secretKey,
+            consumerKeyId: consumer.consumerKey.id,
+            appId: consumer.app.id,
+          },
+          streamCtx,
+          reply,
+        );
+      } catch (err) {
+        if (isNormalizedError(err)) {
+          sendNormalizedError(reply, 'codex', err);
+          return reply;
+        }
+        throw err;
+      }
+      return reply;
+    }
+    try {
+      const outcome = await handleCodexRequest(req.body, {
+        db,
+        secretKey,
+        consumerKeyId: consumer.consumerKey.id,
+        appId: consumer.app.id,
+      });
+      if (outcome.ok) {
+        void touchUpstreamLastUsed(db, outcome.candidate.upstreamKeyId);
+        const body = irToCodexResponse(outcome.ir, { model: outcome.candidate.realModelName });
+        return reply.send(body);
+      }
+      sendProviderError(reply, 'codex', outcome.providerError);
+      return reply;
+    } catch (err) {
+      if (isNormalizedError(err)) {
+        sendNormalizedError(reply, 'codex', err);
+        return reply;
+      }
+      throw err;
+    }
+  });
+
   // GET /v1/models — list public models and groups the consumer key can access.
   app.get('/v1/models', { preHandler: guard }, async (req) => {
     const consumer = req as FastifyRequest & { consumerKey: ConsumerKeyRow; app: AppRow };
@@ -201,7 +255,7 @@ export function registerGatewayRoutes(app: FastifyInstance, deps: GatewayRouteDe
 // → 404, validation → 400, auth → 401, anything else provider_* → 502.
 function sendProviderError(
   reply: FastifyReply,
-  protocol: 'anthropic' | 'openai',
+  protocol: 'anthropic' | 'openai' | 'codex',
   providerError: NormalizedProviderError,
 ): void {
   const err = providerErrorToNormalized(providerError);
@@ -211,6 +265,7 @@ function sendProviderError(
     reply.status(status).send(anthropicErrorBody(providerError, message));
     return;
   }
+  // Codex clients understand the same error shape as OpenAI.
   reply.status(status).send({
     error: {
       message,
@@ -225,7 +280,7 @@ function sendProviderError(
 // wraps the error in { type: "error", error: { type, message } }.
 function sendNormalizedError(
   reply: FastifyReply,
-  protocol: 'anthropic' | 'openai',
+  protocol: 'anthropic' | 'openai' | 'codex',
   err: NormalizedError,
 ): void {
   const status = statusForNormalizedError(err);

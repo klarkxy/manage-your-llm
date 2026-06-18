@@ -3,6 +3,7 @@ export * from './errors.js';
 export * from './anthropic-compatible.js';
 export * from './openai-compatible.js';
 export * from './coze.js';
+export * from './codex-adapter.js';
 export * from './registry.js';
 export * from './ir-converters.js';
 

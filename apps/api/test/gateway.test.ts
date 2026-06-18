@@ -281,6 +281,76 @@ describe('gateway happy path: /v1/chat/completions via openai_compatible upstrea
   });
 });
 
+const CODEX_BODY = {
+  model: 'coding-fast',
+  input: 'hello',
+};
+
+describe('gateway happy path: /v1/responses via codex upstream', () => {
+  let rig: GatewayTestRig;
+  beforeEach(async () => {
+    rig = await makeGatewayRig({
+      providerType: 'codex',
+      publicModelName: 'coding-fast',
+    });
+  });
+  afterEach(async () => {
+    await rig.close();
+  });
+
+  it('returns a Responses API-shaped non-stream response', async () => {
+    rig.fake.setCodexResponse({
+      status: 200,
+      body: {
+        id: 'resp_1',
+        object: 'response',
+        created_at: 1700000000,
+        model: 'fake-real-model',
+        status: 'completed',
+        error: null,
+        incomplete_details: null,
+        instructions: null,
+        max_output_tokens: null,
+        output: [
+          {
+            type: 'message',
+            id: 'resp_1_msg',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: 'hello from codex', annotations: [] }],
+          },
+        ],
+        usage: { input_tokens: 4, output_tokens: 6, total_tokens: 10 },
+      },
+    });
+    const res = await rig.app.inject({
+      method: 'POST',
+      url: '/v1/responses',
+      headers: bearerHeader(rig.rawConsumerKey),
+      payload: CODEX_BODY,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      id: string;
+      object: string;
+      model: string;
+      output: Array<{ content: Array<{ text: string }> }>;
+      usage: { input_tokens: number; output_tokens: number; total_tokens: number };
+    };
+    expect(body.object).toBe('response');
+    expect(body.model).toBe('fake-real-model');
+    expect(body.output[0]?.content[0]?.text).toBe('hello from codex');
+    expect(body.usage).toEqual({ input_tokens: 4, output_tokens: 6, total_tokens: 10 });
+    expect(rig.fake.codexRequests).toHaveLength(1);
+    expect(rig.fake.codexRequests[0]!.headers['authorization']).toBe(
+      `Bearer ${rig.rawUpstreamKey}`,
+    );
+    expect(rig.fake.codexRequests[0]!.body).toMatchObject({
+      model: 'fake-real-model',
+      input: [{ type: 'message', role: 'user', content: 'hello' }],
+    });
+  });
+});
+
 describe('gateway candidate filtering', () => {
   it('skips a frozen upstream key and returns 503 with no candidates left', async () => {
     const rig = await makeGatewayRig({ upstreamFrozen: true });

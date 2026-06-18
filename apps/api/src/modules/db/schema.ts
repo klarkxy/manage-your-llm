@@ -88,6 +88,7 @@ export const PROVIDER_TYPES = [
   'anthropic_compatible',
   'openai_compatible',
   'coze',
+  'codex',
 ] as const satisfies readonly ProviderType[];
 
 export const QUOTA_PERIODS = ['hour', 'day', 'week', 'month', 'total'] as const;

@@ -195,6 +195,7 @@ const messages = {
         anthropic: 'Anthropic compatible',
         openai: 'OpenAI compatible',
         coze: 'Coze',
+        codex: 'Codex',
       },
       authType: {
         label: 'Authentication',

@@ -31,6 +31,17 @@ export interface CozeStreamEvent {
   data: string;
 }
 
+export interface CodexStreamEvent {
+  event?: string;
+  data: string;
+}
+
+export interface FakeCodexResponse {
+  status?: number;
+  headers?: Record<string, string>;
+  body: unknown;
+}
+
 // Streaming response spec. `closeAfter` is the number of events after
 // which the connection is destroyed (for mid-stream failure tests). If
 // undefined, the stream ends naturally after all events.
@@ -68,10 +79,16 @@ export interface FakeUpstreamRig {
   // Coze /v3/chat helpers.
   setCozeStream(spec: FakeStreamSpec<CozeStreamEvent>): void;
   enqueueCozeStream(spec: FakeStreamSpec<CozeStreamEvent>): void;
+  // Codex /v1/responses helpers.
+  setCodexResponse(resp: FakeCodexResponse): void;
+  enqueueCodexResponse(resp: FakeCodexResponse): void;
+  setCodexStream(spec: FakeStreamSpec<CodexStreamEvent>): void;
+  enqueueCodexStream(spec: FakeStreamSpec<CodexStreamEvent>): void;
   // Recorded incoming requests (body + headers) for inspection.
   anthropicRequests: Array<{ body: unknown; headers: Record<string, string> }>;
   openaiRequests: Array<{ body: unknown; headers: Record<string, string> }>;
   cozeRequests: Array<{ body: unknown; headers: Record<string, string> }>;
+  codexRequests: Array<{ body: unknown; headers: Record<string, string> }>;
   close(): Promise<void>;
 }
 
@@ -102,18 +119,45 @@ export async function startFakeUpstream(): Promise<FakeUpstreamRig> {
       usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
     },
   };
+  let codexResp: FakeCodexResponse = {
+    status: 200,
+    body: {
+      id: 'resp_default',
+      object: 'response',
+      created_at: 0,
+      model: 'fake',
+      status: 'completed',
+      error: null,
+      incomplete_details: null,
+      instructions: null,
+      max_output_tokens: null,
+      output: [
+        {
+          type: 'message',
+          id: 'resp_default_msg',
+          role: 'assistant',
+          content: [{ type: 'output_text', text: 'ok', annotations: [] }],
+        },
+      ],
+      usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+    },
+  };
   const anthropicQueue: FakeAnthropicResponse[] = [];
   const openaiQueue: FakeOpenAIResponse[] = [];
+  const codexQueue: FakeCodexResponse[] = [];
   let anthropicStream: FakeStreamSpec<AnthropicStreamEvent> | null = null;
   let openaiStream: FakeStreamSpec<OpenAIStreamChunk> | null = null;
   let cozeStream: FakeStreamSpec<CozeStreamEvent> | null = null;
+  let codexStream: FakeStreamSpec<CodexStreamEvent> | null = null;
   const anthropicStreamQueue: FakeStreamSpec<AnthropicStreamEvent>[] = [];
   const openaiStreamQueue: FakeStreamSpec<OpenAIStreamChunk>[] = [];
   const cozeStreamQueue: FakeStreamSpec<CozeStreamEvent>[] = [];
+  const codexStreamQueue: FakeStreamSpec<CodexStreamEvent>[] = [];
 
   const anthropicRequests: Array<{ body: unknown; headers: Record<string, string> }> = [];
   const openaiRequests: Array<{ body: unknown; headers: Record<string, string> }> = [];
   const cozeRequests: Array<{ body: unknown; headers: Record<string, string> }> = [];
+  const codexRequests: Array<{ body: unknown; headers: Record<string, string> }> = [];
 
   app.post('/v1/messages', async (req: FastifyRequest, reply: FastifyReply) => {
     anthropicRequests.push({
@@ -248,6 +292,45 @@ export async function startFakeUpstream(): Promise<FakeUpstreamRig> {
     };
   });
 
+  app.post('/v1/responses', async (req: FastifyRequest, reply: FastifyReply) => {
+    codexRequests.push({ body: req.body, headers: { ...(req.headers as Record<string, string>) } });
+    const streamSpec = codexStreamQueue.length > 0 ? codexStreamQueue.shift()! : codexStream;
+    if (streamSpec) {
+      reply.raw.statusCode = 200;
+      reply.raw.setHeader('content-type', 'text/event-stream; charset=utf-8');
+      reply.raw.setHeader('cache-control', 'no-cache');
+      for (let i = 0; i < streamSpec.events.length; i++) {
+        if (streamSpec.closeAfter !== undefined && i >= streamSpec.closeAfter) {
+          setImmediate(() => {
+            try {
+              (reply.raw.socket ?? reply.raw.connection)?.destroy();
+            } catch {
+              /* ignore */
+            }
+          });
+          return;
+        }
+        const e = streamSpec.events[i]!;
+        let frame = '';
+        if (e.event) frame += `event: ${e.event}\n`;
+        for (const line of e.data.split('\n')) {
+          frame += `data: ${line}\n`;
+        }
+        frame += '\n';
+        reply.raw.write(frame);
+        if (streamSpec.delayMs && streamSpec.delayMs > 0) {
+          await new Promise<void>((r) => setTimeout(r, streamSpec.delayMs));
+        }
+      }
+      reply.raw.end();
+      return;
+    }
+    const resp = codexQueue.length > 0 ? codexQueue.shift()! : codexResp;
+    reply.status(resp.status ?? 200);
+    if (resp.headers) reply.headers(resp.headers);
+    return resp.body;
+  });
+
   await app.listen({ host: '127.0.0.1', port: 0 });
   const addr = app.server.address() as AddressInfo;
   const baseUrl = `http://127.0.0.1:${addr.port}`;
@@ -286,9 +369,22 @@ export async function startFakeUpstream(): Promise<FakeUpstreamRig> {
     enqueueCozeStream: (s) => {
       cozeStreamQueue.push(s);
     },
+    setCodexResponse: (r) => {
+      codexResp = r;
+    },
+    enqueueCodexResponse: (r) => {
+      codexQueue.push(r);
+    },
+    setCodexStream: (s) => {
+      codexStream = s;
+    },
+    enqueueCodexStream: (s) => {
+      codexStreamQueue.push(s);
+    },
     anthropicRequests,
     openaiRequests,
     cozeRequests,
+    codexRequests,
     close: async () => {
       await app.close();
     },

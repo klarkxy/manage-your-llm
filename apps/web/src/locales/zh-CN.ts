@@ -196,6 +196,7 @@ const messages: Messages = {
         anthropic: 'Anthropic 兼容',
         openai: 'OpenAI 兼容',
         coze: 'Coze',
+        codex: 'Codex',
       },
       authType: {
         label: '认证方式',

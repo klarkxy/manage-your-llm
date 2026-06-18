@@ -33,6 +33,7 @@ import {
   type ProviderAdapter,
   anthropicRequestToIR,
   openaiRequestToIR,
+  codexRequestToIR,
   getProviderAdapter,
 } from '../providers/index.js';
 import { sendUpstreamRequest, type SendOutcome } from './sender.js';
@@ -323,6 +324,29 @@ export async function handleOpenAIRequest(
   if (!Array.isArray(b['messages'])) throw new ValidationError('messages is required');
   const ir = openaiRequestToIR(b as Parameters<typeof openaiRequestToIR>[0], body);
   return runGateway(ir, 'openai', ctx);
+}
+
+// Convert an OpenAI Responses API (Codex / GPT-5.5+) wire-format request into a
+// gateway outcome.
+export async function handleCodexRequest(
+  body: unknown,
+  ctx: GatewayRequestContext,
+): Promise<GatewayOutcome> {
+  if (!body || typeof body !== 'object') {
+    throw new ValidationError('request body must be a JSON object');
+  }
+  const b = body as Record<string, unknown>;
+  if (typeof b['model'] !== 'string') throw new ValidationError('model is required');
+  if (b['stream'] === true) {
+    // Streaming Responses API requests use the streaming code path, just like
+    // the other gateway routes.
+    throw new ValidationError('streaming requests must use the streaming code path');
+  }
+  if (typeof b['input'] !== 'string' && !Array.isArray(b['input'])) {
+    throw new ValidationError('input is required');
+  }
+  const ir = codexRequestToIR(b as Parameters<typeof codexRequestToIR>[0], body);
+  return runGateway(ir, 'codex', ctx);
 }
 
 async function runGateway(

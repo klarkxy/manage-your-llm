@@ -60,7 +60,7 @@ const form = ref<UpstreamKeyCreatePayload>({
   baseUrl: '',
   apiKey: '',
 });
-const authType = ref<'pat' | 'coze_oauth_jwt' | 'codex_oauth'>('pat');
+const authType = ref<string>('pat');
 const cozeAuthConfig = ref({
   appId: '',
   kid: '',
@@ -230,7 +230,7 @@ async function onSubmit() {
         cozeAuthConfig.value.appId.trim() ||
         codexAuthConfig.value.refreshToken.trim()
       ) {
-        updates.authType = authType.value;
+        updates.authType = authType.value as UpstreamKeyCreatePayload['authType'];
         if (authType.value === 'coze_oauth_jwt' && cozeAuthConfig.value.privateKey.trim()) {
           updates.authConfig = {
             appId: cozeAuthConfig.value.appId.trim(),
@@ -273,7 +273,7 @@ async function onSubmit() {
         payload.providerType = form.value.providerType;
         payload.baseUrl = form.value.baseUrl;
       }
-      payload.authType = authType.value;
+      payload.authType = authType.value as UpstreamKeyCreatePayload['authType'];
       if (authType.value === 'pat') {
         payload.apiKey = form.value.apiKey;
       } else if (authType.value === 'coze_oauth_jwt') {
@@ -421,13 +421,30 @@ const providerOptions = computed(() => [
   { label: t('upstreamKeys.drawer.providers.anthropic'), value: 'anthropic_compatible' },
   { label: t('upstreamKeys.drawer.providers.openai'), value: 'openai_compatible' },
   { label: t('upstreamKeys.drawer.providers.coze'), value: 'coze' },
+  { label: t('upstreamKeys.drawer.providers.codex'), value: 'codex' },
 ]);
 
-const authTypeOptions = computed(() => [
-  { label: t('upstreamKeys.drawer.authType.pat'), value: 'pat' },
-  { label: t('upstreamKeys.drawer.authType.cozeOauthJwt'), value: 'coze_oauth_jwt' },
-  { label: t('upstreamKeys.drawer.authType.codexOauth'), value: 'codex_oauth' },
-]);
+const authTypeOptions = computed(() => {
+  const preset = selectedPreset.value;
+  if (preset?.authStrategies?.available) {
+    return preset.authStrategies.available.map((value) => {
+      const labelKey =
+        value === 'coze_oauth_jwt'
+          ? 'cozeOauthJwt'
+          : value === 'codex_oauth'
+            ? 'codexOauth'
+            : 'pat';
+      return { label: t(`upstreamKeys.drawer.authType.${labelKey}`), value };
+    });
+  }
+  if (form.value.providerType === 'codex') {
+    return [
+      { label: t('upstreamKeys.drawer.authType.pat'), value: 'pat' },
+      { label: t('upstreamKeys.drawer.authType.codexOauth'), value: 'codex_oauth' },
+    ];
+  }
+  return [{ label: t('upstreamKeys.drawer.authType.pat'), value: 'pat' }];
+});
 
 const presetOptions = computed(() => {
   const sorted = [...presets.value].sort((a, b) =>
@@ -464,7 +481,7 @@ function applyPreset(preset: ProviderPreset | undefined) {
   }
   // Use the preset's recommended authentication strategy (e.g. OAuth JWT for Coze).
   if (preset.authStrategies) {
-    authType.value = preset.authStrategies.default as 'pat' | 'coze_oauth_jwt' | 'codex_oauth';
+    authType.value = preset.authStrategies.default;
   }
   // Never pre-fill hardcoded model mappings; the admin fetches from upstream.
   if (!isEdit.value) {
@@ -490,7 +507,9 @@ const isCoze = computed(
   () => form.value.providerType === 'coze' || selectedPreset.value?.id === 'coze',
 );
 
-const isCodex = computed(() => selectedPreset.value?.id === 'codex');
+const isCodex = computed(
+  () => form.value.providerType === 'codex' || selectedPreset.value?.id === 'codex',
+);
 
 const canFetchModels = computed(() => {
   if (!form.value.baseUrl?.trim()) return false;
@@ -522,7 +541,7 @@ async function handleFetchModels() {
       baseUrl: form.value.baseUrl?.trim() ?? '',
       providerType: form.value.providerType ?? 'anthropic_compatible',
       providerPresetId: selectedPresetId.value || undefined,
-      authType: authType.value,
+      authType: authType.value as DiscoverModelsPayload['authType'],
     };
     if (isCoze.value) {
       payload.workspaceId = workspaceId.value.trim();
@@ -695,7 +714,7 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
             />
           </NFormItem>
           <NFormItem
-            v-if="selectedPreset?.authStrategies"
+            v-if="authTypeOptions.length > 1"
             :label="t('upstreamKeys.drawer.authType.label')"
           >
             <NSelect v-model:value="authType" :options="authTypeOptions" />

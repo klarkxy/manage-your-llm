@@ -3,14 +3,19 @@ import {
   type ChatRequestIR,
   type AnthropicMessagesRequest,
   type OpenAIChatCompletionsRequest,
+  type OpenAIResponsesRequest,
+  type OpenAIResponsesResponse,
 } from '@modelharbor/shared';
 import {
   buildAnthropicCompatibleRequest,
+  buildCodexRequest,
   buildOpenAICompatibleRequest,
   createAnthropicCompatibleAdapter,
+  createCodexAdapter,
   createOpenAICompatibleAdapter,
   createCozeAdapter,
   anthropicRequestToIR,
+  codexRequestToIR,
   openaiRequestToIR,
   getProviderPreset,
   getModelMappings,
@@ -514,6 +519,190 @@ describe('coze adapter', () => {
   });
 });
 
+describe('codex adapter', () => {
+  function makeCodexContext(
+    overrides: Partial<ProviderRequestContext> = {},
+  ): ProviderRequestContext {
+    return makeContext({
+      ir: {
+        ...makeContext().ir,
+        sourceProtocol: 'codex',
+        requestedModel: 'codex-fast',
+        system: 'You are a coding assistant.',
+        messages: [
+          { role: 'user', content: 'write a function' },
+          { role: 'assistant', content: 'sure' },
+        ],
+      },
+      realModelName: 'gpt-5.5-codex',
+      baseUrl: 'https://api.openai.com',
+      ...overrides,
+    });
+  }
+
+  it('builds the right Responses API request shape', () => {
+    const ctx = makeCodexContext({ apiKey: 'sk-codex-XYZ' });
+    const req = buildCodexRequest(ctx);
+    expect(req.method).toBe('POST');
+    expect(req.url).toBe('https://api.openai.com/v1/responses');
+    expect(req.headers['content-type']).toBe('application/json');
+    expect(req.headers['authorization']).toBe('Bearer sk-codex-XYZ');
+    const body = JSON.parse(req.body) as OpenAIResponsesRequest;
+    expect(body.model).toBe('gpt-5.5-codex');
+    expect(body.instructions).toBe('You are a coding assistant.');
+    expect(body.input).toEqual([
+      { type: 'message', role: 'user', content: 'write a function' },
+      { type: 'message', role: 'assistant', content: 'sure' },
+    ]);
+    expect(body.max_output_tokens).toBe(256);
+    expect(body.temperature).toBe(0.5);
+    expect(body.top_p).toBe(0.9);
+    expect(body.metadata).toEqual({ user_id: 'u_test' });
+  });
+
+  it('omits optional fields when not set', () => {
+    const ctx = makeContext({
+      ir: {
+        ...makeContext().ir,
+        sourceProtocol: 'codex',
+        requestedModel: 'codex-fast',
+        system: null,
+        maxTokens: null,
+        temperature: null,
+        topP: null,
+        metadata: {},
+      },
+      realModelName: 'gpt-5.5-codex',
+    });
+    const req = buildCodexRequest(ctx);
+    const body = JSON.parse(req.body) as Record<string, unknown>;
+    expect(body['instructions']).toBeUndefined();
+    expect(body['max_output_tokens']).toBeUndefined();
+    expect(body['temperature']).toBeUndefined();
+    expect(body['top_p']).toBeUndefined();
+    expect(body['metadata']).toBeUndefined();
+  });
+
+  it('normalizes a successful response', () => {
+    const adapter = createCodexAdapter();
+    const ctx = makeCodexContext();
+    const resp = makeResponse(200, {
+      id: 'resp_01',
+      object: 'response',
+      created_at: 1700000000,
+      model: 'gpt-5.5-codex',
+      status: 'completed',
+      error: null,
+      incomplete_details: null,
+      instructions: null,
+      max_output_tokens: null,
+      output: [
+        {
+          type: 'message',
+          id: 'msg_01',
+          role: 'assistant',
+          content: [{ type: 'output_text', text: 'function foo() {}', annotations: [] }],
+        },
+      ],
+      usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+    } as OpenAIResponsesResponse);
+    const ir = adapter.normalizeResponse({ response: resp, request: ctx });
+    expect(ir.id).toBe('resp_01');
+    expect(ir.model).toBe('gpt-5.5-codex');
+    expect(ir.content).toBe('function foo() {}');
+    expect(ir.stopReason).toBe('stop');
+    expect(ir.usage).toEqual({ inputTokens: 10, outputTokens: 5, totalTokens: 15 });
+  });
+
+  it('passes through Responses API SSE events unchanged', () => {
+    const adapter = createCodexAdapter();
+    const ctx = makeCodexContext();
+    const r1 = adapter.normalizeStreamEvent({
+      event: 'response.output_text.delta',
+      data: JSON.stringify({
+        type: 'response.output_text.delta',
+        item_id: 'msg_1',
+        delta: 'Hello',
+      }),
+      request: ctx,
+      sourceProtocol: 'codex',
+    });
+    expect(r1.kind).toBe('ignored');
+    const frame = r1.clientFrame as { event: string; data: string };
+    expect(frame.event).toBe('response.output_text.delta');
+
+    const r2 = adapter.normalizeStreamEvent({
+      event: 'response.completed',
+      data: JSON.stringify({
+        type: 'response.completed',
+        response: {
+          usage: { input_tokens: 3, output_tokens: 1, total_tokens: 4 },
+        },
+      }),
+      request: ctx,
+      sourceProtocol: 'codex',
+    });
+    expect(r2.kind).toBe('usage');
+    expect(r2.inputTokens).toBe(3);
+    expect(r2.outputTokens).toBe(1);
+  });
+
+  it('classifies 401 as provider_authentication', () => {
+    const adapter = createCodexAdapter();
+    const resp = makeResponse(401, {
+      error: {
+        message: 'Incorrect API key',
+        type: 'invalid_request_error',
+        code: 'invalid_api_key',
+      },
+    });
+    const err = adapter.normalizeError({
+      response: resp,
+      request: makeCodexContext(),
+      transportError: undefined,
+    });
+    expect(err.category).toBe('provider_authentication');
+    expect(err.providerCode).toBe('invalid_api_key');
+  });
+});
+
+describe('codex IR converter', () => {
+  it('converts a Responses API request to IR', () => {
+    const body: OpenAIResponsesRequest = {
+      model: 'codex-fast',
+      input: 'write a test',
+      instructions: [{ type: 'text', text: 'be terse' }],
+      max_output_tokens: 64,
+      temperature: 0.2,
+      top_p: 0.9,
+      metadata: { user_id: 'u_1' },
+    };
+    const ir = codexRequestToIR(body);
+    expect(ir.sourceProtocol).toBe('codex');
+    expect(ir.requestedModel).toBe('codex-fast');
+    expect(ir.system).toBe('be terse');
+    expect(ir.messages).toEqual([{ role: 'user', content: 'write a test' }]);
+    expect(ir.maxTokens).toBe(64);
+    expect(ir.temperature).toBe(0.2);
+    expect(ir.topP).toBe(0.9);
+    expect(ir.metadata['user_id']).toBe('u_1');
+  });
+
+  it('folds developer/system input items into ir.system', () => {
+    const body: OpenAIResponsesRequest = {
+      model: 'codex-fast',
+      input: [
+        { role: 'system', content: 'first' },
+        { role: 'developer', content: 'second' },
+        { role: 'user', content: 'do it' },
+      ],
+    };
+    const ir = codexRequestToIR(body);
+    expect(ir.system).toBe('first\nsecond');
+    expect(ir.messages).toEqual([{ role: 'user', content: 'do it' }]);
+  });
+});
+
 describe('provider presets', () => {
   it('exposes all mainstream official presets', () => {
     const presets = [
@@ -545,6 +734,7 @@ describe('provider presets', () => {
       'agnes-ai',
       'kimi-code',
       'coze',
+      'codex',
     ];
     for (const id of presets) {
       const preset = getProviderPreset(id);
@@ -552,8 +742,8 @@ describe('provider presets', () => {
       expect(preset!.endpoints.length).toBeGreaterThan(0);
       expect(getModelMappings(preset!).length).toBe(0);
       for (const ep of preset!.endpoints) {
-        expect(ep.protocol).toMatch(/^(anthropic|openai)$/);
-        expect(ep.providerType).toMatch(/^(anthropic_compatible|openai_compatible|coze)$/);
+        expect(ep.protocol).toMatch(/^(anthropic|openai|codex)$/);
+        expect(ep.providerType).toMatch(/^(anthropic_compatible|openai_compatible|coze|codex)$/);
         expect(ep.baseUrl).toMatch(/^https?:\/\//);
       }
     }
@@ -839,10 +1029,12 @@ describe('end-to-end through fake upstream', () => {
 });
 
 describe('getAdapter registry', () => {
-  it('returns the anthropic adapter for anthropic_compatible', async () => {
+  it('returns the right adapter for each provider type', async () => {
     const { getAdapter } = await import('../src/modules/providers/index.js');
     expect(getAdapter('anthropic_compatible').type).toBe('anthropic_compatible');
     expect(getAdapter('openai_compatible').type).toBe('openai_compatible');
+    expect(getAdapter('coze').type).toBe('coze');
+    expect(getAdapter('codex').type).toBe('codex');
   });
 });
 

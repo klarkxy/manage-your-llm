@@ -11,6 +11,7 @@ import {
   type ProviderRequestContext,
   anthropicRequestToIR,
   openaiRequestToIR,
+  codexRequestToIR,
   getProviderAdapter,
 } from '../providers/index.js';
 import { type Db } from '../db/index.js';
@@ -638,7 +639,7 @@ async function recordUsageOnFailure(
 }
 
 export function buildStreamRequest(
-  protocol: 'anthropic' | 'openai',
+  protocol: 'anthropic' | 'openai' | 'codex',
   body: unknown,
 ): StreamRequestContext {
   if (!body || typeof body !== 'object') {
@@ -648,6 +649,15 @@ export function buildStreamRequest(
   if (typeof b['model'] !== 'string') throw new ValidationError('model is required');
   if (b['stream'] !== true) {
     throw new ValidationError('this entry point is only for stream: true requests');
+  }
+  if (protocol === 'codex') {
+    if (typeof b['input'] !== 'string' && !Array.isArray(b['input'])) {
+      throw new ValidationError('input is required');
+    }
+    return {
+      ir: codexRequestToIR(b as Parameters<typeof codexRequestToIR>[0], body),
+      sourceProtocol: 'codex',
+    };
   }
   if (!Array.isArray(b['messages'])) throw new ValidationError('messages is required');
   if (protocol === 'anthropic') {

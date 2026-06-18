@@ -1,5 +1,9 @@
 import type { NormalizedChatResponse } from '@modelharbor/shared';
-import type { AnthropicMessagesResponse, OpenAIChatCompletionsResponse } from '@modelharbor/shared';
+import type {
+  AnthropicMessagesResponse,
+  OpenAIChatCompletionsResponse,
+  OpenAIResponsesResponse,
+} from '@modelharbor/shared';
 
 // Convert the router's internal NormalizedChatResponse into the wire-format
 // Anthropic Messages response. The M3 non-stream shape is sufficient for M4.
@@ -49,6 +53,40 @@ export function irToOpenAIResponse(
           total_tokens: ir.usage.totalTokens,
         }
       : undefined,
+  };
+}
+
+export function irToCodexResponse(
+  ir: NormalizedChatResponse,
+  args: { model: string },
+): OpenAIResponsesResponse {
+  const inputTokens = ir.usage?.inputTokens ?? 0;
+  const outputTokens = ir.usage?.outputTokens ?? 0;
+  return {
+    id: ir.id,
+    object: 'response',
+    created_at: Math.floor(Date.now() / 1000),
+    model: args.model,
+    status: 'completed',
+    error: null,
+    incomplete_details: null,
+    instructions: null,
+    max_output_tokens: null,
+    output: ir.content
+      ? [
+          {
+            type: 'message',
+            id: `${ir.id}-msg`,
+            role: 'assistant',
+            content: [{ type: 'output_text', text: ir.content, annotations: [] }],
+          },
+        ]
+      : [],
+    usage: {
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      total_tokens: inputTokens + outputTokens,
+    },
   };
 }
 

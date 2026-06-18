@@ -5,6 +5,8 @@ import type {
   ChatRequestIR,
   OpenAIChatCompletionsRequest,
   OpenAIChatMessage,
+  OpenAIResponsesInputItem,
+  OpenAIResponsesRequest,
 } from '@modelharbor/shared';
 
 function extractAnthropicText(content: AnthropicMessage['content']): string {
@@ -88,6 +90,111 @@ function extractOpenAIText(content: OpenAIChatMessage['content']): string {
     }
   }
   return '';
+}
+
+function extractResponsesSystem(
+  instructions: OpenAIResponsesRequest['instructions'],
+): string | null {
+  if (!instructions) return null;
+  if (typeof instructions === 'string') return instructions;
+  if (Array.isArray(instructions)) {
+    const parts: string[] = [];
+    for (const block of instructions) {
+      if (block && typeof block === 'object' && (block as { type?: string }).type === 'text') {
+        const t = (block as { text?: string }).text;
+        if (typeof t === 'string') parts.push(t);
+      }
+    }
+    return parts.length > 0 ? parts.join('') : null;
+  }
+  return null;
+}
+
+function extractResponsesInputItemText(item: OpenAIResponsesInputItem): string {
+  const content = item.content;
+  if (typeof content === 'string') return content;
+  if (!content) return '';
+  if (Array.isArray(content)) {
+    const parts: string[] = [];
+    for (const part of content) {
+      if (part && typeof part === 'object') {
+        if ((part as { type?: string }).type === 'text') {
+          const t = (part as { text?: string }).text;
+          if (typeof t === 'string') parts.push(t);
+        }
+        if ((part as { type?: string }).type === 'input_text') {
+          const t = (part as { text?: string }).text;
+          if (typeof t === 'string') parts.push(t);
+        }
+      }
+    }
+    return parts.join('');
+  }
+  return '';
+}
+
+export function codexRequestToIR(
+  body: OpenAIResponsesRequest,
+  rawRequest: unknown = body,
+): ChatRequestIR {
+  const messages: ChatMessageIR[] = [];
+  let system = extractResponsesSystem(body.instructions);
+
+  const input = body.input;
+  if (typeof input === 'string') {
+    messages.push({ role: 'user', content: input });
+  } else if (Array.isArray(input)) {
+    for (const item of input) {
+      if (!item || typeof item !== 'object') continue;
+      const role = item.role;
+      const text = extractResponsesInputItemText(item);
+      if (role === 'system' || role === 'developer') {
+        if (system) {
+          system = system + '\n' + text;
+        } else {
+          system = text;
+        }
+        continue;
+      }
+      if (role === 'user') {
+        messages.push({ role: 'user', content: text });
+        continue;
+      }
+      if (role === 'assistant') {
+        messages.push({ role: 'assistant', content: text });
+        continue;
+      }
+      if (role === 'tool') {
+        messages.push({
+          role: 'tool',
+          content: text,
+          toolCallId: item.call_id,
+        });
+      }
+    }
+  }
+
+  const metadata: Record<string, string> = {};
+  if (
+    body.metadata &&
+    typeof body.metadata === 'object' &&
+    typeof (body.metadata as { user_id?: unknown }).user_id === 'string'
+  ) {
+    metadata['user_id'] = (body.metadata as { user_id: string }).user_id;
+  }
+
+  return {
+    sourceProtocol: 'codex',
+    requestedModel: body.model,
+    system,
+    messages,
+    maxTokens: body.max_output_tokens ?? null,
+    temperature: body.temperature ?? null,
+    topP: body.top_p ?? null,
+    stream: body.stream === true,
+    metadata,
+    rawRequest,
+  };
 }
 
 export function openaiRequestToIR(

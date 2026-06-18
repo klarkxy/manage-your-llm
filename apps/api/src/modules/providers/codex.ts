@@ -6,9 +6,9 @@ const preset: ProviderPreset = {
   name: 'OpenAI Codex',
   endpoints: [
     {
-      protocol: 'openai',
+      protocol: 'codex',
       baseUrl: 'https://api.openai.com',
-      providerType: 'openai_compatible',
+      providerType: 'codex',
     },
   ],
   authStrategies: { default: 'codex_oauth', available: ['codex_oauth', 'pat'] },

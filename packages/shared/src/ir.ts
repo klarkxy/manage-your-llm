@@ -171,6 +171,71 @@ export interface OpenAIChatCompletionsResponse {
   [key: string]: unknown;
 }
 
+// OpenAI Responses API (used by Codex and newer OpenAI models).
+
+export interface OpenAIResponsesInputItem {
+  type?: 'message' | 'function_call' | 'function_call_output' | string;
+  role?: 'user' | 'assistant' | 'system' | 'developer' | 'tool' | string;
+  content?: string | unknown;
+  call_id?: string;
+  [key: string]: unknown;
+}
+
+export interface OpenAIResponsesContentPart {
+  type: 'text' | 'input_text' | 'output_text';
+  text: string;
+  [key: string]: unknown;
+}
+
+export interface OpenAIResponsesRequest {
+  model: string;
+  input: string | OpenAIResponsesInputItem[];
+  instructions?: string | OpenAIResponsesContentPart[];
+  max_output_tokens?: number;
+  temperature?: number;
+  top_p?: number;
+  stream?: boolean;
+  metadata?: { user_id?: string; [k: string]: unknown };
+  tools?: unknown;
+  tool_choice?: unknown;
+  reasoning?: unknown;
+  [key: string]: unknown;
+}
+
+export interface OpenAIResponsesOutputText {
+  type: 'output_text';
+  text: string;
+  annotations?: unknown[];
+}
+
+export interface OpenAIResponsesOutputMessage {
+  type: 'message';
+  id: string;
+  role: 'assistant';
+  content: OpenAIResponsesOutputText[];
+  [key: string]: unknown;
+}
+
+export interface OpenAIResponsesResponse {
+  id: string;
+  object: 'response';
+  created_at: number;
+  status: 'completed' | 'in_progress' | 'failed' | 'incomplete' | string;
+  error: unknown;
+  incomplete_details: { reason: string } | null;
+  instructions: string | null;
+  max_output_tokens: number | null;
+  model: string;
+  output: OpenAIResponsesOutputMessage[];
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 // Wire-format error shapes. M3 normalizes these into our NormalizedError
 // classes; the gateway then maps the class to a status code.
 

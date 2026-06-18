@@ -13,7 +13,7 @@ export interface UpstreamKeyQuota {
 export interface UpstreamKey {
   id: string;
   name: string;
-  providerType: 'anthropic_compatible' | 'openai_compatible' | 'coze';
+  providerType: 'anthropic_compatible' | 'openai_compatible' | 'coze' | 'codex';
   baseUrl: string;
   authType: 'pat' | 'coze_oauth_jwt' | 'codex_oauth';
   apiKeyPrefix: string;
@@ -54,7 +54,7 @@ export interface UpstreamKeyCandidate {
 
 export interface UpstreamKeyCreatePayload {
   name: string;
-  providerType?: 'anthropic_compatible' | 'openai_compatible' | 'coze';
+  providerType?: 'anthropic_compatible' | 'openai_compatible' | 'coze' | 'codex';
   baseUrl?: string;
   apiKey?: string;
   authType?: 'pat' | 'coze_oauth_jwt' | 'codex_oauth';
@@ -77,7 +77,7 @@ export interface UpstreamKeyCreatePayload {
 export interface DiscoverModelsPayload {
   baseUrl: string;
   apiKey?: string;
-  providerType: 'anthropic_compatible' | 'openai_compatible' | 'coze';
+  providerType: 'anthropic_compatible' | 'openai_compatible' | 'coze' | 'codex';
   providerPresetId?: string;
   upstreamKeyId?: string;
   workspaceId?: string;
@@ -136,9 +136,9 @@ export const upstreamKeysApi = {
 
 // Provider presets
 export interface ProviderPresetEndpoint {
-  protocol: 'anthropic' | 'openai';
+  protocol: 'anthropic' | 'openai' | 'codex';
   baseUrl: string;
-  providerType: 'anthropic_compatible' | 'openai_compatible' | 'coze';
+  providerType: 'anthropic_compatible' | 'openai_compatible' | 'coze' | 'codex';
   apiPath?: string;
 }
 
