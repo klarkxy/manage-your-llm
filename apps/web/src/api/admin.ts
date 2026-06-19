@@ -180,6 +180,9 @@ export interface ProviderPreset {
     default: string;
     available: string[];
   };
+  // Optional URL to a setup guide explaining how to obtain credentials for
+  // this provider. The admin drawer renders this as an external link.
+  guideUrl?: string;
 }
 
 export const providerPresetsApi = {

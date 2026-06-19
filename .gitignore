@@ -54,3 +54,6 @@ playwright-report/
 
 # Playwright MCP temporary logs/screenshots
 .playwright-mcp/
+
+# 参考项目
+reference/

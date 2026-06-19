@@ -1,4 +1,5 @@
 import type { ProviderModule, ProviderPreset } from './types.js';
+import { providerGuideUrl } from './guide-url.js';
 import { createCozeAdapter } from './coze.js';
 
 const preset: ProviderPreset = {
@@ -15,8 +16,11 @@ const preset: ProviderPreset = {
   ],
   authStrategies: {
     default: 'coze_oauth_jwt',
-    available: ['coze_oauth_jwt', 'coze_oauth_pkce', 'pat'],
+    // OAuth PKCE is implemented but hidden until Coze supports a public
+    // browser client that can redirect to arbitrary dashboards.
+    available: ['coze_oauth_jwt', 'pat'],
   },
+  guideUrl: providerGuideUrl('coze'),
 };
 
 const providerModule: ProviderModule = {

@@ -733,7 +733,6 @@ describe('provider presets', () => {
       'siliconflow',
       'agnes-ai',
       'kimi-code',
-      'coze',
       'codex',
     ];
     for (const id of presets) {

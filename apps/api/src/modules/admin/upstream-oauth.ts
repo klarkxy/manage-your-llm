@@ -12,6 +12,7 @@ import {
 } from '../providers/auth/codex-oauth.js';
 import { buildCozeAuthorizeUrl, exchangeCozeCode } from '../providers/auth/coze-oauth-pkce.js';
 import type { UpstreamAuthType } from '../providers/auth/index.js';
+import { discoverUpstreamModels, type DiscoverModelsBody } from './upstream-keys.js';
 
 export interface UpstreamOAuthRouteDeps {
   db: Db;
@@ -65,7 +66,14 @@ function normalizeInitBody(body: OAuthInitBody) {
 
   if (provider === 'codex') {
     if (!clientId) clientId = CODEX_DEFAULT_CLIENT_ID;
-    if (!redirectUri) redirectUri = CODEX_DEFAULT_REDIRECT_URI;
+    // OpenAI's public Codex OAuth app is registered to a fixed redirect URI.
+    // When the default client ID is used we must send that exact URI, even if
+    // the frontend supplied a different value.
+    if (clientId === CODEX_DEFAULT_CLIENT_ID) {
+      redirectUri = CODEX_DEFAULT_REDIRECT_URI;
+    } else if (!redirectUri) {
+      redirectUri = CODEX_DEFAULT_REDIRECT_URI;
+    }
   }
 
   if (!clientId) throw new ValidationError('clientId is required');
@@ -119,7 +127,7 @@ export function registerUpstreamOAuthRoutes(
   app: FastifyInstance,
   deps: UpstreamOAuthRouteDeps,
 ): void {
-  const { db } = deps;
+  const { db, secretKey } = deps;
 
   app.post('/api/admin/upstream-keys/oauth-init', async (req, _reply) => {
     const adminUserId = getAdminId(req);
@@ -250,6 +258,48 @@ export function registerUpstreamOAuthRoutes(
 
     const cookie = req.headers.cookie ?? '';
     let res: Awaited<ReturnType<typeof app.inject>>;
+
+    // For browser-based OAuth flows the admin may not know the available
+    // models until a refresh token is obtained. Auto-discover the models
+    // when the draft does not contain any usable mappings.
+    if (!session.upstreamKeyId) {
+      const draft = session.draftJson
+        ? (JSON.parse(session.draftJson) as Record<string, unknown>)
+        : {};
+      const draftMappings = draft.modelMappings;
+      const hasUsableMappings =
+        Array.isArray(draftMappings) &&
+        draftMappings.some(
+          (m) =>
+            m &&
+            typeof m === 'object' &&
+            typeof (m as { realName?: unknown }).realName === 'string' &&
+            (m as { realName: string }).realName.trim() !== '',
+        );
+      if (!hasUsableMappings) {
+        const discoverBody: DiscoverModelsBody = {
+          baseUrl: draft.baseUrl ?? session.baseUrl,
+          providerType: draft.providerType,
+          providerPresetId: draft.providerPresetId,
+          authType: session.authType,
+          authConfig,
+        };
+        if (session.provider === 'coze') {
+          discoverBody.workspaceId = session.workspaceId;
+        }
+        const discovered = await discoverUpstreamModels({
+          body: discoverBody,
+          db,
+          secretKey,
+        });
+        draft.modelMappings = discovered.map((m) => ({
+          realName: m.realName,
+          publicName: m.publicName,
+          enabled: true,
+        }));
+        session.draftJson = JSON.stringify(draft);
+      }
+    }
 
     if (session.upstreamKeyId) {
       res = await app.inject({

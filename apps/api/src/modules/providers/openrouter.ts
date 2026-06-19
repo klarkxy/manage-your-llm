@@ -1,4 +1,5 @@
 import type { ProviderModule, ProviderPreset } from './types.js';
+import { providerGuideUrl } from './guide-url.js';
 
 const preset: ProviderPreset = {
   id: 'openrouter',
@@ -14,6 +15,7 @@ const preset: ProviderPreset = {
   // Public model names are kept provider-agnostic so they can be shared with
   // official-provider presets (e.g. "gpt-4o" also exists under OpenAI). The
   // overrides carry the OpenRouter slug required by the upstream endpoint.
+  guideUrl: providerGuideUrl('openrouter'),
 };
 
 const providerModule: ProviderModule = {

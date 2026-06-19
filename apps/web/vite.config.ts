@@ -8,6 +8,7 @@ import { fileURLToPath, URL } from 'node:url';
 // env so e2e runs and local dev both work.
 const API_PORT = Number(process.env['MODELHARBOR_API_PORT'] ?? 3000);
 const API_TARGET = `http://127.0.0.1:${API_PORT}`;
+const WEB_PORT = Number(process.env['MODELHARBOR_WEB_PORT'] ?? 5173);
 
 export default defineConfig({
   plugins: [vue()],
@@ -17,7 +18,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: WEB_PORT,
     // Vite's default `host: "localhost"` resolves to ::1 on Windows, which
     // makes http://localhost:5173/ hang or fail with ERR_CONNECTION_REFUSED
     // for clients that resolve localhost to 127.0.0.1. Pin to 127.0.0.1 to

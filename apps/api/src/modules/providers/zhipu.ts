@@ -1,4 +1,5 @@
 import type { ProviderModule, ProviderPreset } from './types.js';
+import { providerGuideUrl } from './guide-url.js';
 
 const preset: ProviderPreset = {
   id: 'zhipu',
@@ -17,6 +18,7 @@ const preset: ProviderPreset = {
       apiPath: '/v4/chat/completions',
     },
   ],
+  guideUrl: providerGuideUrl('zhipu'),
 };
 
 const providerModule: ProviderModule = {

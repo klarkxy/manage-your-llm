@@ -6,6 +6,7 @@ export * from './coze.js';
 export * from './codex-adapter.js';
 export * from './registry.js';
 export * from './ir-converters.js';
+export { providerGuideUrl } from './guide-url.js';
 
 import type { ProviderType } from '@modelharbor/shared';
 import type {
@@ -45,7 +46,8 @@ import hunyuan from './hunyuan.js';
 import qianfan from './qianfan.js';
 import stepfun from './stepfun.js';
 import kimiCode from './kimi-code.js';
-import coze from './coze-preset.js';
+// Coze preset is hidden until the provider offers a reliable public model
+// catalog and larger models through its API.
 import codex from './codex.js';
 
 const MODULES: readonly ProviderModule[] = [
@@ -76,7 +78,6 @@ const MODULES: readonly ProviderModule[] = [
   qianfan,
   stepfun,
   kimiCode,
-  coze,
   codex,
 ].sort((a, b) => a.preset.name.localeCompare(b.preset.name));
 

@@ -1,4 +1,5 @@
 import type { ProviderModule, ProviderPreset } from './types.js';
+import { providerGuideUrl } from './guide-url.js';
 
 const preset: ProviderPreset = {
   id: 'minimax-intl',
@@ -16,6 +17,7 @@ const preset: ProviderPreset = {
       providerType: 'openai_compatible',
     },
   ],
+  guideUrl: providerGuideUrl('minimax-intl'),
 };
 
 const providerModule: ProviderModule = {

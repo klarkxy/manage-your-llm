@@ -1,4 +1,5 @@
 import type { ProviderModule, ProviderPreset } from './types.js';
+import { providerGuideUrl } from './guide-url.js';
 
 const preset: ProviderPreset = {
   id: 'anthropic',
@@ -11,6 +12,7 @@ const preset: ProviderPreset = {
       providerType: 'anthropic_compatible',
     },
   ],
+  guideUrl: providerGuideUrl('anthropic'),
 };
 
 const providerModule: ProviderModule = {

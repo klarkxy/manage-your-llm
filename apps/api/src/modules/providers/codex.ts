@@ -1,4 +1,5 @@
 import type { ProviderModule, ProviderPreset } from './types.js';
+import { providerGuideUrl } from './guide-url.js';
 
 const preset: ProviderPreset = {
   id: 'codex',
@@ -12,6 +13,7 @@ const preset: ProviderPreset = {
     },
   ],
   authStrategies: { default: 'codex_oauth', available: ['codex_oauth', 'pat'] },
+  guideUrl: providerGuideUrl('codex'),
 };
 
 const providerModule: ProviderModule = {

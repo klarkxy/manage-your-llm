@@ -76,7 +76,8 @@ const codexAuthConfig = ref({
   refreshToken: '',
   clientId: '',
   tokenUrl: '',
-  redirectUri: `${window.location.origin}/oauth/callback`,
+  // OpenAI's public Codex OAuth app is registered to this fixed redirect URI.
+  redirectUri: 'http://localhost:1455/auth/callback',
 });
 const oauthInProgress = ref(false);
 const workspaceId = ref('');
@@ -114,7 +115,7 @@ function resetForm() {
     refreshToken: '',
     clientId: '',
     tokenUrl: '',
-    redirectUri: `${window.location.origin}/oauth/callback`,
+    redirectUri: 'http://localhost:1455/auth/callback',
   };
   workspaceId.value = '';
   selectedPresetId.value = null;
@@ -333,11 +334,10 @@ async function startOAuth() {
     message.error(t('upstreamKeys.validation.required'));
     return;
   }
+  // Browser-based OAuth flows do not require the admin to pre-fill model
+  // mappings. The available models are discovered automatically after the
+  // provider returns a refresh token.
   const activeMappings = modelMappings.value.filter((m) => m.enabled && m.realName.trim() !== '');
-  if (activeMappings.length === 0) {
-    message.error(t('upstreamKeys.validation.modelMappings'));
-    return;
-  }
 
   if (authType.value === 'coze_oauth_pkce') {
     if (!cozePkceConfig.value.clientId.trim() || !workspaceId.value.trim()) {
@@ -526,7 +526,6 @@ function latencyTagType(latencyMs: number): 'success' | 'warning' | 'error' {
 const providerOptions = computed(() => [
   { label: t('upstreamKeys.drawer.providers.anthropic'), value: 'anthropic_compatible' },
   { label: t('upstreamKeys.drawer.providers.openai'), value: 'openai_compatible' },
-  { label: t('upstreamKeys.drawer.providers.coze'), value: 'coze' },
   { label: t('upstreamKeys.drawer.providers.codex'), value: 'codex' },
 ]);
 
@@ -809,6 +808,23 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
               clearable
             />
           </NFormItem>
+          <NSpace
+            v-if="selectedPreset?.guideUrl"
+            align="center"
+            :size="4"
+            style="margin-top: -12px; margin-bottom: 12px"
+          >
+            <NText depth="3" style="font-size: 12px">
+              {{ t('upstreamKeys.drawer.preset.guideLinkHint') }}
+            </NText>
+            <a
+              :href="selectedPreset.guideUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              style="font-size: 12px"
+              >{{ t('upstreamKeys.drawer.preset.guideLink') }} ↗</a
+            >
+          </NSpace>
           <NFormItem :label="t('upstreamKeys.drawer.name')" required>
             <NInput
               v-model:value="form.name"
@@ -940,6 +956,12 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
                 :placeholder="t('upstreamKeys.drawer.placeholders.workspaceId')"
               />
             </NFormItem>
+            <NText
+              depth="3"
+              style="font-size: 12px; display: block; margin-top: -12px; margin-bottom: 8px"
+            >
+              {{ t('upstreamKeys.drawer.coze.guide') }}
+            </NText>
           </template>
           <NFormItem :label="t('upstreamKeys.drawer.extraHeaders.label')">
             <KeyValueEditor

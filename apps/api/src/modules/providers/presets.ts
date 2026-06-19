@@ -5,4 +5,5 @@ export {
   getProviderPreset,
   listProviderPresets,
   getModelMappings,
+  providerGuideUrl,
 } from './index.js';

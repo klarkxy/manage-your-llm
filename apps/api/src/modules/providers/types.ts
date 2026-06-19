@@ -186,6 +186,12 @@ export interface ProviderPreset {
   // Supported authentication strategies for this provider. When omitted the
   // upstream key falls back to the generic PAT (static apiKey) strategy.
   authStrategies?: ProviderPresetAuthStrategies;
+  // Optional absolute or root-relative URL to a setup guide explaining how to
+  // obtain credentials for this provider. The admin drawer renders this as a
+  // hyperlink when the preset is selected. The typical value is
+  // "/docs/provider-guides/{id}.md" which is served as a static asset from
+  // the web app's public folder.
+  guideUrl?: string;
 }
 
 export interface ModelMapping {

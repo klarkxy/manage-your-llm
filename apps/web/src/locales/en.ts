@@ -196,6 +196,9 @@ const messages = {
         label: 'Provider preset',
         placeholder: 'Select a preset to auto-fill settings',
         manual: 'Manual configuration',
+        guideLink: 'How to obtain credentials',
+        guideLinkHint:
+          'Opens the setup guide for the selected preset in a new tab.',
       },
       name: 'Name',
       provider: 'Provider',
@@ -229,6 +232,7 @@ const messages = {
         kid: 'Public key fingerprint (KID)',
         privateKey: 'Private key (PEM)',
         durationSeconds: 'Token duration (seconds)',
+        guide: 'See docs/coze-setup.md for how to get App ID, KID, private key and Workspace ID.',
       },
       workspaceId: 'Workspace ID',
       extraHeaders: {
@@ -255,7 +259,7 @@ const messages = {
         baseUrl: 'https://api.example.com',
         apiKey: 'sk-...',
         apiKeyEdit: 'Leave blank to keep the existing key',
-        workspaceId: 'Paste from your Coze workspace URL',
+        workspaceId: 'Numeric ID from your Coze workspace URL, e.g. 7435xxxxx',
         privateKey: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
         refreshToken: 'Paste the Codex OAuth refresh token',
         clientId: 'app_EMoamEEZ73f0CkXaXp7hrann',

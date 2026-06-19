@@ -329,9 +329,12 @@ function buildCozeBotsUrl(baseUrl: string, workspaceId: string): string {
   const normalized = baseUrl.trim().replace(/\/+$/, '');
   const url = new URL('/v1/bots', normalized);
   url.searchParams.set('workspace_id', workspaceId);
+  // Coze requires publish_status when connector_id is provided.
+  // published_online is the default when omitted, but must be explicit here.
+  url.searchParams.set('publish_status', 'published_online');
   url.searchParams.set('connector_id', '1024');
   url.searchParams.set('page_num', '1');
-  url.searchParams.set('page_size', '100');
+  url.searchParams.set('page_size', '50');
   return url.toString();
 }
 
@@ -364,7 +367,7 @@ function extractCozeBots(json: unknown): CozeBotItem[] {
   return out;
 }
 
-interface DiscoverModelsBody {
+export interface DiscoverModelsBody {
   baseUrl?: unknown;
   apiKey?: unknown;
   providerType?: unknown;
@@ -510,13 +513,13 @@ function derivePublicName(presetId: string | undefined, realName: string): strin
   return realName;
 }
 
-interface DiscoverContext {
+export interface DiscoverContext {
   body: DiscoverModelsBody;
   db: Db;
   secretKey: string;
 }
 
-async function discoverUpstreamModels(
+export async function discoverUpstreamModels(
   ctx: DiscoverContext,
 ): Promise<Array<{ realName: string; publicName: string }>> {
   const { body, db, secretKey } = ctx;
@@ -619,9 +622,6 @@ async function discoverUpstreamModels(
         throw new Error('upstream returned invalid JSON');
       }
       const bots = extractCozeBots(json);
-      if (bots.length === 0) {
-        throw new Error('upstream returned no bots');
-      }
 
       const realToPublic = new Map<string, string>();
       if (preset) {
@@ -662,9 +662,6 @@ async function discoverUpstreamModels(
       throw new Error('upstream returned invalid JSON');
     }
     const ids = extractModelIds(json);
-    if (ids.length === 0) {
-      throw new Error('upstream returned no models');
-    }
 
     const realToPublic = new Map<string, string>();
     if (preset) {
@@ -683,9 +680,6 @@ async function discoverUpstreamModels(
       `[modelharbor upstream] discover models <-- transport/error ${buildModelsUrl(baseUrl)}`,
       { message },
     );
-    if (message === 'upstream returned no models' || message === 'upstream returned no bots') {
-      throw err;
-    }
     throw new Error(`failed to fetch models: ${message}`);
   } finally {
     clearTimeout(timer);

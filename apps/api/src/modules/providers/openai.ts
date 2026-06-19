@@ -1,4 +1,5 @@
 import type { ProviderModule, ProviderPreset } from './types.js';
+import { providerGuideUrl } from './guide-url.js';
 
 const preset: ProviderPreset = {
   id: 'openai',
@@ -11,6 +12,7 @@ const preset: ProviderPreset = {
       providerType: 'openai_compatible',
     },
   ],
+  guideUrl: providerGuideUrl('openai'),
 };
 
 const providerModule: ProviderModule = {
