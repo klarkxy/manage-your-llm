@@ -6,9 +6,9 @@ import { fileURLToPath, URL } from 'node:url';
 // Windows resolves to ::1 (IPv6) by default and fails with EACCES when the
 // upstream binds IPv4 only. Pin to 127.0.0.1 and read the api port from
 // env so e2e runs and local dev both work.
-const API_PORT = Number(process.env['MODELHARBOR_API_PORT'] ?? 3000);
+const API_PORT = Number(process.env['MODELHARBOR_API_PORT'] ?? 5420);
 const API_TARGET = `http://127.0.0.1:${API_PORT}`;
-const WEB_PORT = Number(process.env['MODELHARBOR_WEB_PORT'] ?? 5173);
+const WEB_PORT = Number(process.env['MODELHARBOR_WEB_PORT'] ?? 5421);
 
 export default defineConfig({
   plugins: [vue()],
@@ -20,7 +20,7 @@ export default defineConfig({
   server: {
     port: WEB_PORT,
     // Vite's default `host: "localhost"` resolves to ::1 on Windows, which
-    // makes http://localhost:5173/ hang or fail with ERR_CONNECTION_REFUSED
+    // makes http://localhost:5421/ hang or fail with ERR_CONNECTION_REFUSED
     // for clients that resolve localhost to 127.0.0.1. Pin to 127.0.0.1 to
     // match the proxy target above.
     host: '127.0.0.1',

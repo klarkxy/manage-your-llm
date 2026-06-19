@@ -14,7 +14,7 @@ export interface Env {
 const DEFAULTS: Env = {
   NODE_ENV: 'development',
   HOST: '0.0.0.0',
-  PORT: 3000,
+  PORT: 5420,
   LOG_LEVEL: 'info',
   LOG_FILE: './logs/app.log',
   DATABASE_URL: 'file:./data/modelharbor.sqlite',

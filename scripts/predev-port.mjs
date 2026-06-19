@@ -2,7 +2,7 @@
 // scripts/predev-port.mjs
 // Frees the dev ports so `pnpm dev` can start cleanly. Cross-platform.
 //
-// - Reads comma-separated ports from MODELHARBOR_PORTS (default: 3000,5173,
+// - Reads comma-separated ports from MODELHARBOR_PORTS (default: 5420,5421,
 //   or the port given by MODELHARBOR_WEB_PORT).
 // - Walks the parent chain so watchers like `tsx watch` / `nodemon` are killed
 //   too (otherwise they respawn the listener within milliseconds).
@@ -13,8 +13,8 @@ import { execSync, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import process from 'node:process';
 
-const DEFAULT_WEB_PORT = process.env.MODELHARBOR_WEB_PORT ?? '5173';
-const PORTS = (process.env.MODELHARBOR_PORTS ?? `3000,${DEFAULT_WEB_PORT}`)
+const DEFAULT_WEB_PORT = process.env.MODELHARBOR_WEB_PORT ?? '5421';
+const PORTS = (process.env.MODELHARBOR_PORTS ?? `5420,${DEFAULT_WEB_PORT}`)
   .split(',')
   .map((s) => Number(s.trim()))
   .filter((n) => Number.isInteger(n) && n > 0);

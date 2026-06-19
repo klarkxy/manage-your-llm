@@ -55,14 +55,14 @@ ModelHarbor（模型港）是一个轻量级、以仪表盘为核心的 LLM API 
 pnpm install
 
 # 开发模式：并行启动 API + 仪表盘
-# 仪表盘: http://localhost:5173
-# API:     http://localhost:3000
+# 仪表盘: http://localhost:5421
+# API:     http://localhost:5420
 pnpm dev
 ```
 
-> **开发模式：** Vite 开发服务器在 5173 端口提供仪表盘，并将 API 请求代理到 Fastify 后端（3000）。
+> **开发模式：** Vite 开发服务器在 5421 端口提供仪表盘，并将 API 请求代理到 Fastify 后端（5420）。
 >
-> **生产模式：** 先构建（`pnpm build`），然后 `pnpm start` 会从单一端口（3000）同时提供仪表盘和 API。
+> **生产模式：** 先构建（`pnpm build`），然后 `pnpm start` 会从单一端口（5420）同时提供仪表盘和 API。
 
 ### 首次登录
 
@@ -84,7 +84,7 @@ pnpm dev
 
 ```bash
 # OpenAI 兼容格式
-curl http://localhost:3000/v1/chat/completions \
+curl http://localhost:5420/v1/chat/completions \
   -H "Authorization: Bearer mh_你的消费密钥" \
   -H "Content-Type: application/json" \
   -d '{
@@ -93,7 +93,7 @@ curl http://localhost:3000/v1/chat/completions \
   }'
 
 # Anthropic 兼容格式
-curl http://localhost:3000/v1/messages \
+curl http://localhost:5420/v1/messages \
   -H "x-api-key: mh_你的消费密钥" \
   -H "anthropic-version: 2023-06-01" \
   -H "Content-Type: application/json" \
@@ -125,7 +125,7 @@ e2e/           Playwright 端到端测试
 | 变量                         | 默认值                      | 说明              |
 | ---------------------------- | --------------------------- | ----------------- |
 | `MODELHARBOR_HOST`           | `0.0.0.0`                   | 绑定地址          |
-| `MODELHARBOR_PORT`           | `3000`                      | API 端口          |
+| `MODELHARBOR_PORT`           | `5420`                      | API 端口          |
 | `MODELHARBOR_DATABASE_URL`   | `file:./modelharbor.sqlite` | SQLite 数据库路径 |
 | `MODELHARBOR_SECRET_KEY`     | _(无)_                      | 上游密钥加密密钥  |
 | `MODELHARBOR_ADMIN_USERNAME` | `admin`                     | 首个管理员用户名  |
@@ -153,7 +153,7 @@ e2e/           Playwright 端到端测试
 #### POST /v1/chat/completions（OpenAI 兼容）
 
 ```bash
-curl http://localhost:3000/v1/chat/completions \
+curl http://localhost:5420/v1/chat/completions \
   -H "Authorization: Bearer mh_你的消费密钥" \
   -H "Content-Type: application/json" \
   -d '{
@@ -166,7 +166,7 @@ curl http://localhost:3000/v1/chat/completions \
 #### POST /v1/messages（Anthropic 兼容）
 
 ```bash
-curl http://localhost:3000/v1/messages \
+curl http://localhost:5420/v1/messages \
   -H "x-api-key: mh_你的消费密钥" \
   -H "anthropic-version: 2023-06-01" \
   -H "Content-Type: application/json" \
@@ -183,7 +183,7 @@ curl http://localhost:3000/v1/messages \
 列出当前消费密钥有权限访问的所有模型和模型组。
 
 ```bash
-curl http://localhost:3000/v1/models \
+curl http://localhost:5420/v1/models \
   -H "Authorization: Bearer mh_你的消费密钥"
 ```
 
