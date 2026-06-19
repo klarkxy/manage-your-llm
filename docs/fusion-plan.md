@@ -20,14 +20,14 @@
 
 ### 1.2 不做清单（与产品定位冲突）
 
-| 不做 | 原因 |
-|------|------|
-| 支付 / 充值 / 订阅 / 红包 / 兑换码 / 排行榜 | README 明确“不是转售平台” |
-| WebAuthn / Passkey / OIDC / OAuth 提供商矩阵 | 当前 MVP 仅一个本地 admin |
+| 不做                                                                        | 原因                          |
+| --------------------------------------------------------------------------- | ----------------------------- |
+| 支付 / 充值 / 订阅 / 红包 / 兑换码 / 排行榜                                 | README 明确“不是转售平台”     |
+| WebAuthn / Passkey / OIDC / OAuth 提供商矩阵                                | 当前 MVP 仅一个本地 admin     |
 | 桌面客户端功能（系统托盘、菜单栏、Keychain、浏览器 Cookie、Sparkle 自更新） | ModelHarbor 是服务端 Web 应用 |
-| PWA / 离线 / 跨二进制自更新 | 服务端 npm 部署，不需要 |
-| 异步媒体生成任务（Suno/Sora/视频） | 路线图上未包含 |
-| 多前端主题 | 当前用户规模不值得 |
+| PWA / 离线 / 跨二进制自更新                                                 | 服务端 npm 部署，不需要       |
+| 异步媒体生成任务（Suno/Sora/视频）                                          | 路线图上未包含                |
+| 多前端主题                                                                  | 当前用户规模不值得            |
 
 ---
 
@@ -43,18 +43,18 @@
 
 ## 3. 与现有 `plan.md` 的衔接
 
-| 现有阶段 | 状态 | 与本计划的关系 |
-|----------|------|----------------|
-| 阶段一：模型组默认空 | ✅ 已完成 | 前置已就绪 |
-| 阶段二：Capabilities 路由过滤 | ⏳ 待做 | 前置，阶段八协议互转依赖它 |
-| 阶段三：请求链路追踪 | ✅ 已完成 | **关键前置**：CB、诊断导出、实时日志、First-Token 超时都依赖 trace 数据 |
-| 阶段四：每日消耗统计 | ✅ 已完成 | 阶段八自动价格同步、P1 内存优先统计依赖它 |
-| 阶段五：缓存 Token 字段 | ✅ 已完成 | 阶段八 8.5 会进一步扩展为 1h/5m 区分 |
-| 阶段六：内容日志开关 | ⏳ 低优 | 与阶段九诊断导出可协同 |
-| **阶段七：路由韧性融合** | **本计划新增** | 立即执行 |
-| **阶段八：Provider 生态融合** | **本计划新增** | 阶段三、四、五完成后执行 |
-| **阶段九：可观测与运维融合** | **本计划新增** | 阶段三完成后执行 |
-| **阶段十：工程化与扩展性融合** | **本计划新增** | 穿插进行 |
+| 现有阶段                       | 状态           | 与本计划的关系                                                          |
+| ------------------------------ | -------------- | ----------------------------------------------------------------------- |
+| 阶段一：模型组默认空           | ✅ 已完成      | 前置已就绪                                                              |
+| 阶段二：Capabilities 路由过滤  | ⏳ 待做        | 前置，阶段八协议互转依赖它                                              |
+| 阶段三：请求链路追踪           | ✅ 已完成      | **关键前置**：CB、诊断导出、实时日志、First-Token 超时都依赖 trace 数据 |
+| 阶段四：每日消耗统计           | ✅ 已完成      | 阶段八自动价格同步、P1 内存优先统计依赖它                               |
+| 阶段五：缓存 Token 字段        | ✅ 已完成      | 阶段八 8.5 会进一步扩展为 1h/5m 区分                                    |
+| 阶段六：内容日志开关           | ⏳ 低优        | 与阶段九诊断导出可协同                                                  |
+| **阶段七：路由韧性融合**       | **本计划新增** | 立即执行                                                                |
+| **阶段八：Provider 生态融合**  | **本计划新增** | 阶段三、四、五完成后执行                                                |
+| **阶段九：可观测与运维融合**   | **本计划新增** | 阶段三完成后执行                                                        |
+| **阶段十：工程化与扩展性融合** | **本计划新增** | 穿插进行                                                                |
 
 ---
 
@@ -108,20 +108,24 @@
   - 同一 consumer key 在 5 分钟内重复请求同一模型，优先命中上次成功的 upstream key + real model。
   - 命中候选不可用时自动降级到普通路由。
 
-### 7.4 Group 负载均衡模式
+### 7.4 Group 负载均衡模式 ✅ 已完成
 
-- **落点**：`apps/api/src/modules/router/group-balancer.ts`
+- **落点**：`apps/api/src/modules/router/group-balancer.ts`、`apps/api/src/modules/gateway/handler.ts`、`apps/api/src/modules/gateway/stream-handler.ts`
 - **设计**：
-  - 在 `model_groups` 表新增 `load_balance_mode` 字段：`round_robin` / `random` / `failover` / `weighted`。
-  - 当请求目标为 group 时，按 group 模式从候选中挑选：
-    - `round_robin`：原子计数器轮询。
+  - 复用并扩展 `model_groups.routing_policy` 字段，支持 `priority`（历史别名，行为同 failover）/ `failover` / `round_robin` / `random` / `weighted`。
+  - 新增 `model_groups.round_robin_counter` 字段，用于原子轮询计数。
+  - 当请求目标为 group 时，在候选过滤、健康排序之后、sticky 检查之前调用 balancer：
+    - `failover` / `priority`：按 priority 升序。
+    - `round_robin`：原子递增计数器，`start = (counter - 1) % len` 旋转候选列表。
     - `random`：Fisher-Yates 洗牌。
-    - `failover`：按 priority 升序。
-    - `weighted`：`rand * weight / totalWeight`。
-- **依赖**：阶段一（模型组默认空）完成后实施更顺。
+    - `weighted`：按成员 `weight` 加权随机选中第一个，其余按 priority 升序作为 failover 后备。
+  - Sticky（对话级与 session 级）仍然优先于 balancer 的选择。
+- **UI**：`apps/web/src/pages/ModelGroups.vue` 创建模型组时支持选择路由策略，并为每个成员配置权重。
+- **测试**：`apps/api/test/group-balancer.test.ts`（单元）、`apps/api/test/group-balancer-gateway.test.ts`（网关集成）。
 - **验收**：
-  - 创建 group 时可选择 load balance mode。
+  - 创建 group 时可选择路由策略。
   - 不同 mode 下相同候选集合产生可预期的选中分布。
+  - `round_robin` 跨请求轮换命中成员；`failover` 始终选择最小 priority 的可用成员。
 
 ### 7.5 First-Token 超时切换 ✅ 已完成
 
@@ -139,13 +143,13 @@
 
 ### 阶段七实施状态
 
-| 任务 | 状态 | 关键文件 |
-|------|------|----------|
-| 7.1 Circuit Breaker | ✅ 已完成 | `apps/api/src/modules/router/circuit-breaker.ts`, `apps/api/src/modules/admin/settings.ts`, `apps/web/src/pages/Settings.vue` |
-| 7.2 多端点延迟探测 | ✅ 已完成 | `apps/api/src/modules/upstream/endpoint-health.ts`, `apps/api/src/modules/jobs/index.ts`, `apps/web/src/pages/UpstreamKeys.vue` |
-| 7.3 Sticky Session | ⏳ 待做 | - |
-| 7.4 Group 负载均衡 | ⏳ 待做 | - |
-| 7.5 First-Token 超时切换 | ✅ 已完成 | `apps/api/src/modules/gateway/stream-handler.ts`, `apps/api/src/modules/gateway/stream-sender.ts`, `apps/web/src/pages/Settings.vue` |
+| 任务                     | 状态      | 关键文件                                                                                                                                                                           |
+| ------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 7.1 Circuit Breaker      | ✅ 已完成 | `apps/api/src/modules/router/circuit-breaker.ts`, `apps/api/src/modules/admin/settings.ts`, `apps/web/src/pages/Settings.vue`                                                      |
+| 7.2 多端点延迟探测       | ✅ 已完成 | `apps/api/src/modules/upstream/endpoint-health.ts`, `apps/api/src/modules/jobs/index.ts`, `apps/web/src/pages/UpstreamKeys.vue`                                                    |
+| 7.3 Sticky Session       | ✅ 已完成 | `apps/api/src/modules/sticky/session.ts`, `apps/api/src/modules/db/schema.ts`, `apps/web/src/pages/UpstreamKeys.vue`                                                               |
+| 7.4 Group 负载均衡       | ✅ 已完成 | `apps/api/src/modules/router/group-balancer.ts`, `apps/api/src/modules/gateway/handler.ts`, `apps/api/src/modules/gateway/stream-handler.ts`, `apps/web/src/pages/ModelGroups.vue` |
+| 7.5 First-Token 超时切换 | ✅ 已完成 | `apps/api/src/modules/gateway/stream-handler.ts`, `apps/api/src/modules/gateway/stream-sender.ts`, `apps/web/src/pages/Settings.vue`                                               |
 
 ---
 
@@ -257,7 +261,13 @@
 - **设计**：
   - `admin_settings.disabled_fields` JSON 列，默认：
     ```json
-    ["service_tier", "inference_geo", "speed", "safety_identifier", "stream_options.include_obfuscation"]
+    [
+      "service_tier",
+      "inference_geo",
+      "speed",
+      "safety_identifier",
+      "stream_options.include_obfuscation"
+    ]
     ```
   - 发到上游前 deep-remove 黑名单字段。
   - 支持 per-upstream-key 覆盖。
@@ -474,8 +484,8 @@
 [阶段七] 路由韧性融合                              │
    ├── ✅ 7.1 Circuit Breaker                       │
    ├── ✅ 7.2 多端点延迟探测                        │
-   ├── 7.3 Sticky Session                           │
-   ├── 7.4 Group 负载均衡                           │
+   ├── ✅ 7.3 Sticky Session                       │
+   ├── ✅ 7.4 Group 负载均衡                       │
    └── ✅ 7.5 First-Token 超时切换                  │
    │                                                │
 [阶段八] Provider 生态融合                         │
@@ -508,6 +518,7 @@
 ```
 
 **关键依赖说明**：
+
 - 阶段三（链路追踪）是阶段七、八、九中多数任务的**前置**，因为 CB、First-Token、诊断导出、实时日志、字段裁剪验证都依赖 trace 数据。
 - 阶段四（每日消耗统计）是 8.3 价格同步、8.5 缓存 1h/5m 区分的**前置**。
 - 阶段五（缓存 Token 字段）是 8.5 缓存 1h/5m 区分的**前置**。
@@ -517,13 +528,13 @@
 
 ## 9. 工作量与资源估算
 
-| 阶段 | 任务数 | 预计总工作量 | 关键路径 |
-|------|--------|--------------|----------|
-| 阶段七：路由韧性 | 5 | 4 ~ 5 周 | Circuit Breaker → 延迟探测 → First-Token |
-| 阶段八：Provider 生态 | 8 | 6 ~ 8 周 | Descriptor → 协议互转 → 价格/模型同步 |
-| 阶段九：可观测与运维 | 8 | 5 ~ 6 周 | 诊断导出 → CLI → 实时日志 SSE |
-| 阶段十：工程化 | 6 | 2 ~ 3 周 | 可穿插 |
-| **合计** | **27** | **17 ~ 22 周** | 按 1 名全栈工程师估算 |
+| 阶段                  | 任务数 | 预计总工作量   | 关键路径                                 |
+| --------------------- | ------ | -------------- | ---------------------------------------- |
+| 阶段七：路由韧性      | 5      | 4 ~ 5 周       | Circuit Breaker → 延迟探测 → First-Token |
+| 阶段八：Provider 生态 | 8      | 6 ~ 8 周       | Descriptor → 协议互转 → 价格/模型同步    |
+| 阶段九：可观测与运维  | 8      | 5 ~ 6 周       | 诊断导出 → CLI → 实时日志 SSE            |
+| 阶段十：工程化        | 6      | 2 ~ 3 周       | 可穿插                                   |
+| **合计**              | **27** | **17 ~ 22 周** | 按 1 名全栈工程师估算                    |
 
 > 注：工作量按单人全职估算。若分模块并行（路由、Provider、可观测各一人），核心路径可压缩至 8 ~ 10 周。
 
@@ -531,14 +542,14 @@
 
 ## 10. 验收标准汇总
 
-| 验收项 | 标准 |
-|--------|------|
-| 功能正确性 | 每个任务都有对应的单元测试或 e2e 测试覆盖 |
-| 向后兼容 | 现有 API 和数据库行为默认不变；新增字段可空或有默认值 |
-| 可观测 | 每个路由层改造都能在 trace log 中体现 |
-| 安全 | 诊断导出、CLI、本地 serve 不泄露原始 key；字段裁剪生效 |
-| 性能 | CB / 限流 / sharded cache 不引入明显延迟（p99 < 5ms） |
-| 文档 | 每个阶段完成后更新 `docs/provider-adapters.md`、`docs/api-contract.md`、`docs/operations.md` |
+| 验收项     | 标准                                                                                         |
+| ---------- | -------------------------------------------------------------------------------------------- |
+| 功能正确性 | 每个任务都有对应的单元测试或 e2e 测试覆盖                                                    |
+| 向后兼容   | 现有 API 和数据库行为默认不变；新增字段可空或有默认值                                        |
+| 可观测     | 每个路由层改造都能在 trace log 中体现                                                        |
+| 安全       | 诊断导出、CLI、本地 serve 不泄露原始 key；字段裁剪生效                                       |
+| 性能       | CB / 限流 / sharded cache 不引入明显延迟（p99 < 5ms）                                        |
+| 文档       | 每个阶段完成后更新 `docs/provider-adapters.md`、`docs/api-contract.md`、`docs/operations.md` |
 
 ---
 
@@ -550,5 +561,5 @@
 
 ---
 
-*制定依据：`reference/reports/00-summary.md` 及四份子报告。*
-*适用范围：ModelHarbor 后端（`apps/api`）、前端（`apps/web`）、共享包（`packages/shared`）。*
+_制定依据：`reference/reports/00-summary.md` 及四份子报告。_
+_适用范围：ModelHarbor 后端（`apps/api`）、前端（`apps/web`）、共享包（`packages/shared`）。_

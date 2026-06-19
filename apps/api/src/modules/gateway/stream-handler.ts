@@ -23,6 +23,7 @@ import {
   filterCandidates,
   type ResolvedCandidate,
 } from '../router/candidates.js';
+import { maybeBalanceGroupCandidates } from '../router/group-balancer.js';
 import { resolveTargetByName, type ResolvedTarget } from '../router/resolve.js';
 import {
   type CircuitBreakerSettings,
@@ -211,6 +212,15 @@ export async function handleStreamRequest(
     throw new NoRouteAvailableError('no available upstream for target');
   }
   let sorted = [...usableCandidates];
+
+  // Model group load balancing. Runs after health sorting and before sticky
+  // checks; sticky bindings still override the balancer's choice.
+  const balanceResult = await maybeBalanceGroupCandidates(ctx.db, target, sorted, now);
+  sorted = balanceResult.candidates;
+  if (balanceResult.mode) {
+    await log({ step: 'group_balance', balanceMode: balanceResult.mode });
+  }
+
   // Sticky binding lookup. If a fresh binding exists and the bound
   // candidate is still in the accepted set, honor it by moving it to
   // the front. We only consult sticky once per stream; if the bound

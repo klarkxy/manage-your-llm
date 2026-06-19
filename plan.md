@@ -11,14 +11,14 @@
 `docs/plan.md` 明确描述：
 
 > "No model groups are created automatically. When a new upstream key is added, its models are exposed as individual public models only. Administrators manually create groups and assign public models to them through the dashboard."
-> 
+>
 > "ModelGroup is administrator-defined and starts empty by default. It is not tied to any provider or vendor. The intended use is functional grouping — for example `coder`, `planner`, `write`, `fast`, `cheap`, `auto`."
 
 当前代码 `apps/api/src/modules/admin/upstream-onboarding.ts` 在创建上游 key 时，自动创建以供应商名命名的模型组（如 `MiniMax`、`OpenCode Go`、`DeepSeek`），并将所有 public models 加入该组。这与文档描述直接矛盾。
 
 ### 目标
 
-- 删除上游 key  onboarding 时的自动模型组创建逻辑
+- 删除上游 key onboarding 时的自动模型组创建逻辑
 - 只创建 public models 和 candidates，不创建 group
 - 确保 dashboard 中模型组页面为空初始状态，由管理员手动创建
 - 保留 `POST /api/admin/upstream-keys/discover-models` 和模型映射编辑功能
@@ -29,11 +29,11 @@
 
 ### 涉及文件
 
-| 文件 | 改动 |
-|------|------|
+| 文件                                                | 改动                                                                             |
+| --------------------------------------------------- | -------------------------------------------------------------------------------- |
 | `apps/api/src/modules/admin/upstream-onboarding.ts` | 删除 `onboardUpstreamKey` 和 `onboardUpstreamKeyWithMappings` 中的模型组创建逻辑 |
-| `apps/api/src/modules/admin/upstream-keys.ts` | 确认创建上游 key 的 API 不再调用 group 创建 |
-| `apps/web/src/pages/ModelGroups.vue` | 确保页面展示空状态，引导用户手动创建 |
+| `apps/api/src/modules/admin/upstream-keys.ts`       | 确认创建上游 key 的 API 不再调用 group 创建                                      |
+| `apps/web/src/pages/ModelGroups.vue`                | 确保页面展示空状态，引导用户手动创建                                             |
 
 ### 验收标准
 
@@ -64,12 +64,12 @@
 
 ### 涉及文件
 
-| 文件 | 改动 |
-|------|------|
-| `packages/shared/src/capabilities.ts` | 新增 `requestRequiresCapability(ir, capability)` 辅助函数 |
+| 文件                                        | 改动                                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------------------ |
+| `packages/shared/src/capabilities.ts`       | 新增 `requestRequiresCapability(ir, capability)` 辅助函数                      |
 | `apps/api/src/modules/router/candidates.ts` | `filterCandidates` 增加 capabilities 检查；新增 `capability_mismatch` 过滤原因 |
-| `apps/api/src/modules/gateway/handler.ts` | 确保 `ResolvedCandidate` 携带 capabilities 信息 |
-| `docs/provider-adapters.md` | 更新 capabilities 检查说明 |
+| `apps/api/src/modules/gateway/handler.ts`   | 确保 `ResolvedCandidate` 携带 capabilities 信息                                |
+| `docs/provider-adapters.md`                 | 更新 capabilities 检查说明                                                     |
 
 ### 验收标准
 
@@ -85,6 +85,7 @@
 ### 问题
 
 当前只有 `console.error` 日志和 `usage_records` 表记录最终结果。没有中间步骤的追踪，无法看到：
+
 - 一次请求尝试了哪些候选（第1个失败、第2个成功）
 - 候选被过滤掉的原因
 - Sticky 是否命中
@@ -100,19 +101,19 @@
 
 ### 涉及文件
 
-| 文件 | 改动 |
-|------|------|
-| `apps/api/src/modules/db/schema.ts` | 新增 `requestTraceLogs` 表 |
-| `apps/api/src/modules/db/init.ts` | 新增 `request_trace_logs` 表创建语句 |
-| `apps/api/src/modules/observability/trace-logs.ts` | 新建：traceId 生成、步骤写入、查询接口 |
-| `apps/api/src/modules/gateway/handler.ts` | 入口生成 traceId，各步骤调用 trace-logs |
-| `apps/api/src/modules/gateway/stream-handler.ts` | 流式步骤埋点 |
-| `apps/api/src/modules/router/candidates.ts` | candidates_expand / candidates_filter 步骤埋点 |
-| `apps/api/src/modules/sticky/index.ts` | sticky_check / sticky_hit 步骤埋点 |
-| `apps/api/src/modules/jobs/index.ts` | 新增 trace 日志清理任务（30天） |
-| `apps/api/src/modules/admin/observability.ts` | 新增 `GET /api/admin/usage/traces/:traceId` |
-| `apps/web/src/pages/Usage.vue` | 增加"查看链路"按钮 |
-| `apps/web/src/pages/TraceDetail.vue` | 新建：链路详情时间线页面 |
+| 文件                                               | 改动                                           |
+| -------------------------------------------------- | ---------------------------------------------- |
+| `apps/api/src/modules/db/schema.ts`                | 新增 `requestTraceLogs` 表                     |
+| `apps/api/src/modules/db/init.ts`                  | 新增 `request_trace_logs` 表创建语句           |
+| `apps/api/src/modules/observability/trace-logs.ts` | 新建：traceId 生成、步骤写入、查询接口         |
+| `apps/api/src/modules/gateway/handler.ts`          | 入口生成 traceId，各步骤调用 trace-logs        |
+| `apps/api/src/modules/gateway/stream-handler.ts`   | 流式步骤埋点                                   |
+| `apps/api/src/modules/router/candidates.ts`        | candidates_expand / candidates_filter 步骤埋点 |
+| `apps/api/src/modules/sticky/index.ts`             | sticky_check / sticky_hit 步骤埋点             |
+| `apps/api/src/modules/jobs/index.ts`               | 新增 trace 日志清理任务（30天）                |
+| `apps/api/src/modules/admin/observability.ts`      | 新增 `GET /api/admin/usage/traces/:traceId`    |
+| `apps/web/src/pages/Usage.vue`                     | 增加"查看链路"按钮                             |
+| `apps/web/src/pages/TraceDetail.vue`               | 新建：链路详情时间线页面                       |
 
 ### 数据表设计
 
@@ -165,6 +166,7 @@ CREATE INDEX request_trace_logs_created_at_idx ON request_trace_logs(created_at)
 ### 问题
 
 当前只有 `usage_records` 逐条记录和 `upstream_key_counters` 配额计数器。没有按（供应商 + 模型 + 日期）维度的聚合统计，无法回答：
+
 - "DeepSeek 国际的 `deepseek-v4-flash` 今天用了多少输入/输出 token？"
 - "OpenCode Go 的 `deepseek-v4-flash` 和 MiniMax 的 `deepseek-v4-flash` 缓存命中率分别是多少？"
 
@@ -177,15 +179,15 @@ CREATE INDEX request_trace_logs_created_at_idx ON request_trace_logs(created_at)
 
 ### 涉及文件
 
-| 文件 | 改动 |
-|------|------|
-| `apps/api/src/modules/db/schema.ts` | 新增 `modelConsumptionStats` 表 |
-| `apps/api/src/modules/db/init.ts` | 新增表创建语句 |
-| `apps/api/src/modules/observability/consumption-stats.ts` | 新建：upsert 逻辑、查询接口 |
-| `apps/api/src/modules/gateway/handler.ts` | 请求成功后调用 consumption stats upsert |
-| `apps/api/src/modules/gateway/stream-handler.ts` | 流式请求成功后调用 upsert |
-| `apps/api/src/modules/admin/observability.ts` | 新增 `GET /api/admin/usage/consumption` |
-| `apps/web/src/pages/Usage.vue` | 新增消耗统计卡片/表格 |
+| 文件                                                      | 改动                                    |
+| --------------------------------------------------------- | --------------------------------------- |
+| `apps/api/src/modules/db/schema.ts`                       | 新增 `modelConsumptionStats` 表         |
+| `apps/api/src/modules/db/init.ts`                         | 新增表创建语句                          |
+| `apps/api/src/modules/observability/consumption-stats.ts` | 新建：upsert 逻辑、查询接口             |
+| `apps/api/src/modules/gateway/handler.ts`                 | 请求成功后调用 consumption stats upsert |
+| `apps/api/src/modules/gateway/stream-handler.ts`          | 流式请求成功后调用 upsert               |
+| `apps/api/src/modules/admin/observability.ts`             | 新增 `GET /api/admin/usage/consumption` |
+| `apps/web/src/pages/Usage.vue`                            | 新增消耗统计卡片/表格                   |
 
 ### 数据表设计
 
@@ -236,15 +238,15 @@ CREATE INDEX model_consumption_stats_upstream_idx ON model_consumption_stats(ups
 
 ### 涉及文件
 
-| 文件 | 改动 |
-|------|------|
-| `apps/api/src/modules/db/schema.ts` | `usageRecords` 增加 `cacheReadTokens`, `cacheWriteTokens` |
-| `apps/api/src/modules/db/init.ts` | 增加 ALTER TABLE 迁移语句 |
-| `apps/api/src/modules/providers/anthropic-compatible.ts` | `extractUsage` 提取缓存 token |
-| `apps/api/src/modules/providers/openai-compatible.ts` | 检查 OpenAI 的 `cached_tokens` 字段 |
-| `apps/api/src/modules/gateway/handler.ts` | 记录 usage 时写入缓存字段 |
-| `apps/api/src/modules/observability/usage-stats.ts` | 聚合查询中加入缓存字段 |
-| `apps/web/src/pages/Usage.vue` | 展示缓存命中率 |
+| 文件                                                     | 改动                                                      |
+| -------------------------------------------------------- | --------------------------------------------------------- |
+| `apps/api/src/modules/db/schema.ts`                      | `usageRecords` 增加 `cacheReadTokens`, `cacheWriteTokens` |
+| `apps/api/src/modules/db/init.ts`                        | 增加 ALTER TABLE 迁移语句                                 |
+| `apps/api/src/modules/providers/anthropic-compatible.ts` | `extractUsage` 提取缓存 token                             |
+| `apps/api/src/modules/providers/openai-compatible.ts`    | 检查 OpenAI 的 `cached_tokens` 字段                       |
+| `apps/api/src/modules/gateway/handler.ts`                | 记录 usage 时写入缓存字段                                 |
+| `apps/api/src/modules/observability/usage-stats.ts`      | 聚合查询中加入缓存字段                                    |
+| `apps/web/src/pages/Usage.vue`                           | 展示缓存命中率                                            |
 
 ### 验收标准
 
@@ -280,18 +282,18 @@ CREATE INDEX model_consumption_stats_upstream_idx ON model_consumption_stats(ups
 
 ## 执行顺序建议
 
-| 阶段 | 优先级 | 依赖 | 预计工作量 | 状态 |
-|------|--------|------|----------|------|
-| 阶段一：模型组默认空 | 🔴 高 | 无 | 小（修改 onboarding 逻辑） | ✅ 已完成 |
-| 阶段三：链路追踪 | 🔴 高 | 无 | 大（新增表 + 埋点 + API + 前端） | ✅ 已完成 |
-| 阶段四：每日消耗统计 | 🔴 高 | 阶段三 | 中（新增表 + upsert + API + 前端） | ✅ 已完成 |
-| 阶段五：缓存 Token 字段 | 🟡 中 | 无 | 小（表字段 + adapter 提取） | ✅ 已完成 |
-| 阶段二：Capabilities 过滤 | 🟡 中 | 无 | 中（新增过滤逻辑 + 测试） | ⏳ 待做 |
-| 阶段六：内容日志开关 | 🟢 低 | 无 | 中（开关 + 表 + 脱敏 + 前端） | ⏳ 待做 |
+| 阶段                      | 优先级 | 依赖   | 预计工作量                         | 状态      |
+| ------------------------- | ------ | ------ | ---------------------------------- | --------- |
+| 阶段一：模型组默认空      | 🔴 高  | 无     | 小（修改 onboarding 逻辑）         | ✅ 已完成 |
+| 阶段三：链路追踪          | 🔴 高  | 无     | 大（新增表 + 埋点 + API + 前端）   | ✅ 已完成 |
+| 阶段四：每日消耗统计      | 🔴 高  | 阶段三 | 中（新增表 + upsert + API + 前端） | ✅ 已完成 |
+| 阶段五：缓存 Token 字段   | 🟡 中  | 无     | 小（表字段 + adapter 提取）        | ✅ 已完成 |
+| 阶段二：Capabilities 过滤 | 🟡 中  | 无     | 中（新增过滤逻辑 + 测试）          | ⏳ 待做   |
+| 阶段六：内容日志开关      | 🟢 低  | 无     | 中（开关 + 表 + 脱敏 + 前端）      | ⏳ 待做   |
 
 当前队列中靠前的待做项：
 
-- `fusion-plan.md` 阶段七剩余 7.4 Group 负载均衡（7.3 Sticky Session 已完成）。
+- ✅ `fusion-plan.md` 阶段七 7.4 Group 负载均衡已完成。
 - 本文件阶段二 Capabilities 路由过滤。
 - 本文件阶段六内容日志开关（低优先级）。
 
@@ -301,15 +303,15 @@ CREATE INDEX model_consumption_stats_upstream_idx ON model_consumption_stats(ups
 
 以下文档中的描述与代码已一致，无需改动：
 
-| 文档 / 功能 | 状态 |
-|-------------|------|
-| `data-model.md` 表结构 | ✅ 所有表已实现，含 `circuit_breakers`、`upstream_endpoint_health`、`request_trace_logs`、`model_consumption_stats` |
-| `architecture.md` 错误类 | ✅ 所有 9 个错误类已实现（@modelharbor/shared） |
-| `mvp.md` 里程碑 | ✅ M1-M7 核心功能已实现 |
-| `provider-adapters.md` Adapter 接口 | ✅ 3 个 adapter 已实现 |
-| `plan.md` Quota 系统 | ✅ 已实现 |
-| `plan.md` Sticky 路由 | ✅ 已实现 |
-| `fusion-plan.md` 7.1 Circuit Breaker | ✅ 已实现 |
-| `fusion-plan.md` 7.2 多端点延迟探测 | ✅ 已实现 |
-| `fusion-plan.md` 7.5 First-Token 超时切换 | ✅ 已实现 |
-| `testing.md` 测试策略 | ✅ 已有测试框架 |
+| 文档 / 功能                               | 状态                                                                                                                |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `data-model.md` 表结构                    | ✅ 所有表已实现，含 `circuit_breakers`、`upstream_endpoint_health`、`request_trace_logs`、`model_consumption_stats` |
+| `architecture.md` 错误类                  | ✅ 所有 9 个错误类已实现（@modelharbor/shared）                                                                     |
+| `mvp.md` 里程碑                           | ✅ M1-M7 核心功能已实现                                                                                             |
+| `provider-adapters.md` Adapter 接口       | ✅ 3 个 adapter 已实现                                                                                              |
+| `plan.md` Quota 系统                      | ✅ 已实现                                                                                                           |
+| `plan.md` Sticky 路由                     | ✅ 已实现                                                                                                           |
+| `fusion-plan.md` 7.1 Circuit Breaker      | ✅ 已实现                                                                                                           |
+| `fusion-plan.md` 7.2 多端点延迟探测       | ✅ 已实现                                                                                                           |
+| `fusion-plan.md` 7.5 First-Token 超时切换 | ✅ 已实现                                                                                                           |
+| `testing.md` 测试策略                     | ✅ 已有测试框架                                                                                                     |

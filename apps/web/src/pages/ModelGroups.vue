@@ -37,11 +37,16 @@ const loading = ref(false);
 const drawerOpen = ref(false);
 const submitting = ref(false);
 
-const form = ref<ModelGroupCreatePayload>({ name: '', displayName: '', description: '' });
-const memberRows = ref<Array<{ publicModelId: string; priority: number }>>([]);
+const form = ref<ModelGroupCreatePayload>({
+  name: '',
+  displayName: '',
+  description: '',
+  routingPolicy: 'priority',
+});
+const memberRows = ref<Array<{ publicModelId: string; priority: number; weight: number }>>([]);
 
 function resetForm() {
-  form.value = { name: '', displayName: '', description: '' };
+  form.value = { name: '', displayName: '', description: '', routingPolicy: 'priority' };
   memberRows.value = [];
 }
 
@@ -73,6 +78,7 @@ function addMember() {
   memberRows.value.push({
     publicModelId: publicModelOptions.value[0]!.id,
     priority: 100,
+    weight: 1,
   });
 }
 
@@ -91,9 +97,11 @@ async function onSubmit() {
       name: form.value.name.trim(),
       displayName: form.value.displayName?.trim() || undefined,
       description: form.value.description?.trim() || undefined,
+      routingPolicy: form.value.routingPolicy,
       members: memberRows.value.map((m) => ({
         publicModelId: m.publicModelId,
         priority: m.priority,
+        weight: m.weight,
       })),
     };
     const created = await modelGroupsApi.create(payload);
@@ -151,6 +159,14 @@ const columns = computed<DataTableColumns<ModelGroup>>(() => [
 const modelOptions = computed(() =>
   publicModelOptions.value.map((m) => ({ label: m.name, value: m.id })),
 );
+
+const policyOptions = computed(() => [
+  { label: t('modelGroups.drawer.policies.priority'), value: 'priority' },
+  { label: t('modelGroups.drawer.policies.failover'), value: 'failover' },
+  { label: t('modelGroups.drawer.policies.round_robin'), value: 'round_robin' },
+  { label: t('modelGroups.drawer.policies.random'), value: 'random' },
+  { label: t('modelGroups.drawer.policies.weighted'), value: 'weighted' },
+]);
 </script>
 
 <template>
@@ -190,6 +206,9 @@ const modelOptions = computed(() =>
           <NFormItem :label="t('modelGroups.drawer.description')">
             <NInput v-model:value="form.description" type="textarea" :rows="2" />
           </NFormItem>
+          <NFormItem :label="t('modelGroups.drawer.routingPolicy')">
+            <NSelect v-model:value="form.routingPolicy" :options="policyOptions" />
+          </NFormItem>
           <NFormItem :label="t('modelGroups.drawer.members')">
             <NSpace vertical size="small" style="width: 100%">
               <div
@@ -204,6 +223,12 @@ const modelOptions = computed(() =>
                   :placeholder="t('modelGroups.drawer.placeholders.publicModel')"
                 />
                 <NInputNumber v-model:value="m.priority" :min="0" style="width: 90px" />
+                <NInputNumber
+                  v-model:value="m.weight"
+                  :min="0"
+                  :placeholder="t('modelGroups.drawer.weight')"
+                  style="width: 90px"
+                />
                 <NButton size="small" type="error" tertiary @click="removeMember(idx)">×</NButton>
               </div>
               <NButton size="small" @click="addMember">{{

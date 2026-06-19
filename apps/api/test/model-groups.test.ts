@@ -46,4 +46,25 @@ describe('model groups admin', () => {
     });
     expect(retry.statusCode).toBe(200);
   });
+
+  it('creates a group with a valid routing policy and rejects invalid ones', async () => {
+    await seedFullRoute(rig);
+    const createRes = await rig.app.inject({
+      method: 'POST',
+      url: '/api/admin/model-groups',
+      headers: { cookie: rig.cookie },
+      payload: { name: 'mg-policy', routingPolicy: 'round_robin' },
+    });
+    expect(createRes.statusCode).toBe(200);
+    const created = createRes.json() as { routingPolicy: string };
+    expect(created.routingPolicy).toBe('round_robin');
+
+    const invalidRes = await rig.app.inject({
+      method: 'PATCH',
+      url: `/api/admin/model-groups/${(created as { id: string }).id}`,
+      headers: { cookie: rig.cookie },
+      payload: { routingPolicy: 'bad-mode' },
+    });
+    expect(invalidRes.statusCode).toBeGreaterThanOrEqual(400);
+  });
 });

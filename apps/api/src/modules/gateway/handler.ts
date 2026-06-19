@@ -23,6 +23,7 @@ import {
   expandCandidates,
   filterCandidates,
 } from '../router/candidates.js';
+import { maybeBalanceGroupCandidates } from '../router/group-balancer.js';
 import { assertConsumerKeyAccess } from '../router/access.js';
 import {
   type CircuitBreakerSettings,
@@ -536,7 +537,15 @@ async function runGateway(
     throw new NoRouteAvailableError('no available upstream for target');
   }
 
-  // 4. Sticky binding lookup. If a fresh binding exists and the bound
+  // 4. Model group load balancing. Runs after health sorting and before sticky
+  // checks; sticky bindings still override the balancer's choice.
+  const balanceResult = await maybeBalanceGroupCandidates(ctx.db, target, usableCandidates, now);
+  usableCandidates = balanceResult.candidates;
+  if (balanceResult.mode) {
+    await log({ step: 'group_balance', balanceMode: balanceResult.mode });
+  }
+
+  // 5. Sticky binding lookup. If a fresh binding exists and the bound
   // candidate is still in the accepted set, honor it by moving it to the
   // front of the candidate list.
   const fingerprint = conversationFingerprint({
@@ -575,7 +584,7 @@ async function runGateway(
     }
   }
 
-  // 4b. Short-window session stickiness. Only checked when conversation-level
+  // 5b. Short-window session stickiness. Only checked when conversation-level
   // sticky did not hit. This gives a weaker (consumerKey + target) binding
   // with a short TTL, reducing cross-channel switching for repeated calls.
   if (!stickyHit) {
@@ -609,8 +618,8 @@ async function runGateway(
     }
   }
 
-  // 5. Walk the candidate list with priority + failover. The first candidate
-  // is either the sticky-bound one or the lowest-priority one.
+  // 6. Walk the candidate list with priority + failover. The first candidate
+  // is either the sticky-bound one or the balancer's chosen one.
   const outcome = await tryCandidates(ctx, {
     ir,
     sourceProtocol,

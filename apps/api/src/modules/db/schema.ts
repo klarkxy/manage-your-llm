@@ -324,6 +324,7 @@ export const modelGroups = sqliteTable('model_groups', {
   description: text('description'),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
   routingPolicy: text('routing_policy').notNull().default('priority'),
+  roundRobinCounter: integer('round_robin_counter').notNull().default(0),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });

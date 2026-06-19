@@ -200,9 +200,11 @@ const STATEMENTS: readonly string[] = [
      description TEXT,
      enabled INTEGER NOT NULL DEFAULT 1,
      routing_policy TEXT NOT NULL DEFAULT 'priority',
+     round_robin_counter INTEGER NOT NULL DEFAULT 0,
      created_at INTEGER NOT NULL,
      updated_at INTEGER NOT NULL
    )`,
+  `ALTER TABLE model_groups ADD COLUMN round_robin_counter INTEGER NOT NULL DEFAULT 0`,
   `CREATE TABLE IF NOT EXISTS model_group_members (
      id TEXT PRIMARY KEY,
      model_group_id TEXT NOT NULL,

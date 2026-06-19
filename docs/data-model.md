@@ -347,7 +347,8 @@ Fields:
 - `displayName`
 - `description`
 - `enabled`
-- `routingPolicy`
+- `routingPolicy` — one of `priority` / `failover` / `round_robin` / `random` / `weighted`.
+- `roundRobinCounter` — atomic counter used by `round_robin` balancing.
 - `createdAt`
 - `updatedAt`
 

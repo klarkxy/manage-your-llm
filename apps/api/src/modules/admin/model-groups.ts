@@ -17,6 +17,7 @@ import {
 } from './helpers.js';
 import { auditMetaFromRequest } from './upstream-keys.js';
 import { recordAuditEvent } from '../observability/index.js';
+import { isGroupBalanceMode } from '../router/group-balancer.js';
 
 export interface ModelGroupRouteDeps {
   db: Db;
@@ -104,6 +105,7 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
       name?: unknown;
       displayName?: unknown;
       description?: unknown;
+      routingPolicy?: unknown;
       members?: unknown;
     };
     const name = typeof body.name === 'string' ? body.name.trim() : '';
@@ -171,7 +173,10 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
         displayName,
         description,
         enabled: true,
-        routingPolicy: 'priority',
+        routingPolicy:
+          typeof body.routingPolicy === 'string' && isGroupBalanceMode(body.routingPolicy)
+            ? body.routingPolicy
+            : 'priority',
         createdAt: now,
         updatedAt: now,
       });
@@ -227,7 +232,12 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
       update.description = typeof body.description === 'string' ? body.description.trim() : null;
     }
     if (typeof body.enabled === 'boolean') update.enabled = body.enabled;
-    if (typeof body.routingPolicy === 'string') update.routingPolicy = body.routingPolicy;
+    if (typeof body.routingPolicy === 'string') {
+      if (!isGroupBalanceMode(body.routingPolicy)) {
+        throw new ValidationError(`invalid routingPolicy: ${body.routingPolicy}`);
+      }
+      update.routingPolicy = body.routingPolicy;
+    }
     await db.update(modelGroups).set(update).where(eq(modelGroups.id, id));
     const row = await findModelGroupById(db, id);
     if (!row) throw new Error('not found');

@@ -71,12 +71,16 @@ export interface ResolvedCandidate {
   // Adapter capabilities at expand time. Used by the filter to drop candidates
   // whose upstream does not support features the client request requires.
   capabilities: ProviderCapabilities;
+  // Member-level weight when this candidate came from a model group. Used by
+  // group-level weighted load balancing.
+  memberWeight?: number;
 }
 
 interface CandidateRow {
   candidate: PublicModelCandidateRow;
   publicModel: PublicModelRow;
   upstreamKey: UpstreamKeyRow;
+  memberWeight?: number;
 }
 
 async function expandPublicModelCandidates(db: Db, publicModelId: string): Promise<CandidateRow[]> {
@@ -122,16 +126,20 @@ async function expandModelGroupCandidates(db: Db, modelGroupId: string): Promise
   // Only keep candidates that come from an enabled group member pointing at
   // the matching public model. A disabled member (or one whose public model
   // was deleted under it) does not surface its candidates.
+  const memberWeightByPublicId = new Map<string, number>();
   const enabledByPublicId = new Set<string>();
   for (const m of members) {
     if (m.publicModel && m.member.enabled) {
       enabledByPublicId.add(m.publicModel.id);
+      memberWeightByPublicId.set(m.publicModel.id, m.member.weight);
     }
   }
-  return rows.filter((r) => enabledByPublicId.has(r.publicModel.id));
+  return rows
+    .filter((r) => enabledByPublicId.has(r.publicModel.id))
+    .map((r) => ({ ...r, memberWeight: memberWeightByPublicId.get(r.publicModel.id) }));
 }
 
-function toResolvedCandidate(row: CandidateRow): ResolvedCandidate {
+function toResolvedCandidate(row: CandidateRow, memberWeight?: number): ResolvedCandidate {
   const adapter = getProviderAdapter({
     providerType: row.upstreamKey.providerType,
     providerPresetId: row.upstreamKey.providerPresetId,
@@ -164,6 +172,7 @@ function toResolvedCandidate(row: CandidateRow): ResolvedCandidate {
     ),
     extraParams: parseExtraParams(row.upstreamKey.extraParamsJson),
     capabilities: adapter.capabilities,
+    memberWeight,
   };
 }
 
@@ -262,7 +271,7 @@ export async function expandCandidates(
     if (rows.length === 0) {
       throw new ValidationError('public model has no candidates');
     }
-    return rows.flatMap(toResolvedCandidate).flatMap(expandEndpoints);
+    return rows.flatMap((r) => toResolvedCandidate(r, r.memberWeight)).flatMap(expandEndpoints);
   }
   const rows = await expandModelGroupCandidates(db, args.targetId);
   if (rows.length === 0) {

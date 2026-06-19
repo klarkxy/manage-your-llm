@@ -382,12 +382,21 @@ const messages = {
       name: 'Name',
       displayName: 'Display name',
       description: 'Description',
+      routingPolicy: 'Routing policy',
       members: 'Members',
+      weight: 'Weight',
       addMember: '+ Add member',
       placeholders: {
         name: 'coding',
         displayName: 'Coding',
         publicModel: 'public model',
+      },
+      policies: {
+        priority: 'Priority (failover)',
+        failover: 'Failover',
+        round_robin: 'Round robin',
+        random: 'Random',
+        weighted: 'Weighted',
       },
     },
     validation: {

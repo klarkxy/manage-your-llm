@@ -22,6 +22,7 @@ export type TraceStep =
   | 'access_allowed'
   | 'candidates_expand'
   | 'candidates_filter'
+  | 'group_balance'
   | 'sticky_check'
   | 'sticky_hit'
   | 'session_sticky_check'
@@ -60,6 +61,7 @@ export interface TraceLogEntryInput {
   acceptedCount?: number;
   droppedCount?: number;
   fallbackCount?: number;
+  balanceMode?: string;
   httpStatus?: number;
   errorCategory?: NormalizedProviderError['category'];
   errorCode?: string;
@@ -71,10 +73,7 @@ export interface TraceLogEntryInput {
 }
 
 // Write a single trace log entry. Best-effort: never throws.
-export async function writeTraceLogEntry(
-  db: Db,
-  input: TraceLogEntryInput,
-): Promise<void> {
+export async function writeTraceLogEntry(db: Db, input: TraceLogEntryInput): Promise<void> {
   try {
     const row: RequestTraceLogInsert = {
       id: generateId('traceLog'),

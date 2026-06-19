@@ -364,7 +364,11 @@ Request:
 
 Behavior:
 
+- `routingPolicy` controls how the gateway picks among group members: `priority` (legacy alias for `failover`), `failover`, `round_robin`, `random`, `weighted`.
+- `round_robin` uses an atomic per-group counter; `weighted` uses the member `weight` for the first pick and keeps the rest in priority order for failover.
+- Sticky bindings (conversation-level and session-level) still override the balancer's choice.
 - Reject if `name` conflicts with an existing public model or model group.
+- Reject if `routingPolicy` is not one of the supported values.
 
 #### PATCH /api/admin/model-groups/:id
 

@@ -293,6 +293,7 @@ export interface ModelGroupCreatePayload {
   name: string;
   displayName?: string;
   description?: string;
+  routingPolicy?: string;
   members?: Array<{
     publicModelId: string;
     priority?: number;
@@ -306,6 +307,8 @@ export const modelGroupsApi = {
   get: (id: string) => api.get<ModelGroup>(`/api/admin/model-groups/${id}`),
   create: (payload: ModelGroupCreatePayload) =>
     api.post<ModelGroup>('/api/admin/model-groups', payload),
+  update: (id: string, payload: Partial<ModelGroupCreatePayload>) =>
+    api.patch<ModelGroup>(`/api/admin/model-groups/${id}`, payload),
   setMembers: (id: string, members: ModelGroupCreatePayload['members']) =>
     api.put<{ members: ModelGroupMember[] }>(`/api/admin/model-groups/${id}/members`, {
       members: members ?? [],

@@ -381,12 +381,21 @@ const messages: Messages = {
       name: '名称',
       displayName: '显示名称',
       description: '描述',
+      routingPolicy: '路由策略',
       members: '成员',
+      weight: '权重',
       addMember: '+ 添加成员',
       placeholders: {
         name: 'coding',
         displayName: 'Coding',
         publicModel: '公共模型',
+      },
+      policies: {
+        priority: '优先级（故障转移）',
+        failover: '故障转移',
+        round_robin: '轮询',
+        random: '随机',
+        weighted: '加权',
       },
     },
     validation: {
