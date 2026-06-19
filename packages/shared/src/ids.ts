@@ -16,6 +16,7 @@ const PREFIXES = {
   consumptionStat: 'cs',
   trace: 'tr',
   traceLog: 'trl',
+  circuitBreaker: 'cb',
 } as const;
 
 export type IdKind = keyof typeof PREFIXES;

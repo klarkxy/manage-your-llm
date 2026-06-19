@@ -1,4 +1,5 @@
 import { eq, inArray } from 'drizzle-orm';
+import { isCircuitBreakerOpen, type CircuitBreakerSettings } from './circuit-breaker.js';
 import {
   type Db,
   type ModelGroupMemberRow,
@@ -277,6 +278,7 @@ export type FilterReason =
   | 'upstream_disabled'
   | 'upstream_frozen'
   | 'upstream_cooldown'
+  | 'circuit_breaker_open'
   | 'protocol_mismatch'
   | 'upstream_over_quota'
   | 'capability_mismatch';
@@ -324,15 +326,17 @@ function checkCapabilityMismatch(
 //     protocol (used for cross-protocol conversion when no same-protocol
 //     candidate is available)
 //   - `dropped`: candidates removed by a filter, with the reason
-export function filterCandidates(
+export async function filterCandidates(
+  db: Db,
   candidates: ResolvedCandidate[],
   args: {
     sourceProtocol: SourceProtocol;
     now: Date;
     quotaExceeded?: ReadonlySet<string>;
     rawRequest?: unknown;
+    settings?: CircuitBreakerSettings;
   },
-): FilterResult {
+): Promise<FilterResult> {
   const required = requiredCapabilities(args.rawRequest);
   const accepted: ResolvedCandidate[] = [];
   const fallback: ResolvedCandidate[] = [];
@@ -362,6 +366,18 @@ export function filterCandidates(
     if (args.quotaExceeded && args.quotaExceeded.has(c.upstreamKeyId)) {
       dropped.push({ candidate: c, reason: 'upstream_over_quota' });
       continue;
+    }
+    if (args.settings?.circuitBreakerEnabled) {
+      const breakerOpen = await isCircuitBreakerOpen(db, {
+        upstreamKeyId: c.upstreamKeyId,
+        realModelName: c.realModelName,
+        now: args.now,
+        settings: args.settings,
+      });
+      if (breakerOpen) {
+        dropped.push({ candidate: c, reason: 'circuit_breaker_open' });
+        continue;
+      }
     }
     const mismatch = checkCapabilityMismatch(c, required);
     if (mismatch) {

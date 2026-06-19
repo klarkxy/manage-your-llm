@@ -24,6 +24,18 @@ const STATEMENTS: readonly string[] = [
   `CREATE INDEX IF NOT EXISTS admin_sessions_admin_idx ON admin_sessions(admin_user_id)`,
   `CREATE INDEX IF NOT EXISTS admin_sessions_expires_idx ON admin_sessions(expires_at)`,
 
+  // M9: admin settings
+  `CREATE TABLE IF NOT EXISTS admin_settings (
+     id TEXT PRIMARY KEY,
+     circuit_breaker_enabled INTEGER NOT NULL DEFAULT 1,
+     circuit_breaker_failure_threshold INTEGER NOT NULL DEFAULT 5,
+     circuit_breaker_base_cooldown_ms INTEGER NOT NULL DEFAULT 60000,
+     circuit_breaker_max_cooldown_ms INTEGER NOT NULL DEFAULT 600000,
+     circuit_breaker_half_open_success_count INTEGER NOT NULL DEFAULT 2,
+     created_at INTEGER NOT NULL,
+     updated_at INTEGER NOT NULL
+   )`,
+
   // Apps
   `CREATE TABLE IF NOT EXISTS apps (
      id TEXT PRIMARY KEY,
@@ -242,6 +254,26 @@ const STATEMENTS: readonly string[] = [
    )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS upstream_key_counter_window ON upstream_key_counters(upstream_key_id, period, period_started_at)`,
   `CREATE INDEX IF NOT EXISTS upstream_key_counter_upstream_idx ON upstream_key_counters(upstream_key_id)`,
+
+  // M9: circuit breakers
+  `CREATE TABLE IF NOT EXISTS circuit_breakers (
+     id TEXT PRIMARY KEY,
+     upstream_key_id TEXT NOT NULL,
+     real_model_name TEXT NOT NULL,
+     state TEXT NOT NULL DEFAULT 'closed',
+     failure_count INTEGER NOT NULL DEFAULT 0,
+     success_count INTEGER NOT NULL DEFAULT 0,
+     open_count INTEGER NOT NULL DEFAULT 0,
+     opened_at INTEGER,
+     cooldown_until INTEGER,
+     last_error_code TEXT,
+     last_error_message TEXT,
+     updated_at INTEGER NOT NULL,
+     FOREIGN KEY (upstream_key_id) REFERENCES upstream_keys(id) ON DELETE CASCADE
+   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS circuit_breaker_unique ON circuit_breakers(upstream_key_id, real_model_name)`,
+  `CREATE INDEX IF NOT EXISTS circuit_breaker_state_idx ON circuit_breakers(state, cooldown_until)`,
+  `CREATE INDEX IF NOT EXISTS circuit_breaker_updated_idx ON circuit_breakers(updated_at)`,
 
   // Audit events
   `CREATE TABLE IF NOT EXISTS audit_events (

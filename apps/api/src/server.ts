@@ -25,6 +25,7 @@ import {
   registerModelGroupRoutes,
   registerObservabilityRoutes,
   registerPublicModelRoutes,
+  registerSettingsRoutes,
   registerUpstreamKeyRoutes,
   registerUpstreamOAuthRoutes,
 } from './modules/admin/index.js';
@@ -143,6 +144,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     registerAppRoutes(app, { db: options.db });
     registerConsumerKeyRoutes(app, { db: options.db });
     registerObservabilityRoutes(app, { db: options.db });
+    registerSettingsRoutes(app, { db: options.db });
     registerAuditRoutes(app, { db: options.db });
     registerGatewayRoutes(app, { db: options.db, secretKey });
 

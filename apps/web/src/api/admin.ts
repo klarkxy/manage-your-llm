@@ -543,3 +543,48 @@ export interface AdminSummary {
   username: string;
   displayName: string | null;
 }
+
+// Settings & circuit breakers (M9)
+export interface CircuitBreakerSettings {
+  enabled: boolean;
+  failureThreshold: number;
+  baseCooldownMs: number;
+  maxCooldownMs: number;
+  halfOpenSuccessCount: number;
+}
+
+export interface SettingsResponse {
+  circuitBreaker: CircuitBreakerSettings;
+}
+
+export interface CircuitBreakerItem {
+  id: string;
+  upstreamKeyId: string;
+  upstreamKeyName: string | null;
+  realModelName: string;
+  state: 'closed' | 'open' | 'half_open';
+  failureCount: number;
+  successCount: number;
+  openCount: number;
+  openedAt: string | null;
+  cooldownUntil: string | null;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
+  updatedAt: string;
+}
+
+export const settingsApi = {
+  get: () => api.get<SettingsResponse>('/api/admin/settings'),
+  update: (payload: { circuitBreaker?: Partial<CircuitBreakerSettings> }) =>
+    api.put<SettingsResponse>('/api/admin/settings', payload),
+};
+
+export const circuitBreakerApi = {
+  list: (args?: { state?: 'closed' | 'open' | 'half_open'; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (args?.state) params.set('state', args.state);
+    if (args?.limit) params.set('limit', String(args.limit));
+    return api.get<{ items: CircuitBreakerItem[] }>(`/api/admin/circuit-breakers?${params.toString()}`);
+  },
+  reset: (id: string) => api.post<{ ok: true }>(`/api/admin/circuit-breakers/${id}/reset`, {}),
+};

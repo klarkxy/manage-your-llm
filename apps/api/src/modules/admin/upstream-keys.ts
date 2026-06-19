@@ -19,6 +19,7 @@ import {
 } from '../db/index.js';
 import { resetExpiredCounters } from '../quota/index.js';
 import { listStickyBindingsForConsumer, pruneExpiredStickyBindings } from '../sticky/index.js';
+import { runMaintenancePass } from '../jobs/index.js';
 import { recordAuditEvent, type AuditAction } from '../observability/index.js';
 import {
   getModelMappings,
@@ -1237,12 +1238,11 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
     return { items: rows };
   });
 
-  // M6: run a maintenance pass now. Resets expired counters and prunes
-  // expired sticky bindings. Idempotent and safe to call from cron.
+  // M6/M9: run a full maintenance pass now. Resets expired counters, prunes
+  // expired sticky bindings, clears expired cooldowns, prunes trace logs, and
+  // cleans up old circuit breaker rows. Idempotent and safe to call from cron.
   app.post('/api/admin/maintenance/run', async () => {
-    const countersRemoved = await resetExpiredCounters(db, new Date());
-    const stickyRemoved = await pruneExpiredStickyBindings(db, new Date());
-    return { countersRemoved, stickyRemoved };
+    return runMaintenancePass(db, new Date());
   });
 
   app.post('/api/admin/upstream-keys/discover-models', async (req, reply) => {

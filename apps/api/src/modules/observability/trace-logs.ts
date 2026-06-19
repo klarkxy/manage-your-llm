@@ -28,6 +28,9 @@ export type TraceStep =
   | 'candidate_success'
   | 'candidate_fail'
   | 'cooldown_applied'
+  | 'circuit_breaker_open'
+  | 'circuit_breaker_half_open'
+  | 'circuit_breaker_closed'
   | 'stream_start'
   | 'stream_end'
   | 'request_complete';

@@ -9,12 +9,25 @@ import {
   NForm,
   NFormItem,
   NInput,
+  NInputNumber,
   NSpace,
+  NSpin,
+  NSwitch,
+  NTag,
   NText,
   type DataTableColumns,
 } from 'naive-ui';
 import { ApiClientError } from '../api/client.js';
-import { accountApi, auditApi, type AdminSummary, type AuditEvent } from '../api/admin.js';
+import {
+  accountApi,
+  auditApi,
+  circuitBreakerApi,
+  settingsApi,
+  type AdminSummary,
+  type AuditEvent,
+  type CircuitBreakerItem,
+  type CircuitBreakerSettings,
+} from '../api/admin.js';
 
 const { t } = useI18n();
 
@@ -22,6 +35,7 @@ const message = ref<string | null>(null);
 const error = ref<string | null>(null);
 const savingProfile = ref(false);
 const savingPassword = ref(false);
+const savingCircuitBreaker = ref(false);
 
 const profile = ref<AdminSummary | null>(null);
 const displayName = ref<string>('');
@@ -32,6 +46,10 @@ const confirmPassword = ref<string>('');
 
 const auditEvents = ref<AuditEvent[]>([]);
 const auditLoading = ref(false);
+
+const circuitBreakerSettings = ref<CircuitBreakerSettings | null>(null);
+const circuitBreakers = ref<CircuitBreakerItem[]>([]);
+const circuitBreakersLoading = ref(false);
 
 async function refreshProfile(): Promise<void> {
   const res = await fetch('/api/admin/auth/me', { credentials: 'include' });
@@ -55,9 +73,30 @@ async function refreshAudit(): Promise<void> {
   }
 }
 
+async function refreshCircuitBreakerSettings(): Promise<void> {
+  try {
+    const res = await settingsApi.get();
+    circuitBreakerSettings.value = res.circuitBreaker;
+  } catch (err) {
+    error.value = (err as Error).message;
+  }
+}
+
+async function refreshCircuitBreakers(): Promise<void> {
+  circuitBreakersLoading.value = true;
+  try {
+    const res = await circuitBreakerApi.list({ limit: 200 });
+    circuitBreakers.value = res.items;
+  } catch (err) {
+    error.value = (err as Error).message;
+  } finally {
+    circuitBreakersLoading.value = false;
+  }
+}
+
 onMounted(async () => {
   try {
-    await Promise.all([refreshProfile(), refreshAudit()]);
+    await Promise.all([refreshProfile(), refreshAudit(), refreshCircuitBreakerSettings(), refreshCircuitBreakers()]);
   } catch (err) {
     error.value = (err as Error).message;
   }
@@ -103,6 +142,34 @@ async function changePassword(): Promise<void> {
   }
 }
 
+async function saveCircuitBreakerSettings(): Promise<void> {
+  if (!circuitBreakerSettings.value) return;
+  savingCircuitBreaker.value = true;
+  error.value = null;
+  message.value = null;
+  try {
+    const res = await settingsApi.update({ circuitBreaker: circuitBreakerSettings.value });
+    circuitBreakerSettings.value = res.circuitBreaker;
+    message.value = t('settings.circuitBreaker.saved');
+  } catch (err) {
+    error.value = err instanceof ApiClientError ? err.message : (err as Error).message;
+  } finally {
+    savingCircuitBreaker.value = false;
+  }
+}
+
+async function resetBreaker(row: CircuitBreakerItem): Promise<void> {
+  error.value = null;
+  message.value = null;
+  try {
+    await circuitBreakerApi.reset(row.id);
+    message.value = t('settings.circuitBreaker.resetOk', { model: row.realModelName });
+    await refreshCircuitBreakers();
+  } catch (err) {
+    error.value = err instanceof ApiClientError ? err.message : (err as Error).message;
+  }
+}
+
 const auditColumns = computed<DataTableColumns<AuditEvent>>(() => [
   {
     title: t('settings.audit.columns.time'),
@@ -125,6 +192,51 @@ const auditColumns = computed<DataTableColumns<AuditEvent>>(() => [
     ellipsis: { tooltip: true },
   },
   { title: t('settings.audit.columns.ip'), key: 'ip', width: 140 },
+]);
+
+const breakerColumns = computed<DataTableColumns<CircuitBreakerItem>>(() => [
+  {
+    title: t('settings.circuitBreaker.columns.state'),
+    key: 'state',
+    width: 120,
+    render: (row) =>
+      h(
+        NTag,
+        {
+          size: 'small',
+          type: row.state === 'open' ? 'error' : row.state === 'half_open' ? 'warning' : 'default',
+        },
+        () => row.state,
+      ),
+  },
+  { title: t('settings.circuitBreaker.columns.upstreamKey'), key: 'upstreamKeyName', width: 200, ellipsis: { tooltip: true } },
+  { title: t('settings.circuitBreaker.columns.model'), key: 'realModelName', width: 200, ellipsis: { tooltip: true } },
+  { title: t('settings.circuitBreaker.columns.failures'), key: 'failureCount', width: 90 },
+  { title: t('settings.circuitBreaker.columns.successes'), key: 'successCount', width: 90 },
+  {
+    title: t('settings.circuitBreaker.columns.cooldownUntil'),
+    key: 'cooldownUntil',
+    width: 180,
+    render: (row) => (row.cooldownUntil ? new Date(row.cooldownUntil).toLocaleString() : '—'),
+  },
+  {
+    title: t('settings.circuitBreaker.columns.lastError'),
+    key: 'lastErrorMessage',
+    width: 240,
+    ellipsis: { tooltip: true },
+    render: (row) => row.lastErrorMessage ?? '—',
+  },
+  {
+    title: t('settings.circuitBreaker.columns.actions'),
+    key: 'actions',
+    width: 100,
+    render: (row) =>
+      h(
+        NButton,
+        { size: 'small', onClick: () => resetBreaker(row) },
+        () => t('settings.circuitBreaker.reset'),
+      ),
+  },
 ]);
 
 const username = computed(() => profile.value?.username ?? '');
@@ -166,6 +278,43 @@ const username = computed(() => profile.value?.username ?? '');
             </NButton>
           </NSpace>
         </NForm>
+      </NCard>
+
+      <NCard :title="t('settings.circuitBreaker.title')">
+        <NSpin v-if="!circuitBreakerSettings" />
+        <NForm v-else label-placement="top" style="max-width: 640px">
+          <NFormItem :label="t('settings.circuitBreaker.enabled')">
+            <NSwitch v-model:value="circuitBreakerSettings.enabled" />
+          </NFormItem>
+          <NFormItem :label="t('settings.circuitBreaker.failureThreshold')">
+            <NInputNumber v-model:value="circuitBreakerSettings.failureThreshold" :min="1" style="width: 200px" />
+          </NFormItem>
+          <NFormItem :label="t('settings.circuitBreaker.baseCooldownMs')">
+            <NInputNumber v-model:value="circuitBreakerSettings.baseCooldownMs" :min="1000" :step="1000" style="width: 200px" />
+          </NFormItem>
+          <NFormItem :label="t('settings.circuitBreaker.maxCooldownMs')">
+            <NInputNumber v-model:value="circuitBreakerSettings.maxCooldownMs" :min="1000" :step="1000" style="width: 200px" />
+          </NFormItem>
+          <NFormItem :label="t('settings.circuitBreaker.halfOpenSuccessCount')">
+            <NInputNumber v-model:value="circuitBreakerSettings.halfOpenSuccessCount" :min="1" style="width: 200px" />
+          </NFormItem>
+          <NSpace>
+            <NButton type="primary" :loading="savingCircuitBreaker" @click="saveCircuitBreakerSettings">
+              {{ t('settings.circuitBreaker.save') }}
+            </NButton>
+          </NSpace>
+        </NForm>
+      </NCard>
+
+      <NCard :title="t('settings.circuitBreaker.listTitle')" :loading="circuitBreakersLoading">
+        <NDataTable
+          :columns="breakerColumns"
+          :data="circuitBreakers"
+          :bordered="false"
+          :single-line="false"
+          :row-key="(r) => r.id"
+          :max-height="480"
+        />
       </NCard>
 
       <NCard :title="t('settings.audit.title')" :loading="auditLoading">

@@ -24,6 +24,12 @@ import {
   type ResolvedCandidate,
 } from '../router/candidates.js';
 import { resolveTargetByName, type ResolvedTarget } from '../router/resolve.js';
+import {
+  type CircuitBreakerSettings,
+  getCircuitBreakerSettings,
+  recordCircuitBreakerFailure,
+  recordCircuitBreakerSuccess,
+} from '../router/circuit-breaker.js';
 import { applyCooldown, computeCooldownUpdate, shouldCooldown } from './cooldown.js';
 import {
   conversationFingerprint,
@@ -132,11 +138,13 @@ export async function handleStreamRequest(
       quotaExceeded.add(c.upstreamKeyId);
     }
   }
-  const { accepted, dropped, fallback } = filterCandidates(all, {
+  const cbSettings = await getCircuitBreakerSettings(ctx.db);
+  const { accepted, dropped, fallback } = await filterCandidates(ctx.db, all, {
     sourceProtocol: streamCtx.sourceProtocol,
     now,
     quotaExceeded,
     rawRequest: streamCtx.ir.rawRequest,
+    settings: cbSettings,
   });
   await log({
     step: 'candidates_filter',
@@ -250,6 +258,7 @@ export async function handleStreamRequest(
         lastError.providerCode,
         lastError.providerMessage,
       );
+      await recordCircuitBreakerFailureAndLog(ctx, candidate, lastError as NormalizedProviderError, cbSettings, log);
       if (!FAILOVER_CATEGORIES.has(lastError.category)) break;
       continue;
     }
@@ -284,6 +293,7 @@ export async function handleStreamRequest(
         providerError.providerCode,
         providerError.providerMessage,
       );
+      await recordCircuitBreakerFailureAndLog(ctx, candidate, providerError, cbSettings, log);
       if (FAILOVER_CATEGORIES.has(providerError.category)) continue;
       throw toNormalizedError(providerError);
     }
@@ -301,6 +311,7 @@ export async function handleStreamRequest(
       fingerprint,
       traceId,
       log,
+      cbSettings,
     });
     if (started) {
       return; // usage record already written by driveStream
@@ -408,6 +419,7 @@ interface DriveStreamArgs {
   fingerprint: string;
   traceId: string;
   log: (input: Omit<import('../observability/trace-logs.js').TraceLogEntryInput, 'requestTraceId' | 'stepIndex'> & { step: import('../observability/trace-logs.js').TraceStep }) => Promise<void>;
+  cbSettings: CircuitBreakerSettings;
 }
 
 // Returns true once any frame has been written to the client; false if the
@@ -427,6 +439,7 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
     fingerprint,
     traceId,
     log,
+    cbSettings,
   } = args;
   if (start.kind !== 'ok') {
     throw new Error('driveStream called with non-ok start');
@@ -628,6 +641,20 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
       now: stickyNow,
     });
     await log({ step: 'stream_end', upstreamKeyId: candidate.upstreamKeyId, upstreamKeyName: candidate.upstreamKeyName, realModelName: candidate.realModelName, latencyMs: Date.now() - startedAt });
+    const cbTransition = await recordCircuitBreakerSuccess(ctx.db, {
+      upstreamKeyId: candidate.upstreamKeyId,
+      realModelName: candidate.realModelName,
+      now: new Date(),
+      settings: cbSettings,
+    });
+    if (cbTransition) {
+      await log({
+        step: `circuit_breaker_${cbTransition.newState}` as import('../observability/trace-logs.js').TraceStep,
+        upstreamKeyId: candidate.upstreamKeyId,
+        upstreamKeyName: candidate.upstreamKeyName,
+        realModelName: candidate.realModelName,
+      });
+    }
   }
   return firstWrite;
 }
@@ -658,6 +685,33 @@ function writeStreamFrame(
   }
   text += '\n';
   reply.raw.write(text);
+}
+
+async function recordCircuitBreakerFailureAndLog(
+  ctx: StreamGatewayContext,
+  candidate: ResolvedCandidate,
+  error: NormalizedProviderError,
+  settings: CircuitBreakerSettings,
+  log: (input: Omit<import('../observability/trace-logs.js').TraceLogEntryInput, 'requestTraceId' | 'stepIndex'> & { step: import('../observability/trace-logs.js').TraceStep }) => Promise<void>,
+): Promise<void> {
+  const transition = await recordCircuitBreakerFailure(ctx.db, {
+    upstreamKeyId: candidate.upstreamKeyId,
+    realModelName: candidate.realModelName,
+    error,
+    now: new Date(),
+    settings,
+  });
+  if (transition) {
+    await log({
+      step: `circuit_breaker_${transition.newState}` as import('../observability/trace-logs.js').TraceStep,
+      upstreamKeyId: candidate.upstreamKeyId,
+      upstreamKeyName: candidate.upstreamKeyName,
+      realModelName: candidate.realModelName,
+      errorCategory: error.category,
+      errorCode: error.providerCode ?? undefined,
+      errorMessage: error.providerMessage ?? undefined,
+    });
+  }
 }
 
 async function tryCooldown(

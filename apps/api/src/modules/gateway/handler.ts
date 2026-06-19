@@ -24,6 +24,12 @@ import {
   filterCandidates,
 } from '../router/candidates.js';
 import { assertConsumerKeyAccess } from '../router/access.js';
+import {
+  type CircuitBreakerSettings,
+  getCircuitBreakerSettings,
+  recordCircuitBreakerFailure,
+  recordCircuitBreakerSuccess,
+} from '../router/circuit-breaker.js';
 import { resolveTargetByName } from '../router/resolve.js';
 import {
   type NormalizedProviderError,
@@ -98,6 +104,7 @@ async function tryCandidates(
     candidates: ResolvedCandidate[];
     traceId: string;
     log: (input: Omit<import('../observability/trace-logs.js').TraceLogEntryInput, 'requestTraceId' | 'stepIndex'> & { step: import('../observability/trace-logs.js').TraceStep }) => Promise<void>;
+    cbSettings: CircuitBreakerSettings;
   },
 ): Promise<GatewayOutcome> {
   let lastError: NormalizedProviderError | null = null;
@@ -150,6 +157,20 @@ async function tryCandidates(
         attemptOrder: attempts,
         httpStatus: outcome.response?.status,
       });
+      const cbTransition = await recordCircuitBreakerSuccess(ctx.db, {
+        upstreamKeyId: candidate.upstreamKeyId,
+        realModelName: candidate.realModelName,
+        now: new Date(),
+        settings: args.cbSettings,
+      });
+      if (cbTransition) {
+        await args.log({
+          step: `circuit_breaker_${cbTransition.newState}` as import('../observability/trace-logs.js').TraceStep,
+          upstreamKeyId: candidate.upstreamKeyId,
+          upstreamKeyName: candidate.upstreamKeyName,
+          realModelName: candidate.realModelName,
+        });
+      }
       return {
         ok: true,
         ir: classified.response,
@@ -159,6 +180,24 @@ async function tryCandidates(
       };
     }
     lastError = classified.error;
+    const cbTransition = await recordCircuitBreakerFailure(ctx.db, {
+      upstreamKeyId: candidate.upstreamKeyId,
+      realModelName: candidate.realModelName,
+      error: classified.error,
+      now: new Date(),
+      settings: args.cbSettings,
+    });
+    if (cbTransition) {
+      await args.log({
+        step: `circuit_breaker_${cbTransition.newState}` as import('../observability/trace-logs.js').TraceStep,
+        upstreamKeyId: candidate.upstreamKeyId,
+        upstreamKeyName: candidate.upstreamKeyName,
+        realModelName: candidate.realModelName,
+        errorCategory: classified.error.category,
+        errorCode: classified.error.providerCode ?? undefined,
+        errorMessage: classified.error.providerMessage ?? undefined,
+      });
+    }
 
     // Apply cooldown for upstream-reported back-pressure. Failover-eligible
     // errors also let us try the next candidate in the same request.
@@ -435,7 +474,14 @@ async function runGateway(
       quotaExceeded.add(id);
     }
   }
-  const { accepted, dropped, fallback } = filterCandidates(all, { sourceProtocol, now, quotaExceeded, rawRequest: ir.rawRequest });
+  const cbSettings = await getCircuitBreakerSettings(ctx.db);
+  const { accepted, dropped, fallback } = await filterCandidates(ctx.db, all, {
+    sourceProtocol,
+    now,
+    quotaExceeded,
+    rawRequest: ir.rawRequest,
+    settings: cbSettings,
+  });
   await log({
     step: 'candidates_filter',
     acceptedCount: accepted.length,
@@ -483,7 +529,7 @@ async function runGateway(
 
   // 5. Walk the candidate list with priority + failover. The first candidate
   // is either the sticky-bound one or the lowest-priority one.
-  const outcome = await tryCandidates(ctx, { ir, sourceProtocol, candidates: sorted, traceId, log });
+  const outcome = await tryCandidates(ctx, { ir, sourceProtocol, candidates: sorted, traceId, log, cbSettings });
   const latencyMs = Date.now() - start;
   // The selected candidate is on the success path or on the last-tried error
   // path. We attribute the usage to the *asked-for* target so group-level

@@ -32,6 +32,21 @@ export const adminSessions = sqliteTable(
   ],
 );
 
+// --- Admin settings (M9) ---
+
+// Singleton settings row. Stored as a single row (id='default') so future
+// settings can be added as columns without redesigning the table.
+export const adminSettings = sqliteTable('admin_settings', {
+  id: text('id').primaryKey(),
+  circuitBreakerEnabled: integer('circuit_breaker_enabled', { mode: 'boolean' }).notNull().default(true),
+  circuitBreakerFailureThreshold: integer('circuit_breaker_failure_threshold').notNull().default(5),
+  circuitBreakerBaseCooldownMs: integer('circuit_breaker_base_cooldown_ms').notNull().default(60_000),
+  circuitBreakerMaxCooldownMs: integer('circuit_breaker_max_cooldown_ms').notNull().default(600_000),
+  circuitBreakerHalfOpenSuccessCount: integer('circuit_breaker_half_open_success_count').notNull().default(2),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
 // --- Apps / consumer keys (M2) ---
 
 export const TARGET_TYPES = ['public_model', 'model_group'] as const;
@@ -192,6 +207,35 @@ export const upstreamKeyCounters = sqliteTable(
   (t) => [
     uniqueIndex('upstream_key_counter_window').on(t.upstreamKeyId, t.period, t.periodStartedAt),
     index('upstream_key_counter_upstream_idx').on(t.upstreamKeyId),
+  ],
+);
+
+// --- Circuit breakers (M9) ---
+
+// Per (upstream key, real model) circuit breaker state. Tracks consecutive
+// failures and transitions between Closed / Open / HalfOpen.
+export const circuitBreakers = sqliteTable(
+  'circuit_breakers',
+  {
+    id: text('id').primaryKey(),
+    upstreamKeyId: text('upstream_key_id')
+      .notNull()
+      .references(() => upstreamKeys.id, { onDelete: 'cascade' }),
+    realModelName: text('real_model_name').notNull(),
+    state: text('state', { enum: ['closed', 'open', 'half_open'] as const }).notNull().default('closed'),
+    failureCount: integer('failure_count').notNull().default(0),
+    successCount: integer('success_count').notNull().default(0),
+    openCount: integer('open_count').notNull().default(0),
+    openedAt: integer('opened_at', { mode: 'timestamp_ms' }),
+    cooldownUntil: integer('cooldown_until', { mode: 'timestamp_ms' }),
+    lastErrorCode: text('last_error_code'),
+    lastErrorMessage: text('last_error_message'),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('circuit_breaker_unique').on(t.upstreamKeyId, t.realModelName),
+    index('circuit_breaker_state_idx').on(t.state, t.cooldownUntil),
+    index('circuit_breaker_updated_idx').on(t.updatedAt),
   ],
 );
 
@@ -524,6 +568,10 @@ export type RequestTraceLogRow = typeof requestTraceLogs.$inferSelect;
 export type RequestTraceLogInsert = typeof requestTraceLogs.$inferInsert;
 export type ModelConsumptionStatRow = typeof modelConsumptionStats.$inferSelect;
 export type ModelConsumptionStatInsert = typeof modelConsumptionStats.$inferInsert;
+export type AdminSettingsRow = typeof adminSettings.$inferSelect;
+export type AdminSettingsInsert = typeof adminSettings.$inferInsert;
+export type CircuitBreakerRow = typeof circuitBreakers.$inferSelect;
+export type CircuitBreakerInsert = typeof circuitBreakers.$inferInsert;
 
 // Re-export SourceProtocol as part of the db surface for convenience
 export type { SourceProtocol };

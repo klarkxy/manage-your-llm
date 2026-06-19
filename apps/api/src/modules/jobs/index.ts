@@ -19,18 +19,22 @@ import { resetExpiredCounters } from '../quota/index.js';
 import { pruneExpiredStickyBindings } from '../sticky/index.js';
 
 import { pruneTraceLogs } from '../observability/index.js';
+import { ensureDefaultCircuitBreakerSettings, pruneCircuitBreakers } from '../router/circuit-breaker.js';
 
 export interface JobResult {
   countersRemoved: number;
   stickyRemoved: number;
   cooldownsCleared: number;
   tracesRemoved: number;
+  circuitBreakersRemoved: number;
 }
 
 export async function runMaintenancePass(db: Db, now: Date = new Date()): Promise<JobResult> {
+  await ensureDefaultCircuitBreakerSettings(db);
   const countersRemoved = await resetExpiredCounters(db, now);
   const stickyRemoved = await pruneExpiredStickyBindings(db, now);
   const tracesRemoved = await pruneTraceLogs(db, { now });
+  const circuitBreakersRemoved = await pruneCircuitBreakers(db, { now });
   // Cooldowns whose `cooldownUntil` is in the past get nulled out so the row
   // is no longer filtered as cooled-down. The candidate filter already
   // checks the timestamp, but keeping the row tidy makes the dashboard
@@ -53,7 +57,7 @@ export async function runMaintenancePass(db: Db, now: Date = new Date()): Promis
       /* ignore */
     }
   }
-  return { countersRemoved, stickyRemoved, cooldownsCleared, tracesRemoved };
+  return { countersRemoved, stickyRemoved, cooldownsCleared, tracesRemoved, circuitBreakersRemoved };
 }
 
 export interface BackgroundJobsHandle {

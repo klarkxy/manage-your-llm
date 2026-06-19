@@ -1,4 +1,5 @@
 export * from './helpers.js';
+export * from './settings.js';
 export * from './upstream-keys.js';
 export * from './upstream-oauth.js';
 export * from './public-models.js';
