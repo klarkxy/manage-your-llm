@@ -144,6 +144,26 @@ export const upstreamKeys = sqliteTable('upstream_keys', {
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
+export const upstreamEndpointHealth = sqliteTable(
+  'upstream_endpoint_health',
+  {
+    id: text('id').primaryKey(),
+    upstreamKeyId: text('upstream_key_id').notNull(),
+    endpointBaseUrl: text('endpoint_base_url').notNull(),
+    delayMs: integer('delay_ms'),
+    lastCheckedAt: integer('last_checked_at', { mode: 'timestamp_ms' }),
+    degraded: integer('degraded', { mode: 'boolean' }).notNull().default(false),
+    errorCode: text('error_code'),
+    errorMessage: text('error_message'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('upstream_endpoint_health_unique').on(t.upstreamKeyId, t.endpointBaseUrl),
+    index('upstream_endpoint_health_key_idx').on(t.upstreamKeyId),
+  ],
+);
+
 export const oauthSessions = sqliteTable(
   'oauth_sessions',
   {
@@ -542,6 +562,8 @@ export type ConsumerKeyAccessRow = typeof consumerKeyAccess.$inferSelect;
 export type ConsumerKeyAccessInsert = typeof consumerKeyAccess.$inferInsert;
 export type UpstreamKeyRow = typeof upstreamKeys.$inferSelect;
 export type UpstreamKeyInsert = typeof upstreamKeys.$inferInsert;
+export type UpstreamEndpointHealthRow = typeof upstreamEndpointHealth.$inferSelect;
+export type UpstreamEndpointHealthInsert = typeof upstreamEndpointHealth.$inferInsert;
 export type UpstreamKeyQuotaRow = typeof upstreamKeyQuotas.$inferSelect;
 export type UpstreamKeyQuotaInsert = typeof upstreamKeyQuotas.$inferInsert;
 export type UpstreamKeyCounterRow = typeof upstreamKeyCounters.$inferSelect;

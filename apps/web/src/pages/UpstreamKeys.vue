@@ -28,10 +28,12 @@ import {
 } from 'naive-ui';
 import {
   providerPresetsApi,
+  upstreamEndpointHealthApi,
   upstreamKeysApi,
   type DiscoverModelsPayload,
   type OAuthInitPayload,
   type ProviderPreset,
+  type UpstreamEndpointHealth,
   type UpstreamKey,
   type UpstreamKeyCandidate,
   type UpstreamKeyCreatePayload,
@@ -86,6 +88,7 @@ const extraHeaders = ref<KeyValueItem[]>([]);
 const extraParams = ref<KeyValueItem[]>([]);
 const fetchingModels = ref(false);
 const togglingIds = ref<Set<string>>(new Set());
+const endpointHealthByKey = ref<Map<string, UpstreamEndpointHealth>>(new Map());
 
 const pingOpen = ref(false);
 const pingKey = ref<UpstreamKey | null>(null);
@@ -129,12 +132,21 @@ async function refresh() {
   loading.value = true;
   presetsLoading.value = true;
   try {
-    const [keysRes, presetsRes] = await Promise.all([
+    const [keysRes, presetsRes, healthRes] = await Promise.all([
       upstreamKeysApi.list(),
       providerPresetsApi.list(),
+      upstreamEndpointHealthApi.list(),
     ]);
     items.value = keysRes.items;
     presets.value = presetsRes.items;
+    const map = new Map<string, UpstreamEndpointHealth>();
+    for (const h of healthRes.items) {
+      const existing = map.get(h.upstreamKeyId);
+      if (!existing || (h.lastCheckedAt ?? 0) > (existing.lastCheckedAt ?? 0)) {
+        map.set(h.upstreamKeyId, h);
+      }
+    }
+    endpointHealthByKey.value = map;
   } catch (err) {
     message.error((err as Error).message);
   } finally {
@@ -746,6 +758,26 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
           unchecked: () => t('upstreamKeys.status.frozen'),
         },
       ),
+  },
+  {
+    title: t('upstreamKeys.columns.health'),
+    key: 'health',
+    width: 130,
+    render: (row) => {
+      const health = endpointHealthByKey.value.get(row.id);
+      if (!health || health.lastCheckedAt === null) {
+        return h(NText, { depth: 3, size: 'small' }, () => '—');
+      }
+      if (health.degraded) {
+        return h(
+          NTag,
+          { type: 'error', size: 'small' },
+          () => health.errorCode ?? 'degraded',
+        );
+      }
+      const ms = health.delayMs ?? 0;
+      return h(NTag, { type: 'success', size: 'small' }, () => `${ms} ms`);
+    },
   },
   {
     title: t('upstreamKeys.columns.actions'),

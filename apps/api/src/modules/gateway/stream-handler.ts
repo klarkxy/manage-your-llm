@@ -39,6 +39,10 @@ import {
   upsertStickyBinding,
 } from '../sticky/index.js';
 import { getEnabledQuotaPeriods, recordQuotaUsage, wouldExceedQuota } from '../quota/index.js';
+import {
+  getEndpointHealthForUpstreamKeyIds,
+  sortCandidatesByLatency,
+} from '../upstream/endpoint-health.js';
 import { startUpstreamStream, type RawStreamEvent, type StreamStart } from './stream-sender.js';
 import { writeUsageRecord } from '../usage/index.js';
 import {
@@ -162,7 +166,14 @@ export async function handleStreamRequest(
     const adapter = getProviderAdapter(c);
     return adapter.capabilities.protocols.includes(streamCtx.sourceProtocol);
   });
-  const usableCandidates = accepted.length > 0 ? accepted : translatableFallback;
+  let usableCandidates = accepted.length > 0 ? accepted : translatableFallback;
+  if (usableCandidates.length > 0) {
+    const healthRows = await getEndpointHealthForUpstreamKeyIds(
+      ctx.db,
+      Array.from(new Set(usableCandidates.map((c) => c.upstreamKeyId))),
+    );
+    usableCandidates = sortCandidatesByLatency(usableCandidates, healthRows);
+  }
   if (usableCandidates.length === 0) {
     if (fallback.length > 0) {
       await log({ step: 'request_complete', finalOutcome: 'error', latencyMs: Date.now() - start });
@@ -171,7 +182,7 @@ export async function handleStreamRequest(
     await log({ step: 'request_complete', finalOutcome: 'error', latencyMs: Date.now() - start });
     throw new NoRouteAvailableError('no available upstream for target');
   }
-  let sorted = [...usableCandidates].sort((a, b) => a.priority - b.priority);
+  let sorted = [...usableCandidates];
   // Sticky binding lookup. If a fresh binding exists and the bound
   // candidate is still in the accepted set, honor it by moving it to
   // the front. We only consult sticky once per stream; if the bound

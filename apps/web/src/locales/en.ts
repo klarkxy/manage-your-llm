@@ -162,6 +162,7 @@ const messages = {
       baseUrl: 'Base URL',
       models: 'Models',
       status: 'Status',
+      health: 'Latency',
       actions: 'Actions',
     },
     status: {

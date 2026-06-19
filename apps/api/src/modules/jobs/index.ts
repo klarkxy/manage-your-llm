@@ -20,6 +20,7 @@ import { pruneExpiredStickyBindings } from '../sticky/index.js';
 
 import { pruneTraceLogs } from '../observability/index.js';
 import { ensureDefaultCircuitBreakerSettings, pruneCircuitBreakers } from '../router/circuit-breaker.js';
+import { runEndpointHealthProbe } from '../upstream/endpoint-health.js';
 
 export interface JobResult {
   countersRemoved: number;
@@ -64,18 +65,21 @@ export interface BackgroundJobsHandle {
   stop(): void;
 }
 
-// Start a background loop that calls runMaintenancePass every `intervalMs`.
-// Returns a handle with a stop() method. The handle is exported but not
-// wired into server bootstrap by default; operators opt in via env or config
-// in a future milestone.
+// Start background loops for maintenance and endpoint health probing.
+// Maintenance runs every `intervalMs` (default 5 minutes); endpoint probing
+// runs every `probeIntervalMs` (default 60 minutes). Both are best-effort:
+// errors are logged and swallowed so one bad tick does not crash the process.
 export function startBackgroundJobs(
   db: Db,
-  args: { intervalMs?: number; now?: () => Date } = {},
+  args: { intervalMs?: number; probeIntervalMs?: number; now?: () => Date; secretKey?: string } = {},
 ): BackgroundJobsHandle {
   const interval = args.intervalMs ?? 5 * 60 * 1000;
+  const probeInterval = args.probeIntervalMs ?? 60 * 60 * 1000;
   const now = args.now ?? (() => new Date());
+  const secretKey = args.secretKey;
   let stopped = false;
-  const tick = async (): Promise<void> => {
+
+  const maintenanceTick = async (): Promise<void> => {
     if (stopped) return;
     try {
       await runMaintenancePass(db, now());
@@ -83,13 +87,28 @@ export function startBackgroundJobs(
       /* swallow */
     }
   };
-  const handle = setInterval(() => {
-    void tick();
+
+  const probeTick = async (): Promise<void> => {
+    if (stopped || !secretKey) return;
+    try {
+      await runEndpointHealthProbe(db, secretKey, now());
+    } catch {
+      /* swallow */
+    }
+  };
+
+  const maintenanceHandle = setInterval(() => {
+    void maintenanceTick();
   }, interval);
+  const probeHandle = setInterval(() => {
+    void probeTick();
+  }, probeInterval);
+
   return {
     stop(): void {
       stopped = true;
-      clearInterval(handle);
+      clearInterval(maintenanceHandle);
+      clearInterval(probeHandle);
     },
   };
 }

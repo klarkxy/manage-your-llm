@@ -11,14 +11,15 @@ import {
   type UpstreamKeyQuotaRow,
   type UpstreamKeyQuotaInsert,
   type UpstreamKeyRow,
+  type UpstreamEndpointHealthRow,
   type Db,
   publicModelCandidates,
   upstreamKeyCounters,
   upstreamKeyQuotas,
   upstreamKeys,
 } from '../db/index.js';
-import { resetExpiredCounters } from '../quota/index.js';
-import { listStickyBindingsForConsumer, pruneExpiredStickyBindings } from '../sticky/index.js';
+import { listUpstreamEndpointHealth } from '../upstream/endpoint-health.js';
+import { listStickyBindingsForConsumer } from '../sticky/index.js';
 import { runMaintenancePass } from '../jobs/index.js';
 import { recordAuditEvent, type AuditAction } from '../observability/index.js';
 import {
@@ -718,6 +719,27 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
           candidateCounts.get(r.id) ?? 0,
         ),
       ),
+    };
+  });
+
+  // M10: list endpoint health (latency probe results). Optionally filter by
+  // upstream key via `?upstreamKeyId=...`.
+  app.get('/api/admin/upstream-endpoint-health', async (req) => {
+    const upstreamKeyId = (req.query as { upstreamKeyId?: string }).upstreamKeyId;
+    const rows = await listUpstreamEndpointHealth(db, { upstreamKeyId });
+    return {
+      items: rows.map((r: UpstreamEndpointHealthRow) => ({
+        id: r.id,
+        upstreamKeyId: r.upstreamKeyId,
+        endpointBaseUrl: r.endpointBaseUrl,
+        delayMs: r.delayMs,
+        lastCheckedAt: r.lastCheckedAt ? r.lastCheckedAt.getTime() : null,
+        degraded: r.degraded,
+        errorCode: r.errorCode,
+        errorMessage: r.errorMessage,
+        createdAt: r.createdAt.getTime(),
+        updatedAt: r.updatedAt.getTime(),
+      })),
     };
   });
 

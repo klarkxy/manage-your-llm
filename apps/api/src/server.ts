@@ -177,6 +177,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     if (!options.disableBackgroundJobs) {
       const jobs = startBackgroundJobs(options.db, {
         intervalMs: options.backgroundJobsIntervalMs ?? 5 * 60 * 1000,
+        secretKey,
       });
       (app as FastifyWithJobs)[BackgroundJobsSymbol] = jobs;
       app.addHook('onClose', async () => {

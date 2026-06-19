@@ -163,6 +163,7 @@ const messages: Messages = {
       baseUrl: '基础 URL',
       models: '模型',
       status: '状态',
+      health: '延迟',
       actions: '操作',
     },
     status: {

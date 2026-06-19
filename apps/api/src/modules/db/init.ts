@@ -275,6 +275,24 @@ const STATEMENTS: readonly string[] = [
   `CREATE INDEX IF NOT EXISTS circuit_breaker_state_idx ON circuit_breakers(state, cooldown_until)`,
   `CREATE INDEX IF NOT EXISTS circuit_breaker_updated_idx ON circuit_breakers(updated_at)`,
 
+  // M10: upstream endpoint health (latency probing)
+  `CREATE TABLE IF NOT EXISTS upstream_endpoint_health (
+     id TEXT PRIMARY KEY,
+     upstream_key_id TEXT NOT NULL,
+     endpoint_base_url TEXT NOT NULL,
+     delay_ms INTEGER,
+     last_checked_at INTEGER,
+     degraded INTEGER NOT NULL DEFAULT 0,
+     error_code TEXT,
+     error_message TEXT,
+     created_at INTEGER NOT NULL,
+     updated_at INTEGER NOT NULL,
+     FOREIGN KEY (upstream_key_id) REFERENCES upstream_keys(id) ON DELETE CASCADE
+   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS upstream_endpoint_health_unique ON upstream_endpoint_health(upstream_key_id, endpoint_base_url)`,
+  `CREATE INDEX IF NOT EXISTS upstream_endpoint_health_degraded_idx ON upstream_endpoint_health(degraded, delay_ms)`,
+  `CREATE INDEX IF NOT EXISTS upstream_endpoint_health_checked_idx ON upstream_endpoint_health(last_checked_at)`,
+
   // Audit events
   `CREATE TABLE IF NOT EXISTS audit_events (
      id TEXT PRIMARY KEY,

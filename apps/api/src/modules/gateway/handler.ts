@@ -53,6 +53,10 @@ import {
   upsertStickyBinding,
 } from '../sticky/index.js';
 import { getEnabledQuotaPeriods, recordQuotaUsage, wouldExceedQuota } from '../quota/index.js';
+import {
+  getEndpointHealthForUpstreamKeyIds,
+  sortCandidatesByLatency,
+} from '../upstream/endpoint-health.js';
 import { generateTraceId, writeTraceLogEntry, upsertConsumptionStats } from '../observability/index.js';
 
 export interface GatewayRequestContext {
@@ -488,7 +492,14 @@ async function runGateway(
     droppedCount: dropped.length,
     fallbackCount: fallback.length,
   });
-  const usableCandidates = accepted.length > 0 ? accepted : fallback;
+  let usableCandidates = accepted.length > 0 ? accepted : fallback;
+  if (usableCandidates.length > 0) {
+    const healthRows = await getEndpointHealthForUpstreamKeyIds(
+      ctx.db,
+      Array.from(new Set(usableCandidates.map((c) => c.upstreamKeyId))),
+    );
+    usableCandidates = sortCandidatesByLatency(usableCandidates, healthRows);
+  }
   if (usableCandidates.length === 0) {
     await log({ step: 'request_complete', finalOutcome: 'error', latencyMs: Date.now() - start });
     throw new NoRouteAvailableError('no available upstream for target');
@@ -512,7 +523,7 @@ async function runGateway(
   });
   await log({ step: 'sticky_check' });
   let stickyHit = false;
-  let sorted = [...usableCandidates].sort((a, b) => a.priority - b.priority);
+  let sorted = [...usableCandidates];
   if (stickyLookup.binding && isStickyBindingValid(stickyLookup.binding, sorted, { now })) {
     const bound = sorted.find(
       (c) =>

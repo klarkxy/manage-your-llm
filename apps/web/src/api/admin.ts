@@ -117,6 +117,26 @@ export interface UpstreamKeyPingResult {
   error?: { type: string; message: string };
 }
 
+export interface UpstreamEndpointHealth {
+  id: string;
+  upstreamKeyId: string;
+  endpointBaseUrl: string;
+  delayMs: number | null;
+  lastCheckedAt: number | null;
+  degraded: boolean;
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export const upstreamEndpointHealthApi = {
+  list: (upstreamKeyId?: string) =>
+    api.get<{ items: UpstreamEndpointHealth[] }>(
+      `/api/admin/upstream-endpoint-health${upstreamKeyId ? `?upstreamKeyId=${encodeURIComponent(upstreamKeyId)}` : ''}`,
+    ),
+};
+
 export const upstreamKeysApi = {
   list: () => api.get<{ items: UpstreamKey[] }>('/api/admin/upstream-keys'),
   get: (id: string) => api.get<UpstreamKey>(`/api/admin/upstream-keys/${id}`),

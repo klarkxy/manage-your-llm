@@ -11,6 +11,7 @@ const PREFIXES = {
   session: 'sess',
   usageRecord: 'usr',
   healthEvent: 'he',
+  endpointHealth: 'eh',
   auditEvent: 'ae',
   oauth: 'oa',
   consumptionStat: 'cs',
