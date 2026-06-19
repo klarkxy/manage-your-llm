@@ -18,9 +18,13 @@ import {
   upstreamKeyQuotas,
   upstreamKeys,
 } from '../db/index.js';
-import { listUpstreamEndpointHealth, pruneOrphanEndpointHealth } from '../upstream/endpoint-health.js';
+import {
+  listUpstreamEndpointHealth,
+  pruneOrphanEndpointHealth,
+} from '../upstream/endpoint-health.js';
 import { listStickyBindingsForConsumer } from '../sticky/index.js';
 import { runMaintenancePass } from '../jobs/index.js';
+import { DEFAULT_SESSION_STICKY_TTL_MS } from '../sticky/session.js';
 import { recordAuditEvent, type AuditAction } from '../observability/index.js';
 import {
   getModelMappings,
@@ -118,6 +122,7 @@ interface CreateUpstreamKeyBody {
   supportedModels?: unknown;
   providerPresetId?: unknown;
   endpoints?: unknown;
+  stickySessionTtlMs?: unknown;
   modelMappings?: unknown;
   quota?: {
     period?: unknown;
@@ -156,6 +161,7 @@ function presentUpstreamKey(
     lastErrorCode: row.lastErrorCode,
     lastErrorMessage: row.lastErrorMessage,
     lastUsedAt: row.lastUsedAt,
+    stickySessionTtlMs: row.stickySessionTtlMs,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     quota: quota
@@ -863,6 +869,11 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
         ? normalizeExtraParams(body.extraParams)
         : (preset?.defaultExtraParams ?? {});
 
+    const stickySessionTtlMs =
+      (typeof body.stickySessionTtlMs === 'number'
+        ? assertPositiveInt('stickySessionTtlMs', body.stickySessionTtlMs)
+        : DEFAULT_SESSION_STICKY_TTL_MS) ?? DEFAULT_SESSION_STICKY_TTL_MS;
+
     await db.insert(upstreamKeys).values({
       id,
       name,
@@ -876,6 +887,7 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
       extraHeadersJson: safeJsonString(extraHeaders, '{}'),
       extraParamsJson: safeJsonString(extraParams, '{}'),
       supportedModelsJson: JSON.stringify(supportedModels),
+      stickySessionTtlMs,
       endpointsJson: endpoints.length > 0 ? JSON.stringify(endpoints) : null,
       providerPresetId: preset ? preset.id : null,
       enabled: true,
@@ -1010,6 +1022,10 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
     }
     if (body.extraParams !== undefined) {
       update.extraParamsJson = safeJsonString(normalizeExtraParams(body.extraParams), '{}');
+    }
+    if (body.stickySessionTtlMs !== undefined) {
+      const ttl = assertPositiveInt('stickySessionTtlMs', body.stickySessionTtlMs);
+      if (ttl !== null) update.stickySessionTtlMs = ttl;
     }
     if (typeof body.enabled === 'boolean') update.enabled = body.enabled;
     await db.update(upstreamKeys).set(update).where(eq(upstreamKeys.id, id));

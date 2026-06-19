@@ -145,6 +145,7 @@ export const upstreamKeys = sqliteTable('upstream_keys', {
   lastErrorCode: text('last_error_code'),
   lastErrorMessage: text('last_error_message'),
   lastUsedAt: integer('last_used_at', { mode: 'timestamp_ms' }),
+  stickySessionTtlMs: integer('sticky_session_ttl_ms').notNull().default(5 * 60 * 1000),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
@@ -371,6 +372,7 @@ export const usageRecords = sqliteTable(
     providerType: text('provider_type', { enum: PROVIDER_TYPES }).notNull(),
     stream: integer('stream', { mode: 'boolean' }).notNull().default(false),
     stickyHit: integer('sticky_hit', { mode: 'boolean' }).notNull().default(false),
+    sessionStickyHit: integer('session_sticky_hit', { mode: 'boolean' }).notNull().default(false),
     inputTokens: integer('input_tokens'),
     outputTokens: integer('output_tokens'),
     totalTokens: integer('total_tokens'),
@@ -481,6 +483,36 @@ export const stickyBindings = sqliteTable(
   ],
 );
 
+// M7.3: short-window session stickiness. Binding granularity is
+// (consumerKeyId, requestedTargetName) -> (upstreamKeyId, realModelName).
+// The TTL is read from the bound upstream key at write time and stored on the
+// row so lookups do not need to join upstream_keys.
+export const stickySessions = sqliteTable(
+  'sticky_sessions',
+  {
+    id: text('id').primaryKey(),
+    consumerKeyId: text('consumer_key_id')
+      .notNull()
+      .references(() => consumerKeys.id, { onDelete: 'cascade' }),
+    requestedTargetName: text('requested_target_name').notNull(),
+    upstreamKeyId: text('upstream_key_id')
+      .notNull()
+      .references(() => upstreamKeys.id, { onDelete: 'cascade' }),
+    realModelName: text('real_model_name').notNull(),
+    ttlMs: integer('ttl_ms').notNull(),
+    hitCount: integer('hit_count').notNull().default(0),
+    lastUsedAt: integer('last_used_at', { mode: 'timestamp_ms' }).notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('sticky_session_unique').on(t.consumerKeyId, t.requestedTargetName),
+    index('sticky_session_consumer_idx').on(t.consumerKeyId, t.requestedTargetName),
+    index('sticky_session_expires_idx').on(t.expiresAt),
+  ],
+);
+
 // --- Request trace logs (M8) ---
 
 // One row per step in a gateway request lifecycle. Multiple rows share the same
@@ -587,6 +619,8 @@ export type UsageRecordRow = typeof usageRecords.$inferSelect;
 export type UsageRecordInsert = typeof usageRecords.$inferInsert;
 export type StickyBindingRow = typeof stickyBindings.$inferSelect;
 export type StickyBindingInsert = typeof stickyBindings.$inferInsert;
+export type StickySessionRow = typeof stickySessions.$inferSelect;
+export type StickySessionInsert = typeof stickySessions.$inferInsert;
 export type AuditEventRow = typeof auditEvents.$inferSelect;
 export type AuditEventInsert = typeof auditEvents.$inferInsert;
 export type LoginAttemptRow = typeof loginAttempts.$inferSelect;

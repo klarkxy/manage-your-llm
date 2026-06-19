@@ -32,6 +32,7 @@ export interface UpstreamKey {
   lastErrorCode: string | null;
   lastErrorMessage: string | null;
   lastUsedAt: string | null;
+  stickySessionTtlMs: number;
   createdAt: string;
   updatedAt: string;
   quota: UpstreamKeyQuota | null;
@@ -64,6 +65,7 @@ export interface UpstreamKeyCreatePayload {
   extraHeaders?: Record<string, string>;
   extraParams?: Record<string, unknown>;
   providerPresetId?: string;
+  stickySessionTtlMs?: number;
   modelMappings?: Array<{ realName: string; publicName?: string; enabled?: boolean }>;
   quota?: {
     period: 'hour' | 'day' | 'week' | 'month' | 'total';
@@ -487,7 +489,8 @@ export interface TraceTimeline {
 }
 
 export const traceApi = {
-  list: (limit = 100) => api.get<{ items: TraceSummary[] }>(`/api/admin/usage/traces?limit=${limit}`),
+  list: (limit = 100) =>
+    api.get<{ items: TraceSummary[] }>(`/api/admin/usage/traces?limit=${limit}`),
   get: (traceId: string) => api.get<TraceTimeline>(`/api/admin/usage/traces/${traceId}`),
 };
 
@@ -524,12 +527,16 @@ export const consumptionApi = {
     if (args?.upstreamKeyId) params.set('upstreamKeyId', args.upstreamKeyId);
     if (args?.dayDate) params.set('dayDate', args.dayDate);
     if (args?.limit) params.set('limit', String(args.limit));
-    return api.get<{ items: ConsumptionStat[] }>(`/api/admin/usage/consumption?${params.toString()}`);
+    return api.get<{ items: ConsumptionStat[] }>(
+      `/api/admin/usage/consumption?${params.toString()}`,
+    );
   },
   daily: (args?: { limit?: number }) => {
     const params = new URLSearchParams();
     if (args?.limit) params.set('limit', String(args.limit));
-    return api.get<{ items: DailyConsumptionSummary[] }>(`/api/admin/usage/consumption/daily?${params.toString()}`);
+    return api.get<{ items: DailyConsumptionSummary[] }>(
+      `/api/admin/usage/consumption/daily?${params.toString()}`,
+    );
   },
 };
 
@@ -620,7 +627,9 @@ export const circuitBreakerApi = {
     const params = new URLSearchParams();
     if (args?.state) params.set('state', args.state);
     if (args?.limit) params.set('limit', String(args.limit));
-    return api.get<{ items: CircuitBreakerItem[] }>(`/api/admin/circuit-breakers?${params.toString()}`);
+    return api.get<{ items: CircuitBreakerItem[] }>(
+      `/api/admin/circuit-breakers?${params.toString()}`,
+    );
   },
   reset: (id: string) => api.post<{ ok: true }>(`/api/admin/circuit-breakers/${id}/reset`, {}),
 };

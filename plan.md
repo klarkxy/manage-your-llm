@@ -4,7 +4,7 @@
 
 ---
 
-## 阶段一：修正模型组初始化行为（文档一致化）
+## 阶段一：修正模型组初始化行为（文档一致化） ✅ 已完成
 
 ### 问题
 
@@ -22,6 +22,10 @@
 - 只创建 public models 和 candidates，不创建 group
 - 确保 dashboard 中模型组页面为空初始状态，由管理员手动创建
 - 保留 `POST /api/admin/upstream-keys/discover-models` 和模型映射编辑功能
+
+### 状态
+
+已完成。`apps/api/src/modules/admin/upstream-onboarding.ts` 在 onboarding 时只生成 public models 和 public model candidates，`apps/web/src/pages/ModelGroups.vue` 已展示空状态引导。
 
 ### 涉及文件
 
@@ -276,14 +280,20 @@ CREATE INDEX model_consumption_stats_upstream_idx ON model_consumption_stats(ups
 
 ## 执行顺序建议
 
-| 阶段 | 优先级 | 依赖 | 预计工作量 |
-|------|--------|------|----------|
-| 阶段一：模型组默认空 | 🔴 高 | 无 | 小（修改 onboarding 逻辑） |
-| 阶段三：链路追踪 | 🔴 高 | 无 | 大（新增表 + 埋点 + API + 前端） |
-| 阶段四：每日消耗统计 | 🔴 高 | 阶段三 | 中（新增表 + upsert + API + 前端） |
-| 阶段五：缓存 Token 字段 | 🟡 中 | 无 | 小（表字段 + adapter 提取） |
-| 阶段二：Capabilities 过滤 | 🟡 中 | 无 | 中（新增过滤逻辑 + 测试） |
-| 阶段六：内容日志开关 | 🟢 低 | 无 | 中（开关 + 表 + 脱敏 + 前端） |
+| 阶段 | 优先级 | 依赖 | 预计工作量 | 状态 |
+|------|--------|------|----------|------|
+| 阶段一：模型组默认空 | 🔴 高 | 无 | 小（修改 onboarding 逻辑） | ✅ 已完成 |
+| 阶段三：链路追踪 | 🔴 高 | 无 | 大（新增表 + 埋点 + API + 前端） | ✅ 已完成 |
+| 阶段四：每日消耗统计 | 🔴 高 | 阶段三 | 中（新增表 + upsert + API + 前端） | ✅ 已完成 |
+| 阶段五：缓存 Token 字段 | 🟡 中 | 无 | 小（表字段 + adapter 提取） | ✅ 已完成 |
+| 阶段二：Capabilities 过滤 | 🟡 中 | 无 | 中（新增过滤逻辑 + 测试） | ⏳ 待做 |
+| 阶段六：内容日志开关 | 🟢 低 | 无 | 中（开关 + 表 + 脱敏 + 前端） | ⏳ 待做 |
+
+当前队列中靠前的待做项：
+
+- `fusion-plan.md` 阶段七剩余 7.4 Group 负载均衡（7.3 Sticky Session 已完成）。
+- 本文件阶段二 Capabilities 路由过滤。
+- 本文件阶段六内容日志开关（低优先级）。
 
 ---
 
@@ -291,12 +301,15 @@ CREATE INDEX model_consumption_stats_upstream_idx ON model_consumption_stats(ups
 
 以下文档中的描述与代码已一致，无需改动：
 
-| 文档 | 状态 |
-|------|------|
-| `data-model.md` 表结构 | ✅ 所有表已实现（schema.ts + init.ts） |
+| 文档 / 功能 | 状态 |
+|-------------|------|
+| `data-model.md` 表结构 | ✅ 所有表已实现，含 `circuit_breakers`、`upstream_endpoint_health`、`request_trace_logs`、`model_consumption_stats` |
 | `architecture.md` 错误类 | ✅ 所有 9 个错误类已实现（@modelharbor/shared） |
 | `mvp.md` 里程碑 | ✅ M1-M7 核心功能已实现 |
 | `provider-adapters.md` Adapter 接口 | ✅ 3 个 adapter 已实现 |
 | `plan.md` Quota 系统 | ✅ 已实现 |
 | `plan.md` Sticky 路由 | ✅ 已实现 |
+| `fusion-plan.md` 7.1 Circuit Breaker | ✅ 已实现 |
+| `fusion-plan.md` 7.2 多端点延迟探测 | ✅ 已实现 |
+| `fusion-plan.md` 7.5 First-Token 超时切换 | ✅ 已实现 |
 | `testing.md` 测试策略 | ✅ 已有测试框架 |

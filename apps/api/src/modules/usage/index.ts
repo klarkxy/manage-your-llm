@@ -13,6 +13,7 @@ export interface UsageRecordInput {
   providerType: ProviderType;
   stream: boolean;
   stickyHit?: boolean;
+  sessionStickyHit?: boolean;
   inputTokens: number | null;
   outputTokens: number | null;
   totalTokens: number | null;
@@ -40,6 +41,7 @@ export async function writeUsageRecord(db: Db, input: UsageRecordInput): Promise
     providerType: input.providerType,
     stream: input.stream,
     stickyHit: input.stickyHit ?? false,
+    sessionStickyHit: input.sessionStickyHit ?? false,
     inputTokens: input.inputTokens,
     outputTokens: input.outputTokens,
     totalTokens: input.totalTokens,

@@ -199,8 +199,7 @@ const messages = {
         placeholder: 'Select a preset to auto-fill settings',
         manual: 'Manual configuration',
         guideLink: 'How to obtain credentials',
-        guideLinkHint:
-          'Opens the setup guide for the selected preset in a new tab.',
+        guideLinkHint: 'Opens the setup guide for the selected preset in a new tab.',
       },
       name: 'Name',
       provider: 'Provider',
@@ -246,6 +245,10 @@ const messages = {
         label: 'Extra parameters',
         key: 'Parameter name',
         value: 'Parameter value (JSON)',
+      },
+      stickySessionTtlMs: {
+        label: 'Session sticky TTL (ms)',
+        placeholder: '300000',
       },
       modelMappings: {
         label: 'Model mappings (real name → public name)',

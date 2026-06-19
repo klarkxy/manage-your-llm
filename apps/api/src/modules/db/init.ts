@@ -104,6 +104,7 @@ const STATEMENTS: readonly string[] = [
      last_error_code TEXT,
      last_error_message TEXT,
      last_used_at INTEGER,
+     sticky_session_ttl_ms INTEGER NOT NULL DEFAULT 300000,
      created_at INTEGER NOT NULL,
      updated_at INTEGER NOT NULL
    )`,
@@ -116,6 +117,7 @@ const STATEMENTS: readonly string[] = [
   `ALTER TABLE upstream_keys ADD COLUMN extra_params_json TEXT`,
   `ALTER TABLE upstream_keys ADD COLUMN auth_type TEXT NOT NULL DEFAULT 'pat'`,
   `ALTER TABLE upstream_keys ADD COLUMN auth_config_ciphertext TEXT`,
+  `ALTER TABLE upstream_keys ADD COLUMN sticky_session_ttl_ms INTEGER NOT NULL DEFAULT 300000`,
 
   // OAuth PKCE authorization sessions (short-lived, one-time use).
   `CREATE TABLE IF NOT EXISTS oauth_sessions (
@@ -229,6 +231,7 @@ const STATEMENTS: readonly string[] = [
      provider_type TEXT NOT NULL,
      stream INTEGER NOT NULL DEFAULT 0,
      sticky_hit INTEGER NOT NULL DEFAULT 0,
+     session_sticky_hit INTEGER NOT NULL DEFAULT 0,
      input_tokens INTEGER,
      output_tokens INTEGER,
      total_tokens INTEGER,
@@ -352,6 +355,26 @@ const STATEMENTS: readonly string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS sticky_binding_unique ON sticky_bindings(app_id, consumer_key_id, requested_target_name, conversation_fingerprint)`,
   `CREATE INDEX IF NOT EXISTS sticky_binding_consumer_idx ON sticky_bindings(consumer_key_id, requested_target_name)`,
   `CREATE INDEX IF NOT EXISTS sticky_binding_expires_idx ON sticky_bindings(expires_at)`,
+
+  // M7.3: sticky sessions (short-window stickiness per consumer key + target)
+  `CREATE TABLE IF NOT EXISTS sticky_sessions (
+     id TEXT PRIMARY KEY,
+     consumer_key_id TEXT NOT NULL,
+     requested_target_name TEXT NOT NULL,
+     upstream_key_id TEXT NOT NULL,
+     real_model_name TEXT NOT NULL,
+     ttl_ms INTEGER NOT NULL,
+     hit_count INTEGER NOT NULL DEFAULT 0,
+     last_used_at INTEGER NOT NULL,
+     expires_at INTEGER NOT NULL,
+     created_at INTEGER NOT NULL,
+     updated_at INTEGER NOT NULL,
+     FOREIGN KEY (consumer_key_id) REFERENCES consumer_keys(id) ON DELETE CASCADE,
+     FOREIGN KEY (upstream_key_id) REFERENCES upstream_keys(id) ON DELETE CASCADE
+   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS sticky_session_unique ON sticky_sessions(consumer_key_id, requested_target_name)`,
+  `CREATE INDEX IF NOT EXISTS sticky_session_consumer_idx ON sticky_sessions(consumer_key_id, requested_target_name)`,
+  `CREATE INDEX IF NOT EXISTS sticky_session_expires_idx ON sticky_sessions(expires_at)`,
 
   // M8: request trace logs
   `CREATE TABLE IF NOT EXISTS request_trace_logs (

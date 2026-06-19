@@ -52,12 +52,23 @@ import {
   touchStickyBinding,
   upsertStickyBinding,
 } from '../sticky/index.js';
+import {
+  getStickySessionTtlMs,
+  isStickySessionValid,
+  lookupStickySession,
+  touchStickySession,
+  upsertStickySession,
+} from '../sticky/session.js';
 import { getEnabledQuotaPeriods, recordQuotaUsage, wouldExceedQuota } from '../quota/index.js';
 import {
   getEndpointHealthForUpstreamKeyIds,
   sortCandidatesByLatency,
 } from '../upstream/endpoint-health.js';
-import { generateTraceId, writeTraceLogEntry, upsertConsumptionStats } from '../observability/index.js';
+import {
+  generateTraceId,
+  writeTraceLogEntry,
+  upsertConsumptionStats,
+} from '../observability/index.js';
 
 export interface GatewayRequestContext {
   db: Db;
@@ -107,7 +118,12 @@ async function tryCandidates(
     sourceProtocol: SourceProtocol;
     candidates: ResolvedCandidate[];
     traceId: string;
-    log: (input: Omit<import('../observability/trace-logs.js').TraceLogEntryInput, 'requestTraceId' | 'stepIndex'> & { step: import('../observability/trace-logs.js').TraceStep }) => Promise<void>;
+    log: (
+      input: Omit<
+        import('../observability/trace-logs.js').TraceLogEntryInput,
+        'requestTraceId' | 'stepIndex'
+      > & { step: import('../observability/trace-logs.js').TraceStep },
+    ) => Promise<void>;
     cbSettings: CircuitBreakerSettings;
   },
 ): Promise<GatewayOutcome> {
@@ -438,14 +454,29 @@ async function runGateway(
   const now = new Date();
   const traceId = ctx.traceId ?? generateTraceId();
   let stepIndex = 0;
-  const log = (input: Omit<import('../observability/trace-logs.js').TraceLogEntryInput, 'requestTraceId' | 'stepIndex'> & { step: import('../observability/trace-logs.js').TraceStep }) =>
+  const log = (
+    input: Omit<
+      import('../observability/trace-logs.js').TraceLogEntryInput,
+      'requestTraceId' | 'stepIndex'
+    > & { step: import('../observability/trace-logs.js').TraceStep },
+  ) =>
     writeTraceLogEntry(ctx.db, { ...input, requestTraceId: traceId, stepIndex: ++stepIndex, now });
 
-  await log({ step: 'request_start', appId: ctx.appId, consumerKeyId: ctx.consumerKeyId, requestedTargetName: ir.requestedModel, sourceProtocol });
+  await log({
+    step: 'request_start',
+    appId: ctx.appId,
+    consumerKeyId: ctx.consumerKeyId,
+    requestedTargetName: ir.requestedModel,
+    sourceProtocol,
+  });
 
   // 1. Resolve target name to (type, id). Throws TargetNotFoundError on miss.
   const target = await resolveTargetByName(ctx.db, ir.requestedModel);
-  await log({ step: 'target_resolve', resolvedTargetType: target.targetType, resolvedTargetId: target.targetId });
+  await log({
+    step: 'target_resolve',
+    resolvedTargetType: target.targetType,
+    resolvedTargetId: target.targetId,
+  });
 
   // 2. Make sure the consumer key is allowed to call this target.
   await assertConsumerKeyAccess(ctx.db, {
@@ -523,6 +554,7 @@ async function runGateway(
   });
   await log({ step: 'sticky_check' });
   let stickyHit = false;
+  let sessionStickyHit = false;
   let sorted = [...usableCandidates];
   if (stickyLookup.binding && isStickyBindingValid(stickyLookup.binding, sorted, { now })) {
     const bound = sorted.find(
@@ -534,13 +566,59 @@ async function runGateway(
       sorted = [bound, ...sorted.filter((c) => c !== bound)];
       stickyHit = true;
       void touchStickyBinding(ctx.db, { id: stickyLookup.binding.id, now });
-      await log({ step: 'sticky_hit', upstreamKeyId: bound.upstreamKeyId, upstreamKeyName: bound.upstreamKeyName, realModelName: bound.realModelName });
+      await log({
+        step: 'sticky_hit',
+        upstreamKeyId: bound.upstreamKeyId,
+        upstreamKeyName: bound.upstreamKeyName,
+        realModelName: bound.realModelName,
+      });
+    }
+  }
+
+  // 4b. Short-window session stickiness. Only checked when conversation-level
+  // sticky did not hit. This gives a weaker (consumerKey + target) binding
+  // with a short TTL, reducing cross-channel switching for repeated calls.
+  if (!stickyHit) {
+    const sessionLookup = await lookupStickySession(ctx.db, {
+      consumerKeyId: ctx.consumerKeyId,
+      requestedTargetName: ir.requestedModel,
+      now,
+    });
+    await log({ step: 'session_sticky_check' });
+    if (sessionLookup.binding && isStickySessionValid(sessionLookup.binding, sorted, { now })) {
+      const bound = sorted.find(
+        (c) =>
+          c.upstreamKeyId === sessionLookup.binding!.upstreamKeyId &&
+          c.realModelName === sessionLookup.binding!.realModelName,
+      );
+      if (bound) {
+        sorted = [bound, ...sorted.filter((c) => c !== bound)];
+        sessionStickyHit = true;
+        void touchStickySession(ctx.db, {
+          id: sessionLookup.binding.id,
+          ttlMs: sessionLookup.binding.ttlMs,
+          now,
+        });
+        await log({
+          step: 'session_sticky_hit',
+          upstreamKeyId: bound.upstreamKeyId,
+          upstreamKeyName: bound.upstreamKeyName,
+          realModelName: bound.realModelName,
+        });
+      }
     }
   }
 
   // 5. Walk the candidate list with priority + failover. The first candidate
   // is either the sticky-bound one or the lowest-priority one.
-  const outcome = await tryCandidates(ctx, { ir, sourceProtocol, candidates: sorted, traceId, log, cbSettings });
+  const outcome = await tryCandidates(ctx, {
+    ir,
+    sourceProtocol,
+    candidates: sorted,
+    traceId,
+    log,
+    cbSettings,
+  });
   const latencyMs = Date.now() - start;
   // The selected candidate is on the success path or on the last-tried error
   // path. We attribute the usage to the *asked-for* target so group-level
@@ -591,6 +669,21 @@ async function runGateway(
         realModelName: candidate.realModelName,
         now,
       });
+      // Also refresh the short-window session sticky binding for this
+      // (consumer key, target) pair. The TTL is taken from the selected
+      // upstream key's configuration.
+      void getStickySessionTtlMs(ctx.db, candidate.upstreamKeyId).then((ttlMs) => {
+        if (ttlMs > 0) {
+          return upsertStickySession(ctx.db, {
+            consumerKeyId: ctx.consumerKeyId,
+            requestedTargetName: ir.requestedModel,
+            upstreamKeyId: candidate.upstreamKeyId,
+            realModelName: candidate.realModelName,
+            ttlMs,
+            now,
+          });
+        }
+      });
     }
     // Await the usage record so the dashboard reflects the call before the
     // response goes out. Swallow DB errors here too: a failed analytics
@@ -608,6 +701,7 @@ async function runGateway(
         providerType: candidate.providerType,
         stream: false,
         stickyHit,
+        sessionStickyHit,
         inputTokens: outcome.ok ? (usage?.inputTokens ?? null) : null,
         outputTokens: outcome.ok ? (usage?.outputTokens ?? null) : null,
         totalTokens: outcome.ok ? (usage?.totalTokens ?? null) : null,

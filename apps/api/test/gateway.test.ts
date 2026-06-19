@@ -5,10 +5,12 @@ import {
   consumerKeys,
   publicModelCandidates,
   publicModels,
+  stickySessions,
   targetNames,
   upstreamKeys,
 } from '../src/modules/db/index.js';
 import { generateId } from '@modelharbor/shared';
+import { encryptUpstreamApiKey } from '../src/modules/admin/index.js';
 import { makeGatewayRig, getUpstreamRow, type GatewayTestRig } from './gateway-helper.js';
 
 const ANTHROPIC_BODY = {
@@ -925,6 +927,162 @@ describe('gateway multi-endpoint routing', () => {
       const body = res.json() as { type: string; error: { type: string; message: string } };
       expect(body.type).toBe('error');
       expect(body.error.message).toContain('cross-protocol streaming');
+    } finally {
+      await rig.close();
+    }
+  });
+});
+
+async function addSecondUpstream(
+  rig: GatewayTestRig,
+  overrides: {
+    name?: string;
+    realModelName?: string;
+    priority?: number;
+    stickySessionTtlMs?: number | null;
+  } = {},
+) {
+  const now = new Date();
+  const id = generateId('upstreamKey');
+  const rawKey = `sk-second-${overrides.realModelName ?? 'b'}`;
+  const enc = encryptUpstreamApiKey(rawKey, rig.secretKey);
+  await rig.db.insert(upstreamKeys).values({
+    id,
+    name: overrides.name ?? 'Second upstream',
+    providerType: 'anthropic_compatible',
+    baseUrl: rig.fake.baseUrl,
+    apiKeyCiphertext: enc.ciphertext,
+    apiKeyPrefix: enc.prefix,
+    supportedModelsJson: JSON.stringify([overrides.realModelName ?? 'fake-real-b']),
+    enabled: true,
+    frozen: false,
+    stickySessionTtlMs: overrides.stickySessionTtlMs ?? 5 * 60 * 1000,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await rig.db.insert(publicModelCandidates).values({
+    id: generateId('publicModel') + '_c2',
+    publicModelId: rig.ids.publicModelId,
+    upstreamKeyId: id,
+    realModelName: overrides.realModelName ?? 'fake-real-b',
+    enabled: true,
+    priority: overrides.priority ?? 50,
+    weight: 1,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return { id, rawKey, realModelName: overrides.realModelName ?? 'fake-real-b' };
+}
+
+describe('gateway short-window session stickiness', () => {
+  it('reuses the same upstream for a new conversation within the TTL', async () => {
+    const rig = await makeGatewayRig({ providerType: 'anthropic_compatible' });
+    try {
+      await addSecondUpstream(rig, { name: 'lower-priority', priority: 200 });
+      rig.fake.setAnthropicResponse({
+        status: 200,
+        body: {
+          id: 'msg_1',
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'text', text: 'ok' }],
+          model: 'fake-real-model',
+          stop_reason: 'end_turn',
+          stop_sequence: null,
+          usage: { input_tokens: 1, output_tokens: 1 },
+        },
+      });
+
+      const first = await rig.app.inject({
+        method: 'POST',
+        url: '/v1/messages',
+        headers: anthropicHeader(rig.rawConsumerKey),
+        payload: { ...ANTHROPIC_BODY, messages: [{ role: 'user', content: 'first' }] },
+      });
+      expect(first.statusCode).toBe(200);
+      expect(rig.fake.anthropicRequests).toHaveLength(1);
+      const firstUpstreamKey = rig.fake.anthropicRequests[0]!.headers['x-api-key'];
+      expect(firstUpstreamKey).toBe(rig.rawUpstreamKey);
+
+      // Different conversation fingerprint, same consumer key + target.
+      const secondReq = await rig.app.inject({
+        method: 'POST',
+        url: '/v1/messages',
+        headers: anthropicHeader(rig.rawConsumerKey),
+        payload: { ...ANTHROPIC_BODY, messages: [{ role: 'user', content: 'second' }] },
+      });
+      expect(secondReq.statusCode).toBe(200);
+      expect(rig.fake.anthropicRequests).toHaveLength(2);
+      const secondUpstreamKey = rig.fake.anthropicRequests[1]!.headers['x-api-key'];
+      expect(secondUpstreamKey).toBe(rig.rawUpstreamKey);
+      expect(rig.fake.anthropicRequests[1]!.body).toMatchObject({ model: 'fake-real-model' });
+
+      const sessions = await rig.db.select().from(stickySessions).all();
+      expect(sessions).toHaveLength(1);
+      expect(sessions[0]!.upstreamKeyId).toBe(rig.upstreamKeyId);
+      expect(sessions[0]!.realModelName).toBe('fake-real-model');
+    } finally {
+      await rig.close();
+    }
+  });
+
+  it('falls back to normal routing when the bound upstream becomes unavailable', async () => {
+    const rig = await makeGatewayRig({ providerType: 'anthropic_compatible' });
+    try {
+      const second = await addSecondUpstream(rig, { name: 'fallback', priority: 200 });
+      rig.fake.setAnthropicResponse({
+        status: 200,
+        body: {
+          id: 'msg_1',
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'text', text: 'ok' }],
+          model: 'fake-real-model',
+          stop_reason: 'end_turn',
+          stop_sequence: null,
+          usage: { input_tokens: 1, output_tokens: 1 },
+        },
+      });
+
+      const first = await rig.app.inject({
+        method: 'POST',
+        url: '/v1/messages',
+        headers: anthropicHeader(rig.rawConsumerKey),
+        payload: { ...ANTHROPIC_BODY, messages: [{ role: 'user', content: 'hello' }] },
+      });
+      expect(first.statusCode).toBe(200);
+
+      // Freeze the originally selected upstream key.
+      await rig.db
+        .update(upstreamKeys)
+        .set({ frozen: true })
+        .where(eq(upstreamKeys.id, rig.upstreamKeyId));
+
+      rig.fake.setAnthropicResponse({
+        status: 200,
+        body: {
+          id: 'msg_2',
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'text', text: 'fallback ok' }],
+          model: second.realModelName,
+          stop_reason: 'end_turn',
+          stop_sequence: null,
+          usage: { input_tokens: 1, output_tokens: 1 },
+        },
+      });
+
+      const secondReq = await rig.app.inject({
+        method: 'POST',
+        url: '/v1/messages',
+        headers: anthropicHeader(rig.rawConsumerKey),
+        payload: { ...ANTHROPIC_BODY, messages: [{ role: 'user', content: 'again' }] },
+      });
+      expect(secondReq.statusCode).toBe(200);
+      expect(rig.fake.anthropicRequests).toHaveLength(2);
+      const secondUpstreamKey = rig.fake.anthropicRequests[1]!.headers['x-api-key'];
+      expect(secondUpstreamKey).toBe(second.rawKey);
+      expect(rig.fake.anthropicRequests[1]!.body).toMatchObject({ model: second.realModelName });
     } finally {
       await rig.close();
     }

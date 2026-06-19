@@ -17,14 +17,19 @@ import { eq, lte } from 'drizzle-orm';
 import { upstreamKeys } from '../db/index.js';
 import { resetExpiredCounters } from '../quota/index.js';
 import { pruneExpiredStickyBindings } from '../sticky/index.js';
+import { pruneExpiredStickySessions } from '../sticky/session.js';
 
 import { pruneTraceLogs } from '../observability/index.js';
-import { ensureDefaultCircuitBreakerSettings, pruneCircuitBreakers } from '../router/circuit-breaker.js';
+import {
+  ensureDefaultCircuitBreakerSettings,
+  pruneCircuitBreakers,
+} from '../router/circuit-breaker.js';
 import { pruneOrphanEndpointHealth, runEndpointHealthProbe } from '../upstream/endpoint-health.js';
 
 export interface JobResult {
   countersRemoved: number;
   stickyRemoved: number;
+  stickySessionsRemoved: number;
   cooldownsCleared: number;
   tracesRemoved: number;
   circuitBreakersRemoved: number;
@@ -35,6 +40,7 @@ export async function runMaintenancePass(db: Db, now: Date = new Date()): Promis
   await ensureDefaultCircuitBreakerSettings(db);
   const countersRemoved = await resetExpiredCounters(db, now);
   const stickyRemoved = await pruneExpiredStickyBindings(db, now);
+  const stickySessionsRemoved = await pruneExpiredStickySessions(db, now);
   const tracesRemoved = await pruneTraceLogs(db, { now });
   const circuitBreakersRemoved = await pruneCircuitBreakers(db, { now });
   const endpointsPruned = await pruneOrphanEndpointHealth(db);
@@ -60,7 +66,15 @@ export async function runMaintenancePass(db: Db, now: Date = new Date()): Promis
       /* ignore */
     }
   }
-  return { countersRemoved, stickyRemoved, cooldownsCleared, tracesRemoved, circuitBreakersRemoved, endpointsPruned };
+  return {
+    countersRemoved,
+    stickyRemoved,
+    stickySessionsRemoved,
+    cooldownsCleared,
+    tracesRemoved,
+    circuitBreakersRemoved,
+    endpointsPruned,
+  };
 }
 
 export interface BackgroundJobsHandle {
@@ -73,7 +87,12 @@ export interface BackgroundJobsHandle {
 // errors are logged and swallowed so one bad tick does not crash the process.
 export function startBackgroundJobs(
   db: Db,
-  args: { intervalMs?: number; probeIntervalMs?: number; now?: () => Date; secretKey?: string } = {},
+  args: {
+    intervalMs?: number;
+    probeIntervalMs?: number;
+    now?: () => Date;
+    secretKey?: string;
+  } = {},
 ): BackgroundJobsHandle {
   const interval = args.intervalMs ?? 5 * 60 * 1000;
   const probeInterval = args.probeIntervalMs ?? 60 * 60 * 1000;

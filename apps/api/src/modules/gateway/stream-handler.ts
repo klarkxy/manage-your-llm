@@ -38,6 +38,13 @@ import {
   touchStickyBinding,
   upsertStickyBinding,
 } from '../sticky/index.js';
+import {
+  getStickySessionTtlMs,
+  isStickySessionValid,
+  lookupStickySession,
+  touchStickySession,
+  upsertStickySession,
+} from '../sticky/session.js';
 import { getEnabledQuotaPeriods, recordQuotaUsage, wouldExceedQuota } from '../quota/index.js';
 import {
   getEndpointHealthForUpstreamKeyIds,
@@ -106,13 +113,33 @@ export async function handleStreamRequest(
   const start = Date.now();
   const traceId = ctx.traceId ?? generateTraceId();
   let stepIndex = 0;
-  const log = (input: Omit<import('../observability/trace-logs.js').TraceLogEntryInput, 'requestTraceId' | 'stepIndex'> & { step: import('../observability/trace-logs.js').TraceStep }) =>
-    writeTraceLogEntry(ctx.db, { ...input, requestTraceId: traceId, stepIndex: ++stepIndex, now: new Date() });
+  const log = (
+    input: Omit<
+      import('../observability/trace-logs.js').TraceLogEntryInput,
+      'requestTraceId' | 'stepIndex'
+    > & { step: import('../observability/trace-logs.js').TraceStep },
+  ) =>
+    writeTraceLogEntry(ctx.db, {
+      ...input,
+      requestTraceId: traceId,
+      stepIndex: ++stepIndex,
+      now: new Date(),
+    });
 
-  await log({ step: 'request_start', appId: ctx.appId, consumerKeyId: ctx.consumerKeyId, requestedTargetName: streamCtx.ir.requestedModel, sourceProtocol: streamCtx.sourceProtocol });
+  await log({
+    step: 'request_start',
+    appId: ctx.appId,
+    consumerKeyId: ctx.consumerKeyId,
+    requestedTargetName: streamCtx.ir.requestedModel,
+    sourceProtocol: streamCtx.sourceProtocol,
+  });
 
   const target = await resolveTargetByName(ctx.db, streamCtx.ir.requestedModel);
-  await log({ step: 'target_resolve', resolvedTargetType: target.targetType, resolvedTargetId: target.targetId });
+  await log({
+    step: 'target_resolve',
+    resolvedTargetType: target.targetType,
+    resolvedTargetId: target.targetId,
+  });
 
   await assertConsumerKeyAccess(ctx.db, {
     consumerKeyId: ctx.consumerKeyId,
@@ -204,6 +231,7 @@ export async function handleStreamRequest(
   });
   await log({ step: 'sticky_check' });
   let stickyHit = false;
+  let sessionStickyHit = false;
   if (stickyLookup.binding && isStickyBindingValid(stickyLookup.binding, sorted, { now })) {
     const bound = sorted.find(
       (c) =>
@@ -214,7 +242,45 @@ export async function handleStreamRequest(
       sorted = [bound, ...sorted.filter((c) => c !== bound)];
       stickyHit = true;
       void touchStickyBinding(ctx.db, { id: stickyLookup.binding.id, now });
-      await log({ step: 'sticky_hit', upstreamKeyId: bound.upstreamKeyId, upstreamKeyName: bound.upstreamKeyName, realModelName: bound.realModelName });
+      await log({
+        step: 'sticky_hit',
+        upstreamKeyId: bound.upstreamKeyId,
+        upstreamKeyName: bound.upstreamKeyName,
+        realModelName: bound.realModelName,
+      });
+    }
+  }
+
+  // Short-window session stickiness. Only checked when conversation-level
+  // sticky did not hit.
+  if (!stickyHit) {
+    const sessionLookup = await lookupStickySession(ctx.db, {
+      consumerKeyId: ctx.consumerKeyId,
+      requestedTargetName: streamCtx.ir.requestedModel,
+      now,
+    });
+    await log({ step: 'session_sticky_check' });
+    if (sessionLookup.binding && isStickySessionValid(sessionLookup.binding, sorted, { now })) {
+      const bound = sorted.find(
+        (c) =>
+          c.upstreamKeyId === sessionLookup.binding!.upstreamKeyId &&
+          c.realModelName === sessionLookup.binding!.realModelName,
+      );
+      if (bound) {
+        sorted = [bound, ...sorted.filter((c) => c !== bound)];
+        sessionStickyHit = true;
+        void touchStickySession(ctx.db, {
+          id: sessionLookup.binding.id,
+          ttlMs: sessionLookup.binding.ttlMs,
+          now,
+        });
+        await log({
+          step: 'session_sticky_hit',
+          upstreamKeyId: bound.upstreamKeyId,
+          upstreamKeyName: bound.upstreamKeyName,
+          realModelName: bound.realModelName,
+        });
+      }
     }
   }
 
@@ -270,7 +336,13 @@ export async function handleStreamRequest(
         lastError.providerCode,
         lastError.providerMessage,
       );
-      await recordCircuitBreakerFailureAndLog(ctx, candidate, lastError as NormalizedProviderError, cbSettings, log);
+      await recordCircuitBreakerFailureAndLog(
+        ctx,
+        candidate,
+        lastError as NormalizedProviderError,
+        cbSettings,
+        log,
+      );
       if (!FAILOVER_CATEGORIES.has(lastError.category)) break;
       continue;
     }
@@ -354,8 +426,20 @@ export async function handleStreamRequest(
           errorCode: lastError.providerCode ?? undefined,
           errorMessage: lastError.providerMessage ?? undefined,
         });
-        await tryCooldown(ctx, candidate, lastError.category, lastError.providerCode, lastError.providerMessage);
-        await recordCircuitBreakerFailureAndLog(ctx, candidate, lastError as NormalizedProviderError, cbSettings, log);
+        await tryCooldown(
+          ctx,
+          candidate,
+          lastError.category,
+          lastError.providerCode,
+          lastError.providerMessage,
+        );
+        await recordCircuitBreakerFailureAndLog(
+          ctx,
+          candidate,
+          lastError as NormalizedProviderError,
+          cbSettings,
+          log,
+        );
         if (!FAILOVER_CATEGORIES.has(lastError.category)) break;
         try {
           abortController.abort();
@@ -381,7 +465,13 @@ export async function handleStreamRequest(
           errorCode: lastError.providerCode ?? undefined,
           errorMessage: lastError.providerMessage ?? undefined,
         });
-        await recordCircuitBreakerFailureAndLog(ctx, candidate, lastError as NormalizedProviderError, cbSettings, log);
+        await recordCircuitBreakerFailureAndLog(
+          ctx,
+          candidate,
+          lastError as NormalizedProviderError,
+          cbSettings,
+          log,
+        );
         break;
       }
       driveStart = { ...okStart, events: prependFirstEvent(first.event, first.iterator) };
@@ -396,6 +486,7 @@ export async function handleStreamRequest(
       start: driveStart,
       abortController,
       stickyHit,
+      sessionStickyHit,
       fingerprint,
       traceId,
       log,
@@ -461,13 +552,16 @@ async function waitForFirstToken(
   const iterator = events[Symbol.asyncIterator]();
   let settled = false;
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      settled = true;
-      cleanup();
-      pendingNext.catch(() => {});
-      iterator.return?.().catch(() => {});
-      resolve({ kind: 'timeout' });
-    }, Math.max(1, options.timeoutMs));
+    const timer = setTimeout(
+      () => {
+        settled = true;
+        cleanup();
+        pendingNext.catch(() => {});
+        iterator.return?.().catch(() => {});
+        resolve({ kind: 'timeout' });
+      },
+      Math.max(1, options.timeoutMs),
+    );
 
     const onAbort = (): void => {
       if (settled) return;
@@ -592,9 +686,15 @@ interface DriveStreamArgs {
   start: StreamStart;
   abortController: AbortController;
   stickyHit: boolean;
+  sessionStickyHit: boolean;
   fingerprint: string;
   traceId: string;
-  log: (input: Omit<import('../observability/trace-logs.js').TraceLogEntryInput, 'requestTraceId' | 'stepIndex'> & { step: import('../observability/trace-logs.js').TraceStep }) => Promise<void>;
+  log: (
+    input: Omit<
+      import('../observability/trace-logs.js').TraceLogEntryInput,
+      'requestTraceId' | 'stepIndex'
+    > & { step: import('../observability/trace-logs.js').TraceStep },
+  ) => Promise<void>;
   cbSettings: CircuitBreakerSettings;
 }
 
@@ -612,6 +712,7 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
     start,
     abortController,
     stickyHit,
+    sessionStickyHit,
     fingerprint,
     traceId,
     log,
@@ -622,14 +723,25 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
   }
   const startedAt = Date.now();
   const usageBag: {
-    value: { inputTokens: number; outputTokens: number; totalTokens: number; cacheReadTokens: number; cacheWriteTokens: number } | null;
+    value: {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      cacheReadTokens: number;
+      cacheWriteTokens: number;
+    } | null;
   } = { value: null };
   let lastError: NormalizedErrorLite | null = null;
   let clientDisconnected = false;
   let closedByUpstream = false;
   let firstWrite = false;
 
-  await log({ step: 'stream_start', upstreamKeyId: candidate.upstreamKeyId, upstreamKeyName: candidate.upstreamKeyName, realModelName: candidate.realModelName });
+  await log({
+    step: 'stream_start',
+    upstreamKeyId: candidate.upstreamKeyId,
+    upstreamKeyName: candidate.upstreamKeyName,
+    realModelName: candidate.realModelName,
+  });
 
   // Single client-disconnect listener. The handler may have registered
   // an earlier listener on the same socket (it owns the route-level
@@ -684,11 +796,15 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
         const outputTokens = result.outputTokens;
         const cacheReadTokens =
           result.cacheReadTokens !== undefined
-            ? (result.cacheReadTokens === -1 ? (prev?.cacheReadTokens ?? 0) : result.cacheReadTokens)
+            ? result.cacheReadTokens === -1
+              ? (prev?.cacheReadTokens ?? 0)
+              : result.cacheReadTokens
             : (prev?.cacheReadTokens ?? 0);
         const cacheWriteTokens =
           result.cacheWriteTokens !== undefined
-            ? (result.cacheWriteTokens === -1 ? (prev?.cacheWriteTokens ?? 0) : result.cacheWriteTokens)
+            ? result.cacheWriteTokens === -1
+              ? (prev?.cacheWriteTokens ?? 0)
+              : result.cacheWriteTokens
             : (prev?.cacheWriteTokens ?? 0);
         usageBag.value = {
           inputTokens,
@@ -759,8 +875,15 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
       usageBag.value,
       latencyMs,
       stickyHit,
+      sessionStickyHit,
     );
-    const usageTokens = usageBag.value ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+    const usageTokens = usageBag.value ?? {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    };
     const stickyNow = new Date();
     // Bump every configured period for this upstream key so hour/day/week/
     // month caps actually trigger freezes. `recordQuotaUsage` also bumps
@@ -816,7 +939,25 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
       realModelName: candidate.realModelName,
       now: stickyNow,
     });
-    await log({ step: 'stream_end', upstreamKeyId: candidate.upstreamKeyId, upstreamKeyName: candidate.upstreamKeyName, realModelName: candidate.realModelName, latencyMs: Date.now() - startedAt });
+    void getStickySessionTtlMs(ctx.db, candidate.upstreamKeyId).then((ttlMs) => {
+      if (ttlMs > 0) {
+        return upsertStickySession(ctx.db, {
+          consumerKeyId: ctx.consumerKeyId,
+          requestedTargetName: streamCtx.ir.requestedModel,
+          upstreamKeyId: candidate.upstreamKeyId,
+          realModelName: candidate.realModelName,
+          ttlMs,
+          now: stickyNow,
+        });
+      }
+    });
+    await log({
+      step: 'stream_end',
+      upstreamKeyId: candidate.upstreamKeyId,
+      upstreamKeyName: candidate.upstreamKeyName,
+      realModelName: candidate.realModelName,
+      latencyMs: Date.now() - startedAt,
+    });
     const cbTransition = await recordCircuitBreakerSuccess(ctx.db, {
       upstreamKeyId: candidate.upstreamKeyId,
       realModelName: candidate.realModelName,
@@ -835,7 +976,11 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
   return firstWrite;
 }
 
-function writeStreamHeaders(reply: FastifyReply, upstreamHeaders: Record<string, string>, traceId?: string): void {
+function writeStreamHeaders(
+  reply: FastifyReply,
+  upstreamHeaders: Record<string, string>,
+  traceId?: string,
+): void {
   reply.hijack();
   reply.raw.statusCode = 200;
   reply.raw.setHeader('content-type', 'text/event-stream; charset=utf-8');
@@ -868,7 +1013,12 @@ async function recordCircuitBreakerFailureAndLog(
   candidate: ResolvedCandidate,
   error: NormalizedProviderError,
   settings: CircuitBreakerSettings,
-  log: (input: Omit<import('../observability/trace-logs.js').TraceLogEntryInput, 'requestTraceId' | 'stepIndex'> & { step: import('../observability/trace-logs.js').TraceStep }) => Promise<void>,
+  log: (
+    input: Omit<
+      import('../observability/trace-logs.js').TraceLogEntryInput,
+      'requestTraceId' | 'stepIndex'
+    > & { step: import('../observability/trace-logs.js').TraceStep },
+  ) => Promise<void>,
 ): Promise<void> {
   const transition = await recordCircuitBreakerFailure(ctx.db, {
     upstreamKeyId: candidate.upstreamKeyId,
@@ -918,9 +1068,16 @@ async function recordUsageOnSuccess(
   streamCtx: StreamRequestContext,
   target: ResolvedTarget,
   candidate: ResolvedCandidate,
-  usage: { inputTokens: number; outputTokens: number; totalTokens: number; cacheReadTokens: number; cacheWriteTokens: number } | null,
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+  } | null,
   latencyMs: number,
   stickyHit: boolean,
+  sessionStickyHit: boolean,
 ): Promise<void> {
   await writeUsageRecord(ctx.db, {
     appId: ctx.appId,
@@ -934,6 +1091,7 @@ async function recordUsageOnSuccess(
     providerType: candidate.providerType,
     stream: true,
     stickyHit,
+    sessionStickyHit,
     inputTokens: usage?.inputTokens ?? null,
     outputTokens: usage?.outputTokens ?? null,
     totalTokens: usage?.totalTokens ?? null,

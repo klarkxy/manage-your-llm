@@ -24,6 +24,8 @@ export type TraceStep =
   | 'candidates_filter'
   | 'sticky_check'
   | 'sticky_hit'
+  | 'session_sticky_check'
+  | 'session_sticky_hit'
   | 'candidate_attempt'
   | 'candidate_success'
   | 'candidate_fail'

@@ -247,6 +247,10 @@ const messages: Messages = {
         key: '参数名称',
         value: '参数值（JSON）',
       },
+      stickySessionTtlMs: {
+        label: '会话级 Sticky TTL（毫秒）',
+        placeholder: '300000',
+      },
       modelMappings: {
         label: '模型映射（真实名 → 公开名）',
         realName: '真实模型名',

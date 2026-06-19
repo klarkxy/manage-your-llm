@@ -62,6 +62,7 @@ const form = ref<UpstreamKeyCreatePayload>({
   providerType: 'anthropic_compatible',
   baseUrl: '',
   apiKey: '',
+  stickySessionTtlMs: 5 * 60 * 1000,
 });
 const authType = ref<string>('pat');
 const cozeAuthConfig = ref({
@@ -107,6 +108,7 @@ function resetForm() {
     providerType: 'anthropic_compatible',
     baseUrl: '',
     apiKey: '',
+    stickySessionTtlMs: 5 * 60 * 1000,
   };
   authType.value = 'pat';
   cozeAuthConfig.value = {
@@ -167,6 +169,7 @@ async function openEdit(row: UpstreamKey) {
   form.value.providerType = row.providerType;
   form.value.baseUrl = row.baseUrl;
   form.value.apiKey = '';
+  form.value.stickySessionTtlMs = row.stickySessionTtlMs ?? 5 * 60 * 1000;
   authType.value = row.authType ?? 'pat';
   selectedPresetId.value = row.providerPresetId;
   extraHeaders.value = Object.entries(row.extraHeaders ?? {}).map(([key, value]) => ({
@@ -251,6 +254,7 @@ async function onSubmit() {
         name: form.value.name,
         extraHeaders: headersPayload,
         extraParams: paramsPayload,
+        stickySessionTtlMs: form.value.stickySessionTtlMs,
       };
       if (!isPreset) {
         updates.providerType = form.value.providerType;
@@ -297,6 +301,7 @@ async function onSubmit() {
         modelMappings: mappings,
         extraHeaders: headersPayload,
         extraParams: paramsPayload,
+        stickySessionTtlMs: form.value.stickySessionTtlMs,
       };
       if (isPreset) {
         payload.providerPresetId = selectedPresetId.value!;
@@ -305,6 +310,7 @@ async function onSubmit() {
         payload.baseUrl = form.value.baseUrl;
       }
       payload.authType = authType.value as UpstreamKeyCreatePayload['authType'];
+      payload.stickySessionTtlMs = form.value.stickySessionTtlMs;
       if (authType.value === 'pat') {
         payload.apiKey = form.value.apiKey;
       } else if (authType.value === 'coze_oauth_jwt') {
@@ -383,6 +389,7 @@ async function startOAuth() {
       modelMappings: mappings,
       extraHeaders: headersPayload,
       extraParams: paramsPayload,
+      stickySessionTtlMs: form.value.stickySessionTtlMs,
     };
     if (isPreset) {
       draft.providerPresetId = selectedPresetId.value!;
@@ -587,7 +594,11 @@ const healthColumns = computed<DataTableColumns<UpstreamEndpointHealth>>(() => [
     width: 110,
     render: (row) => {
       if (row.delayMs === null) return h(NText, { depth: 3, size: 'small' }, () => '—');
-      return h(NTag, { type: latencyTagType(row.delayMs), size: 'small' }, () => `${row.delayMs} ms`);
+      return h(
+        NTag,
+        { type: latencyTagType(row.delayMs), size: 'small' },
+        () => `${row.delayMs} ms`,
+      );
     },
   },
   {
@@ -595,10 +606,10 @@ const healthColumns = computed<DataTableColumns<UpstreamEndpointHealth>>(() => [
     key: 'degraded',
     width: 110,
     render: (row) =>
-      h(
-        NTag,
-        { type: row.degraded ? 'error' : 'success', size: 'small' },
-        () => (row.degraded ? row.errorCode ?? t('upstreamKeys.health.degraded') : t('upstreamKeys.health.healthy')),
+      h(NTag, { type: row.degraded ? 'error' : 'success', size: 'small' }, () =>
+        row.degraded
+          ? (row.errorCode ?? t('upstreamKeys.health.degraded'))
+          : t('upstreamKeys.health.healthy'),
       ),
   },
   {
@@ -846,10 +857,8 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
         return h(NText, { depth: 3, size: 'small' }, () => '—');
       }
       if (summary.degraded > 0) {
-        return h(
-          NTag,
-          { type: 'error', size: 'small' },
-          () => t('upstreamKeys.health.degradedCount', { count: summary.degraded, total: summary.total }),
+        return h(NTag, { type: 'error', size: 'small' }, () =>
+          t('upstreamKeys.health.degradedCount', { count: summary.degraded, total: summary.total }),
         );
       }
       const ms = summary.bestDelayMs ?? 0;
@@ -1093,6 +1102,15 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
               :value-placeholder="t('upstreamKeys.drawer.extraParams.value')"
             />
           </NFormItem>
+          <NFormItem :label="t('upstreamKeys.drawer.stickySessionTtlMs.label')">
+            <NInputNumber
+              v-model:value="form.stickySessionTtlMs"
+              :min="1000"
+              :step="1000"
+              :placeholder="t('upstreamKeys.drawer.stickySessionTtlMs.placeholder')"
+              style="width: 100%"
+            />
+          </NFormItem>
           <NFormItem :label="t('upstreamKeys.drawer.modelMappings.label')" required>
             <NSpace vertical style="width: 100%">
               <NButton
@@ -1139,20 +1157,24 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
       <NSpace vertical>
         <NText depth="3">{{ pingKey?.baseUrl }}</NText>
         <NSpace v-if="pingHealthRows.length > 0" vertical size="small" style="width: 100%">
-          <NText depth="3" style="font-size: 12px">{{ t('upstreamKeys.ping.endpointHealthTitle') }}</NText>
+          <NText depth="3" style="font-size: 12px">{{
+            t('upstreamKeys.ping.endpointHealthTitle')
+          }}</NText>
           <NList bordered size="small">
             <NListItem v-for="h in pingHealthRows" :key="h.id">
               <NSpace align="center" justify="space-between" style="width: 100%">
                 <NText style="font-size: 12px">{{ h.endpointBaseUrl }}</NText>
                 <NSpace align="center" :size="4">
-                  <NTag
-                    v-if="h.delayMs !== null"
-                    :type="latencyTagType(h.delayMs)"
-                    size="small"
-                  >{{ h.delayMs }} ms</NTag>
+                  <NTag v-if="h.delayMs !== null" :type="latencyTagType(h.delayMs)" size="small"
+                    >{{ h.delayMs }} ms</NTag
+                  >
                   <NTag v-else type="warning" size="small">—</NTag>
                   <NTag :type="h.degraded ? 'error' : 'success'" size="small">
-                    {{ h.degraded ? t('upstreamKeys.health.degraded') : t('upstreamKeys.health.healthy') }}
+                    {{
+                      h.degraded
+                        ? t('upstreamKeys.health.degraded')
+                        : t('upstreamKeys.health.healthy')
+                    }}
                   </NTag>
                   <NText depth="3" style="font-size: 11px">
                     {{ h.lastCheckedAt ? new Date(h.lastCheckedAt).toLocaleString() : '' }}

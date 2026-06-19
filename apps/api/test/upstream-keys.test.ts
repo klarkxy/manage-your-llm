@@ -686,3 +686,64 @@ describe('upstream keys admin', () => {
     });
   });
 });
+
+
+describe('upstream key sticky session TTL', () => {
+  let rig: AdminTestRig;
+  beforeEach(async () => {
+    rig = await makeAdminRig();
+  });
+  afterEach(async () => {
+    await rig.close();
+  });
+
+  it('creates an upstream key with a custom sticky session TTL', async () => {
+    const res = await rig.app.inject({
+      method: 'POST',
+      url: '/api/admin/upstream-keys',
+      headers: { cookie: rig.cookie },
+      payload: {
+        name: 'sticky-ttl-create',
+        providerType: 'anthropic_compatible',
+        baseUrl: 'https://x.com',
+        apiKey: 'k',
+        stickySessionTtlMs: 120_000,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { stickySessionTtlMs: number };
+    expect(body.stickySessionTtlMs).toBe(120_000);
+
+    const row = await rig.db.select().from(upstreamKeys).where(eq(upstreamKeys.name, 'sticky-ttl-create')).get();
+    expect(row).toBeTruthy();
+    expect(row!.stickySessionTtlMs).toBe(120_000);
+  });
+
+  it('updates the sticky session TTL via PATCH', async () => {
+    const create = await rig.app.inject({
+      method: 'POST',
+      url: '/api/admin/upstream-keys',
+      headers: { cookie: rig.cookie },
+      payload: {
+        name: 'sticky-ttl-patch',
+        providerType: 'anthropic_compatible',
+        baseUrl: 'https://x.com',
+        apiKey: 'k',
+      },
+    });
+    expect(create.statusCode).toBe(200);
+    const id = (create.json() as { id: string }).id;
+
+    const patch = await rig.app.inject({
+      method: 'PATCH',
+      url: `/api/admin/upstream-keys/${id}`,
+      headers: { cookie: rig.cookie },
+      payload: { stickySessionTtlMs: 60_000 },
+    });
+    expect(patch.statusCode).toBe(200);
+    expect((patch.json() as { stickySessionTtlMs: number }).stickySessionTtlMs).toBe(60_000);
+
+    const row = await rig.db.select().from(upstreamKeys).where(eq(upstreamKeys.id, id)).get();
+    expect(row!.stickySessionTtlMs).toBe(60_000);
+  });
+});
