@@ -34,6 +34,9 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
         probeTimeoutMs: settings.endpointHealthProbeTimeoutMs,
         degradedLatencyMs: settings.endpointHealthProbeDegradedLatencyMs,
       },
+      streaming: {
+        firstTokenTimeoutMs: settings.firstTokenTimeoutMs,
+      },
     };
   });
 
@@ -52,9 +55,13 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
         probeTimeoutMs?: number;
         degradedLatencyMs?: number;
       };
+      streaming?: {
+        firstTokenTimeoutMs?: number;
+      };
     };
     const cbInput = body.circuitBreaker ?? {};
     const ehInput = body.endpointHealth ?? {};
+    const streamInput = body.streaming ?? {};
     const updated = await updateCircuitBreakerSettings(db, {
       circuitBreakerEnabled: cbInput.enabled,
       circuitBreakerFailureThreshold: cbInput.failureThreshold,
@@ -65,6 +72,7 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
       endpointHealthProbeIntervalMs: ehInput.probeIntervalMs,
       endpointHealthProbeTimeoutMs: ehInput.probeTimeoutMs,
       endpointHealthProbeDegradedLatencyMs: ehInput.degradedLatencyMs,
+      firstTokenTimeoutMs: streamInput.firstTokenTimeoutMs,
     });
     return {
       circuitBreaker: {
@@ -79,6 +87,9 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
         probeIntervalMs: updated.endpointHealthProbeIntervalMs,
         probeTimeoutMs: updated.endpointHealthProbeTimeoutMs,
         degradedLatencyMs: updated.endpointHealthProbeDegradedLatencyMs,
+      },
+      streaming: {
+        firstTokenTimeoutMs: updated.firstTokenTimeoutMs,
       },
     };
   });

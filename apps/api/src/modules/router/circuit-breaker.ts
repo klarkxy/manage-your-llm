@@ -15,6 +15,7 @@ export interface CircuitBreakerSettings {
   endpointHealthProbeIntervalMs: number;
   endpointHealthProbeTimeoutMs: number;
   endpointHealthProbeDegradedLatencyMs: number;
+  firstTokenTimeoutMs: number;
 }
 
 const DEFAULT_SETTINGS: CircuitBreakerSettings = {
@@ -27,6 +28,7 @@ const DEFAULT_SETTINGS: CircuitBreakerSettings = {
   endpointHealthProbeIntervalMs: 3_600_000,
   endpointHealthProbeTimeoutMs: 10_000,
   endpointHealthProbeDegradedLatencyMs: 5_000,
+  firstTokenTimeoutMs: 15_000,
 };
 
 const SETTINGS_ID = 'default';
@@ -74,6 +76,7 @@ export async function getCircuitBreakerSettings(db: Db): Promise<CircuitBreakerS
         endpointHealthProbeIntervalMs: row.endpointHealthProbeIntervalMs,
         endpointHealthProbeTimeoutMs: row.endpointHealthProbeTimeoutMs,
         endpointHealthProbeDegradedLatencyMs: row.endpointHealthProbeDegradedLatencyMs,
+        firstTokenTimeoutMs: row.firstTokenTimeoutMs,
       };
     }
   } catch {
@@ -129,6 +132,9 @@ export async function updateCircuitBreakerSettings(
   }
   if (typeof input.endpointHealthProbeDegradedLatencyMs === 'number') {
     values.endpointHealthProbeDegradedLatencyMs = Math.max(1_000, Math.round(input.endpointHealthProbeDegradedLatencyMs));
+  }
+  if (typeof input.firstTokenTimeoutMs === 'number') {
+    values.firstTokenTimeoutMs = Math.max(0, Math.min(300_000, Math.round(input.firstTokenTimeoutMs)));
   }
 
   await db

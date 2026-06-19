@@ -36,6 +36,7 @@ const STATEMENTS: readonly string[] = [
      endpoint_health_probe_interval_ms INTEGER NOT NULL DEFAULT 3600000,
      endpoint_health_probe_timeout_ms INTEGER NOT NULL DEFAULT 10000,
      endpoint_health_probe_degraded_latency_ms INTEGER NOT NULL DEFAULT 5000,
+     first_token_timeout_ms INTEGER NOT NULL DEFAULT 15000,
      created_at INTEGER NOT NULL,
      updated_at INTEGER NOT NULL
    )`,
@@ -43,6 +44,7 @@ const STATEMENTS: readonly string[] = [
   `ALTER TABLE admin_settings ADD COLUMN endpoint_health_probe_interval_ms INTEGER NOT NULL DEFAULT 3600000`,
   `ALTER TABLE admin_settings ADD COLUMN endpoint_health_probe_timeout_ms INTEGER NOT NULL DEFAULT 10000`,
   `ALTER TABLE admin_settings ADD COLUMN endpoint_health_probe_degraded_latency_ms INTEGER NOT NULL DEFAULT 5000`,
+  `ALTER TABLE admin_settings ADD COLUMN first_token_timeout_ms INTEGER NOT NULL DEFAULT 15000`,
 
   // Apps
   `CREATE TABLE IF NOT EXISTS apps (

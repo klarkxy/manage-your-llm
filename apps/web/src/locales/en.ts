@@ -593,6 +593,12 @@ const messages = {
       save: 'Save',
       saved: 'Endpoint health settings saved',
     },
+    streaming: {
+      title: 'Streaming',
+      firstTokenTimeoutMs: 'First-token timeout (ms)',
+      save: 'Save',
+      saved: 'Streaming settings saved',
+    },
     secretsNote:
       'Secrets (raw consumer keys, raw upstream API keys, Authorization / x-api-key values) are redacted before they reach the application log or the audit store.',
   },

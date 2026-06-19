@@ -143,6 +143,7 @@ export async function handleStreamRequest(
     }
   }
   const cbSettings = await getCircuitBreakerSettings(ctx.db);
+  const firstTokenTimeoutMs = cbSettings.firstTokenTimeoutMs ?? 15_000;
   const { accepted, dropped, fallback } = await filterCandidates(ctx.db, all, {
     sourceProtocol: streamCtx.sourceProtocol,
     now,
@@ -309,6 +310,82 @@ export async function handleStreamRequest(
       throw toNormalizedError(providerError);
     }
     // startResult.kind === "ok": upstream is streaming.
+    const okStart = startResult as Extract<StreamStart, { kind: 'ok' }>;
+    let driveStart: StreamStart = okStart;
+    if (sorted.length > 1 && firstTokenTimeoutMs > 0) {
+      let first: FirstTokenWaitResult;
+      try {
+        first = await waitForFirstToken(okStart.events, {
+          timeoutMs: firstTokenTimeoutMs,
+          signal: abortController.signal,
+        });
+      } catch (err) {
+        const e = err as { name?: string };
+        if (e.name === 'AbortError') {
+          lastError = CLIENT_DISCONNECTED;
+          break;
+        }
+        throw err;
+      }
+      if (first.kind === 'timeout') {
+        lastError = {
+          category: 'provider_timeout',
+          providerCode: 'first_token_timeout',
+          providerMessage: `first token not received within ${firstTokenTimeoutMs}ms`,
+          upstreamStatus: 200,
+        };
+        await log({
+          step: 'first_token_timeout',
+          upstreamKeyId: candidate.upstreamKeyId,
+          upstreamKeyName: candidate.upstreamKeyName,
+          realModelName: candidate.realModelName,
+          attemptOrder: attempts,
+          errorCategory: lastError.category,
+          errorCode: lastError.providerCode ?? undefined,
+          errorMessage: lastError.providerMessage ?? undefined,
+        });
+        await log({
+          step: 'candidate_fail',
+          upstreamKeyId: candidate.upstreamKeyId,
+          upstreamKeyName: candidate.upstreamKeyName,
+          realModelName: candidate.realModelName,
+          attemptOrder: attempts,
+          errorCategory: lastError.category,
+          errorCode: lastError.providerCode ?? undefined,
+          errorMessage: lastError.providerMessage ?? undefined,
+        });
+        await tryCooldown(ctx, candidate, lastError.category, lastError.providerCode, lastError.providerMessage);
+        await recordCircuitBreakerFailureAndLog(ctx, candidate, lastError as NormalizedProviderError, cbSettings, log);
+        if (!FAILOVER_CATEGORIES.has(lastError.category)) break;
+        try {
+          abortController.abort();
+        } catch {
+          /* ignore */
+        }
+        continue;
+      }
+      if (first.kind === 'closed') {
+        lastError = {
+          category: 'provider_stream_error',
+          providerCode: 'upstream_closed_before_first_token',
+          providerMessage: 'upstream closed before first token',
+          upstreamStatus: 200,
+        };
+        await log({
+          step: 'candidate_fail',
+          upstreamKeyId: candidate.upstreamKeyId,
+          upstreamKeyName: candidate.upstreamKeyName,
+          realModelName: candidate.realModelName,
+          attemptOrder: attempts,
+          errorCategory: lastError.category,
+          errorCode: lastError.providerCode ?? undefined,
+          errorMessage: lastError.providerMessage ?? undefined,
+        });
+        await recordCircuitBreakerFailureAndLog(ctx, candidate, lastError as NormalizedProviderError, cbSettings, log);
+        break;
+      }
+      driveStart = { ...okStart, events: prependFirstEvent(first.event, first.iterator) };
+    }
     started = await driveStream({
       ctx,
       streamCtx,
@@ -316,7 +393,7 @@ export async function handleStreamRequest(
       reply,
       adapter,
       candidate,
-      start: startResult,
+      start: driveStart,
       abortController,
       stickyHit,
       fingerprint,
@@ -367,6 +444,94 @@ function toNormalizedError(err: NormalizedErrorLite): Error {
     default:
       return new ProviderError(err.providerMessage ?? 'upstream error');
   }
+}
+
+type FirstTokenWaitResult =
+  | { kind: 'event'; event: RawStreamEvent; iterator: AsyncIterator<RawStreamEvent> }
+  | { kind: 'timeout' }
+  | { kind: 'closed' };
+
+// Wait for the first SSE event from an already-open upstream stream. If no
+// event arrives within `timeoutMs`, return 'timeout' so the gateway can
+// failover to the next candidate before any frame is written to the client.
+async function waitForFirstToken(
+  events: AsyncIterable<RawStreamEvent>,
+  options: { timeoutMs: number; signal?: AbortSignal },
+): Promise<FirstTokenWaitResult> {
+  const iterator = events[Symbol.asyncIterator]();
+  let settled = false;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      settled = true;
+      cleanup();
+      pendingNext.catch(() => {});
+      iterator.return?.().catch(() => {});
+      resolve({ kind: 'timeout' });
+    }, Math.max(1, options.timeoutMs));
+
+    const onAbort = (): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      pendingNext.catch(() => {});
+      iterator.return?.().catch(() => {});
+      const err = new Error('Aborted');
+      err.name = 'AbortError';
+      reject(err);
+    };
+
+    const cleanup = (): void => {
+      clearTimeout(timer);
+      options.signal?.removeEventListener('abort', onAbort);
+    };
+
+    if (options.signal?.aborted) {
+      cleanup();
+      iterator.return?.().catch(() => {});
+      const err = new Error('Aborted');
+      err.name = 'AbortError';
+      reject(err);
+      return;
+    }
+    options.signal?.addEventListener('abort', onAbort);
+
+    const pendingNext = iterator.next().then(
+      (result) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        if (result.done) {
+          iterator.return?.().catch(() => {});
+          resolve({ kind: 'closed' });
+        } else {
+          resolve({ kind: 'event', event: result.value, iterator });
+        }
+      },
+      (err) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        iterator.return?.().catch(() => {});
+        reject(err);
+      },
+    );
+  });
+}
+
+function prependFirstEvent(
+  firstEvent: RawStreamEvent,
+  iterator: AsyncIterator<RawStreamEvent>,
+): AsyncIterable<RawStreamEvent> {
+  return {
+    async *[Symbol.asyncIterator]() {
+      yield firstEvent;
+      while (true) {
+        const n = await iterator.next();
+        if (n.done) break;
+        yield n.value;
+      }
+    },
+  };
 }
 
 async function buildProviderRequest(

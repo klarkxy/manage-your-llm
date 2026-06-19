@@ -47,6 +47,7 @@ export const adminSettings = sqliteTable('admin_settings', {
   endpointHealthProbeIntervalMs: integer('endpoint_health_probe_interval_ms').notNull().default(3_600_000),
   endpointHealthProbeTimeoutMs: integer('endpoint_health_probe_timeout_ms').notNull().default(10_000),
   endpointHealthProbeDegradedLatencyMs: integer('endpoint_health_probe_degraded_latency_ms').notNull().default(5_000),
+  firstTokenTimeoutMs: integer('first_token_timeout_ms').notNull().default(15_000),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });

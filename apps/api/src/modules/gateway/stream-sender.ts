@@ -50,6 +50,7 @@ export async function startUpstreamStream(
     if (options.signal.aborted) controller.abort();
     else options.signal.addEventListener('abort', onParentAbort);
   }
+  let streamStarted = false;
   try {
     const res = await fetch(req.url, {
       method: req.method,
@@ -62,6 +63,7 @@ export async function startUpstreamStream(
       headers[key.toLowerCase()] = value;
     });
     if (res.status >= 200 && res.status < 300) {
+      streamStarted = true;
       return {
         kind: 'ok',
         status: res.status,
@@ -93,7 +95,10 @@ export async function startUpstreamStream(
     };
   } finally {
     clearTimeout(timer);
-    if (options.signal) options.signal.removeEventListener('abort', onParentAbort);
+    // Keep the parent signal wired to the stream controller while the SSE body
+    // is being consumed. The caller aborts the parent signal to tear down a
+    // hung first-token read.
+    if (options.signal && !streamStarted) options.signal.removeEventListener('abort', onParentAbort);
   }
 }
 

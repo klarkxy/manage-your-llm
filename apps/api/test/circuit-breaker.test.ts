@@ -236,20 +236,25 @@ describe('circuit breaker admin API', () => {
       headers: { cookie: rig.cookie },
     });
     expect(get.statusCode).toBe(200);
-    const body = get.json() as { circuitBreaker: { enabled: boolean; failureThreshold: number } };
+    const body = get.json() as {
+      circuitBreaker: { enabled: boolean; failureThreshold: number };
+      streaming: { firstTokenTimeoutMs: number };
+    };
     expect(body.circuitBreaker.enabled).toBe(true);
     expect(body.circuitBreaker.failureThreshold).toBe(5);
+    expect(body.streaming.firstTokenTimeoutMs).toBe(15_000);
 
     const put = await rig.app.inject({
       method: 'PUT',
       url: '/api/admin/settings',
       headers: { cookie: rig.cookie, 'content-type': 'application/json' },
-      payload: { circuitBreaker: { failureThreshold: 3, baseCooldownMs: 2000 } },
+      payload: { circuitBreaker: { failureThreshold: 3, baseCooldownMs: 2000 }, streaming: { firstTokenTimeoutMs: 5_000 } },
     });
     expect(put.statusCode).toBe(200);
-    const updated = put.json() as { circuitBreaker: { failureThreshold: number; baseCooldownMs: number } };
+    const updated = put.json() as typeof body;
     expect(updated.circuitBreaker.failureThreshold).toBe(3);
     expect(updated.circuitBreaker.baseCooldownMs).toBe(2000);
+    expect(updated.streaming.firstTokenTimeoutMs).toBe(5_000);
   });
 
   it('resets a circuit breaker via admin API', async () => {

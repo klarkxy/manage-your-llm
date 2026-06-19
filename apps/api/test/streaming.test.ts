@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import http from 'node:http';
-import { usageRecords } from '../src/modules/db/index.js';
+import { eq } from 'drizzle-orm';
+import { usageRecords, upstreamKeys, publicModelCandidates } from '../src/modules/db/index.js';
+import { encryptUpstreamApiKey } from '../src/modules/admin/index.js';
+import { generateId } from '@modelharbor/shared';
+import { updateCircuitBreakerSettings } from '../src/modules/router/circuit-breaker.js';
 import { makeGatewayRig, type GatewayTestRig } from './gateway-helper.js';
+import { startFakeUpstream, type FakeUpstreamRig } from './fake-upstream.js';
 
 const ANTHROPIC_STREAM_BODY = {
   model: 'coding-fast',
@@ -137,6 +142,15 @@ interface LiveRig extends GatewayTestRig {
   closeAll: () => Promise<void>;
 }
 
+interface TwoUpstreamRig extends GatewayTestRig {
+  fastFake: FakeUpstreamRig;
+  slowFake: FakeUpstreamRig;
+  fastUpstreamKeyId: string;
+  slowUpstreamKeyId: string;
+  port: number;
+  closeAll: () => Promise<void>;
+}
+
 async function startListening(rig: GatewayTestRig): Promise<LiveRig> {
   await rig.app.listen({ host: '127.0.0.1', port: 0 });
   const addr = rig.app.server.address();
@@ -146,6 +160,64 @@ async function startListening(rig: GatewayTestRig): Promise<LiveRig> {
     port: addr.port,
     closeAll: async () => {
       await rig.app.close();
+    },
+  };
+}
+
+async function makeTwoUpstreamStreamingRig(): Promise<TwoUpstreamRig> {
+  const base = await makeGatewayRig({
+    providerType: 'anthropic_compatible',
+    createGroup: false,
+  });
+  const fastFake = base.fake;
+  const fastUpstreamKeyId = base.upstreamKeyId;
+  const slowFake = await startFakeUpstream();
+  const now = new Date();
+  const enc = encryptUpstreamApiKey(base.rawUpstreamKey, base.secretKey);
+  const slowUpstreamKeyId = generateId('upstreamKey');
+  await base.db.insert(upstreamKeys).values({
+    id: slowUpstreamKeyId,
+    name: 'Slow upstream',
+    providerType: 'anthropic_compatible',
+    baseUrl: slowFake.baseUrl,
+    apiKeyCiphertext: enc.ciphertext,
+    apiKeyPrefix: enc.prefix,
+    supportedModelsJson: JSON.stringify(['fake-real-model']),
+    enabled: true,
+    frozen: false,
+    cooldownUntil: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await base.db
+    .update(publicModelCandidates)
+    .set({ priority: 2, updatedAt: now })
+    .where(eq(publicModelCandidates.upstreamKeyId, fastUpstreamKeyId));
+  await base.db.insert(publicModelCandidates).values({
+    id: generateId('publicModel') + '_slow',
+    publicModelId: base.ids.publicModelId,
+    upstreamKeyId: slowUpstreamKeyId,
+    realModelName: 'fake-real-model',
+    enabled: true,
+    priority: 1,
+    weight: 1,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await base.app.listen({ host: '127.0.0.1', port: 0 });
+  const addr = base.app.server.address();
+  if (!addr || typeof addr === 'string') throw new Error('not listening');
+  return {
+    ...base,
+    fastFake,
+    slowFake,
+    fastUpstreamKeyId,
+    slowUpstreamKeyId,
+    port: addr.port,
+    closeAll: async () => {
+      await base.app.close();
+      await slowFake.close();
+      await base.close();
     },
   };
 }
@@ -634,5 +706,44 @@ describe('M5 streaming: usage records attribute to the resolved target (group)',
     expect(streamRec!.resolvedTargetType).toBe('model_group');
     expect(streamRec!.resolvedTargetId).toBe(rig.ids.modelGroupId);
     expect(streamRec!.requestedTargetName).toBe('coding');
+  });
+});
+
+describe('M7.5 streaming: first-token timeout failover', () => {
+  let rig: TwoUpstreamRig;
+  beforeEach(async () => {
+    rig = await makeTwoUpstreamStreamingRig();
+    await updateCircuitBreakerSettings(rig.db, { firstTokenTimeoutMs: 300 });
+  });
+  afterEach(async () => {
+    await rig.closeAll();
+  });
+
+  it('switches to the next candidate when the first upstream does not emit a token in time', async () => {
+    rig.slowFake.setAnthropicStream({ events: [], hangAfterHeaders: true });
+    rig.fastFake.setAnthropicStream({ events: anthropicStreamFrames });
+
+    const start = Date.now();
+    const res = await postSse(rig, '/v1/messages', ANTHROPIC_STREAM_BODY, {
+      'x-api-key': rig.rawConsumerKey,
+      accept: 'text/event-stream',
+    });
+    const elapsed = Date.now() - start;
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/event-stream/);
+    const frames = parseSseResponse(res.body);
+    expect(frames).toHaveLength(anthropicStreamFrames.length);
+    // It must have waited for the first-token timeout before trying the fast candidate.
+    expect(elapsed).toBeGreaterThanOrEqual(200);
+
+    // Both upstreams received a request attempt.
+    expect(rig.slowFake.anthropicRequests).toHaveLength(1);
+    expect(rig.fastFake.anthropicRequests).toHaveLength(1);
+
+    const records = await rig.db.select().from(usageRecords).all();
+    const successRec = records.find((r) => r.stream && r.status === 'success');
+    expect(successRec).toBeTruthy();
+    expect(successRec!.upstreamKeyId).toBe(rig.fastUpstreamKeyId);
   });
 });

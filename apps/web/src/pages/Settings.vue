@@ -28,6 +28,7 @@ import {
   type CircuitBreakerItem,
   type CircuitBreakerSettings,
   type EndpointHealthSettings,
+  type StreamingSettings,
 } from '../api/admin.js';
 
 const { t } = useI18n();
@@ -38,6 +39,7 @@ const savingProfile = ref(false);
 const savingPassword = ref(false);
 const savingCircuitBreaker = ref(false);
 const savingEndpointHealth = ref(false);
+const savingStreaming = ref(false);
 
 const profile = ref<AdminSummary | null>(null);
 const displayName = ref<string>('');
@@ -51,6 +53,7 @@ const auditLoading = ref(false);
 
 const circuitBreakerSettings = ref<CircuitBreakerSettings | null>(null);
 const endpointHealthSettings = ref<EndpointHealthSettings | null>(null);
+const streamingSettings = ref<StreamingSettings | null>(null);
 const circuitBreakers = ref<CircuitBreakerItem[]>([]);
 const circuitBreakersLoading = ref(false);
 
@@ -81,6 +84,7 @@ async function refreshCircuitBreakerSettings(): Promise<void> {
     const res = await settingsApi.get();
     circuitBreakerSettings.value = res.circuitBreaker;
     endpointHealthSettings.value = res.endpointHealth;
+    streamingSettings.value = res.streaming;
   } catch (err) {
     error.value = (err as Error).message;
   }
@@ -119,6 +123,22 @@ async function saveEndpointHealthSettings(): Promise<void> {
     error.value = err instanceof ApiClientError ? err.message : (err as Error).message;
   } finally {
     savingEndpointHealth.value = false;
+  }
+}
+
+async function saveStreamingSettings(): Promise<void> {
+  if (!streamingSettings.value) return;
+  savingStreaming.value = true;
+  error.value = null;
+  message.value = null;
+  try {
+    const res = await settingsApi.update({ streaming: streamingSettings.value });
+    streamingSettings.value = res.streaming;
+    message.value = t('settings.streaming.saved');
+  } catch (err) {
+    error.value = err instanceof ApiClientError ? err.message : (err as Error).message;
+  } finally {
+    savingStreaming.value = false;
   }
 }
 
@@ -359,6 +379,25 @@ const username = computed(() => profile.value?.username ?? '');
           <NSpace>
             <NButton type="primary" :loading="savingEndpointHealth" @click="saveEndpointHealthSettings">
               {{ t('settings.endpointHealth.save') }}
+            </NButton>
+          </NSpace>
+        </NForm>
+      </NCard>
+
+      <NCard :title="t('settings.streaming.title')">
+        <NSpin v-if="!streamingSettings" />
+        <NForm v-else label-placement="top" style="max-width: 640px">
+          <NFormItem :label="t('settings.streaming.firstTokenTimeoutMs')">
+            <NInputNumber
+              v-model:value="streamingSettings.firstTokenTimeoutMs"
+              :min="0"
+              :step="1000"
+              style="width: 200px"
+            />
+          </NFormItem>
+          <NSpace>
+            <NButton type="primary" :loading="savingStreaming" @click="saveStreamingSettings">
+              {{ t('settings.streaming.save') }}
             </NButton>
           </NSpace>
         </NForm>

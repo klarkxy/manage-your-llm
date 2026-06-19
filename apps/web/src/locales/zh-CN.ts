@@ -591,6 +591,12 @@ const messages: Messages = {
       save: '保存',
       saved: '端点健康设置已保存',
     },
+    streaming: {
+      title: '流式响应',
+      firstTokenTimeoutMs: '首 Token 超时（毫秒）',
+      save: '保存',
+      saved: '流式设置已保存',
+    },
     secretsNote:
       '敏感信息（原始消费密钥、原始上游 API 密钥、Authorization / x-api-key 值）在写入应用日志或审计存储前会被脱敏。',
   },

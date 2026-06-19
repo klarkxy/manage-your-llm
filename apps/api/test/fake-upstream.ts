@@ -51,6 +51,9 @@ export interface FakeStreamSpec<T> {
   // Optional delay (in ms) inserted between events. Helps tests observe
   // partial streams in flight.
   delayMs?: number;
+  // If true, send SSE headers and then keep the connection open until the
+  // client closes it. Used to exercise first-token timeout failover.
+  hangAfterHeaders?: boolean;
 }
 
 export interface FakeUpstreamRig {
@@ -170,6 +173,11 @@ export async function startFakeUpstream(): Promise<FakeUpstreamRig> {
       reply.raw.statusCode = 200;
       reply.raw.setHeader('content-type', 'text/event-stream; charset=utf-8');
       reply.raw.setHeader('cache-control', 'no-cache');
+      if (streamSpec.hangAfterHeaders) {
+        reply.raw.flushHeaders();
+        await new Promise<void>((resolve) => reply.raw.once('close', resolve));
+        return;
+      }
       for (let i = 0; i < streamSpec.events.length; i++) {
         if (streamSpec.closeAfter !== undefined && i >= streamSpec.closeAfter) {
           // Wait one tick so the already-queued `write` actually reaches
@@ -215,6 +223,11 @@ export async function startFakeUpstream(): Promise<FakeUpstreamRig> {
       reply.raw.statusCode = 200;
       reply.raw.setHeader('content-type', 'text/event-stream; charset=utf-8');
       reply.raw.setHeader('cache-control', 'no-cache');
+      if (streamSpec.hangAfterHeaders) {
+        reply.raw.flushHeaders();
+        await new Promise<void>((resolve) => reply.raw.once('close', resolve));
+        return;
+      }
       for (let i = 0; i < streamSpec.events.length; i++) {
         if (streamSpec.closeAfter !== undefined && i >= streamSpec.closeAfter) {
           // Wait one tick so the already-queued `write` actually reaches
@@ -256,6 +269,11 @@ export async function startFakeUpstream(): Promise<FakeUpstreamRig> {
       reply.raw.statusCode = 200;
       reply.raw.setHeader('content-type', 'text/event-stream; charset=utf-8');
       reply.raw.setHeader('cache-control', 'no-cache');
+      if (streamSpec.hangAfterHeaders) {
+        reply.raw.flushHeaders();
+        await new Promise<void>((resolve) => reply.raw.once('close', resolve));
+        return;
+      }
       for (let i = 0; i < streamSpec.events.length; i++) {
         if (streamSpec.closeAfter !== undefined && i >= streamSpec.closeAfter) {
           setImmediate(() => {
@@ -299,6 +317,11 @@ export async function startFakeUpstream(): Promise<FakeUpstreamRig> {
       reply.raw.statusCode = 200;
       reply.raw.setHeader('content-type', 'text/event-stream; charset=utf-8');
       reply.raw.setHeader('cache-control', 'no-cache');
+      if (streamSpec.hangAfterHeaders) {
+        reply.raw.flushHeaders();
+        await new Promise<void>((resolve) => reply.raw.once('close', resolve));
+        return;
+      }
       for (let i = 0; i < streamSpec.events.length; i++) {
         if (streamSpec.closeAfter !== undefined && i >= streamSpec.closeAfter) {
           setImmediate(() => {

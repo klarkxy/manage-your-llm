@@ -580,9 +580,14 @@ export interface EndpointHealthSettings {
   degradedLatencyMs: number;
 }
 
+export interface StreamingSettings {
+  firstTokenTimeoutMs: number;
+}
+
 export interface SettingsResponse {
   circuitBreaker: CircuitBreakerSettings;
   endpointHealth: EndpointHealthSettings;
+  streaming: StreamingSettings;
 }
 
 export interface CircuitBreakerItem {
@@ -603,8 +608,11 @@ export interface CircuitBreakerItem {
 
 export const settingsApi = {
   get: () => api.get<SettingsResponse>('/api/admin/settings'),
-  update: (payload: { circuitBreaker?: Partial<CircuitBreakerSettings>; endpointHealth?: Partial<EndpointHealthSettings> }) =>
-    api.put<SettingsResponse>('/api/admin/settings', payload),
+  update: (payload: {
+    circuitBreaker?: Partial<CircuitBreakerSettings>;
+    endpointHealth?: Partial<EndpointHealthSettings>;
+    streaming?: Partial<StreamingSettings>;
+  }) => api.put<SettingsResponse>('/api/admin/settings', payload),
 };
 
 export const circuitBreakerApi = {

@@ -33,6 +33,7 @@ export type TraceStep =
   | 'circuit_breaker_closed'
   | 'stream_start'
   | 'stream_end'
+  | 'first_token_timeout'
   | 'request_complete';
 
 export function generateTraceId(): string {
