@@ -401,6 +401,22 @@ const messages = {
         ip: 'IP',
       },
     },
+    streaming: {
+      title: 'Streaming',
+      firstTokenTimeoutMs: 'First-token timeout (ms)',
+      save: 'Save',
+      saved: 'Streaming settings saved',
+    },
+    contentLogging: {
+      title: 'Content logging',
+      warning:
+        'When enabled, prompts and responses are stored in the database. Make sure this complies with your privacy policy.',
+      enabled: 'Enable content logging',
+      retentionDays: 'Retention days',
+      maxPayloadBytes: 'Max payload bytes per row',
+      save: 'Save',
+      saved: 'Content logging settings saved',
+    },
     secretsNote:
       '민감 정보(원본 소비자 키, 원본 업스트림 API 키, Authorization / x-api-key 값)는 애플리케이션 로그나 감사 저장소에 기록되기 전에 마스킹됩니다.',
   },

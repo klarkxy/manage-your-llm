@@ -41,7 +41,7 @@ Contains:
 - Optional local logs.
 - Optional backup files.
 
-Do not store temporary provider responses or prompt logs by default.
+Do not store temporary provider responses or prompt logs by default. Full prompt/response content logging is available only when an admin explicitly enables `contentLogEnabled` in Settings; it remains off by default.
 
 ## First Run
 

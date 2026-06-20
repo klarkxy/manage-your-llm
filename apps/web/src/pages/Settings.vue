@@ -29,6 +29,7 @@ import {
   type CircuitBreakerSettings,
   type EndpointHealthSettings,
   type StreamingSettings,
+  type ContentLogSettings,
 } from '../api/admin.js';
 
 const { t } = useI18n();
@@ -40,6 +41,7 @@ const savingPassword = ref(false);
 const savingCircuitBreaker = ref(false);
 const savingEndpointHealth = ref(false);
 const savingStreaming = ref(false);
+const savingContentLogging = ref(false);
 
 const profile = ref<AdminSummary | null>(null);
 const displayName = ref<string>('');
@@ -54,6 +56,7 @@ const auditLoading = ref(false);
 const circuitBreakerSettings = ref<CircuitBreakerSettings | null>(null);
 const endpointHealthSettings = ref<EndpointHealthSettings | null>(null);
 const streamingSettings = ref<StreamingSettings | null>(null);
+const contentLogSettings = ref<ContentLogSettings | null>(null);
 const circuitBreakers = ref<CircuitBreakerItem[]>([]);
 const circuitBreakersLoading = ref(false);
 
@@ -85,6 +88,7 @@ async function refreshCircuitBreakerSettings(): Promise<void> {
     circuitBreakerSettings.value = res.circuitBreaker;
     endpointHealthSettings.value = res.endpointHealth;
     streamingSettings.value = res.streaming;
+    contentLogSettings.value = res.contentLogging;
   } catch (err) {
     error.value = (err as Error).message;
   }
@@ -139,6 +143,22 @@ async function saveStreamingSettings(): Promise<void> {
     error.value = err instanceof ApiClientError ? err.message : (err as Error).message;
   } finally {
     savingStreaming.value = false;
+  }
+}
+
+async function saveContentLogSettings(): Promise<void> {
+  if (!contentLogSettings.value) return;
+  savingContentLogging.value = true;
+  error.value = null;
+  message.value = null;
+  try {
+    const res = await settingsApi.update({ contentLogging: contentLogSettings.value });
+    contentLogSettings.value = res.contentLogging;
+    message.value = t('settings.contentLogging.saved');
+  } catch (err) {
+    error.value = err instanceof ApiClientError ? err.message : (err as Error).message;
+  } finally {
+    savingContentLogging.value = false;
   }
 }
 
@@ -398,6 +418,39 @@ const username = computed(() => profile.value?.username ?? '');
           <NSpace>
             <NButton type="primary" :loading="savingStreaming" @click="saveStreamingSettings">
               {{ t('settings.streaming.save') }}
+            </NButton>
+          </NSpace>
+        </NForm>
+      </NCard>
+
+      <NCard :title="t('settings.contentLogging.title')">
+        <NAlert type="warning" style="margin-bottom: 16px">
+          {{ t('settings.contentLogging.warning') }}
+        </NAlert>
+        <NSpin v-if="!contentLogSettings" />
+        <NForm v-else label-placement="top" style="max-width: 640px">
+          <NFormItem :label="t('settings.contentLogging.enabled')">
+            <NSwitch v-model:value="contentLogSettings.enabled" />
+          </NFormItem>
+          <NFormItem :label="t('settings.contentLogging.retentionDays')">
+            <NInputNumber
+              v-model:value="contentLogSettings.retentionDays"
+              :min="1"
+              :step="1"
+              style="width: 200px"
+            />
+          </NFormItem>
+          <NFormItem :label="t('settings.contentLogging.maxPayloadBytes')">
+            <NInputNumber
+              v-model:value="contentLogSettings.maxPayloadBytes"
+              :min="0"
+              :step="1024"
+              style="width: 200px"
+            />
+          </NFormItem>
+          <NSpace>
+            <NButton type="primary" :loading="savingContentLogging" @click="saveContentLogSettings">
+              {{ t('settings.contentLogging.save') }}
             </NButton>
           </NSpace>
         </NForm>

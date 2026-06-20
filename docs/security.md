@@ -90,13 +90,16 @@ Default behavior:
 - Do not store full completion.
 - Do not store raw upstream error bodies if they may contain sensitive request details.
 
-Optional future behavior:
+Optional behavior (admin-controlled, off by default):
 
-- Per-instance or per-app content logging setting.
-- Redaction rules.
-- Retention policy.
+- Global content logging in `admin_settings` (`contentLogEnabled`, `contentLogRetentionDays`, `contentLogMaxPayloadBytes`).
+- Redaction rules applied before persistence (`mh_`, `sk-`, `Bearer` tokens are redacted).
+- Retention policy enforced by the maintenance pass.
 
-Until those exist, content logging should remain off.
+Future behavior:
+
+- Per-app content logging override.
+- More granular redaction rules.
 
 ## Error Safety
 

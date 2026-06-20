@@ -48,6 +48,9 @@ export const adminSettings = sqliteTable('admin_settings', {
   endpointHealthProbeTimeoutMs: integer('endpoint_health_probe_timeout_ms').notNull().default(10_000),
   endpointHealthProbeDegradedLatencyMs: integer('endpoint_health_probe_degraded_latency_ms').notNull().default(5_000),
   firstTokenTimeoutMs: integer('first_token_timeout_ms').notNull().default(15_000),
+  contentLogEnabled: integer('content_log_enabled', { mode: 'boolean' }).notNull().default(false),
+  contentLogRetentionDays: integer('content_log_retention_days').notNull().default(7),
+  contentLogMaxPayloadBytes: integer('content_log_max_payload_bytes').notNull().default(100_000),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
@@ -557,6 +560,42 @@ export const requestTraceLogs = sqliteTable(
   ],
 );
 
+// --- Content logs (M6) ---
+
+// Optional full prompt/response content logging. Disabled by default; when
+// enabled, the gateway writes one row per successful request. The payload is
+// redacted (API keys, consumer keys, Authorization headers) and truncated to
+// `contentLogMaxPayloadBytes` before storage. Rows are pruned after
+// `contentLogRetentionDays`.
+export const contentLogs = sqliteTable(
+  'content_logs',
+  {
+    id: text('id').primaryKey(),
+    requestTraceId: text('request_trace_id'),
+    appId: text('app_id'),
+    consumerKeyId: text('consumer_key_id'),
+    requestedTargetName: text('requested_target_name'),
+    resolvedTargetType: text('resolved_target_type', { enum: TARGET_TYPES }),
+    resolvedTargetId: text('resolved_target_id'),
+    sourceProtocol: text('source_protocol'),
+    upstreamKeyId: text('upstream_key_id'),
+    upstreamKeyName: text('upstream_key_name'),
+    realModelName: text('real_model_name'),
+    promptJson: text('prompt_json'),
+    responseJson: text('response_json'),
+    inputTokens: integer('input_tokens'),
+    outputTokens: integer('output_tokens'),
+    totalTokens: integer('total_tokens'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (t) => [
+    index('content_logs_trace_id_idx').on(t.requestTraceId),
+    index('content_logs_created_at_idx').on(t.createdAt),
+    index('content_logs_consumer_idx').on(t.consumerKeyId, t.createdAt),
+    index('content_logs_upstream_idx').on(t.upstreamKeyId, t.createdAt),
+  ],
+);
+
 // --- Model consumption stats (M8) ---
 
 // Per-day aggregated consumption by upstream key + real model. Updated
@@ -628,6 +667,8 @@ export type LoginAttemptRow = typeof loginAttempts.$inferSelect;
 export type LoginAttemptInsert = typeof loginAttempts.$inferInsert;
 export type RequestTraceLogRow = typeof requestTraceLogs.$inferSelect;
 export type RequestTraceLogInsert = typeof requestTraceLogs.$inferInsert;
+export type ContentLogRow = typeof contentLogs.$inferSelect;
+export type ContentLogInsert = typeof contentLogs.$inferInsert;
 export type ModelConsumptionStatRow = typeof modelConsumptionStats.$inferSelect;
 export type ModelConsumptionStatInsert = typeof modelConsumptionStats.$inferInsert;
 export type AdminSettingsRow = typeof adminSettings.$inferSelect;

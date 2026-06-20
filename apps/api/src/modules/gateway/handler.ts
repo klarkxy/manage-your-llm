@@ -45,6 +45,7 @@ import {
 } from '../providers/index.js';
 import { sendUpstreamRequest, type SendOutcome } from './sender.js';
 import { writeUsageRecord } from '../usage/index.js';
+import { writeContentLog } from '../observability/content-logs.js';
 import { applyCooldown, computeCooldownUpdate, shouldCooldown } from './cooldown.js';
 import {
   conversationFingerprint,
@@ -694,6 +695,34 @@ async function runGateway(
         }
       });
     }
+    // Optional full prompt/response content logging (M6). Only runs on success
+    // and only when the administrator has enabled it. Best-effort: storage
+    // failures are swallowed.
+    if (outcome.ok && candidate) {
+      void writeContentLog(ctx.db, {
+        requestTraceId: traceId,
+        appId: ctx.appId,
+        consumerKeyId: ctx.consumerKeyId,
+        requestedTargetName: ir.requestedModel,
+        resolvedTargetType: target.targetType,
+        resolvedTargetId: target.targetId,
+        sourceProtocol,
+        upstreamKeyId: candidate.upstreamKeyId,
+        upstreamKeyName: candidate.upstreamKeyName,
+        realModelName: candidate.realModelName,
+        prompt: ir.rawRequest,
+        response: {
+          content: outcome.ir.content,
+          model: outcome.ir.model,
+          usage: outcome.ir.usage,
+        },
+        inputTokens: outcome.ir.usage?.inputTokens,
+        outputTokens: outcome.ir.usage?.outputTokens,
+        totalTokens: outcome.ir.usage?.totalTokens,
+        now,
+      });
+    }
+
     // Await the usage record so the dashboard reflects the call before the
     // response goes out. Swallow DB errors here too: a failed analytics
     // write must never reach the client.

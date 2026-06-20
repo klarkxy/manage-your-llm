@@ -271,6 +271,43 @@ CREATE INDEX model_consumption_stats_upstream_idx ON model_consumption_stats(ups
 - 内容日志也受保留策略约束（如 7 天）
 - 记录时进行敏感信息脱敏（redaction）
 
+### 实现
+
+- `apps/api/src/modules/db/schema.ts` 新增 `content_logs` 表与 `admin_settings` 三个字段：`contentLogEnabled`、`contentLogRetentionDays`、`contentLogMaxPayloadBytes`。
+- `apps/api/src/modules/observability/content-logs.ts` 提供 `getContentLogSettings`、`writeContentLog`、`pruneContentLogs`：默认关闭、最佳-effort 写入、先 redact 再按字节截断。
+- `apps/api/src/modules/gateway/handler.ts` 与 `stream-handler.ts` 在成功响应后调用 `writeContentLog`；流式场景只保存 prompt + usage 摘要，不累积全文。
+- `apps/api/src/modules/jobs/index.ts` 的维护任务调用 `pruneContentLogs` 并返回 `contentLogsRemoved`。
+- `apps/api/src/modules/admin/settings.ts` 在 `GET/PUT /api/admin/settings` 中暴露 `contentLogging` 区块。
+- `apps/web/src/pages/Settings.vue` 增加"内容日志"卡片，可启用开关、配置保留天数与单条最大字节数。
+- `packages/shared/src/ids.ts` 新增 `contentLog` ID 前缀。
+
+### 涉及文件
+
+| 文件 | 改动 |
+| --- | --- |
+| `apps/api/src/modules/db/schema.ts` | `content_logs` 表 + `admin_settings` 字段 |
+| `apps/api/src/modules/db/init.ts` | `content_logs` DDL + ALTER COLUMN |
+| `apps/api/src/modules/observability/content-logs.ts` | 新增模块：设置读取、写入、截断、redact、清理 |
+| `apps/api/src/modules/gateway/handler.ts` | 成功后写入内容日志 |
+| `apps/api/src/modules/gateway/stream-handler.ts` | 流式成功后写入 prompt + usage 摘要 |
+| `apps/api/src/modules/jobs/index.ts` | 维护任务清理过期内容日志 |
+| `apps/api/src/modules/admin/settings.ts` | 设置 API 暴露/更新内容日志配置 |
+| `apps/api/test/content-logs.test.ts` | 新增单元/集成测试 |
+| `apps/web/src/pages/Settings.vue` | 内容日志配置 UI |
+| `apps/web/src/api/admin.ts` | 前端类型与 payload |
+| `apps/web/src/locales/en.ts`、`zh-CN.ts` | UI 文案 |
+| `packages/shared/src/ids.ts` | `contentLog` 前缀 |
+
+### 验收标准
+
+- ✅ 内容日志默认关闭，关闭时不写入任何行。
+- ✅ 启用后只记录成功请求；失败请求不记录。
+- ✅ prompt/response 在落库前经过 redact，原始 consumer key 不会出现在 `content_logs` 中。
+- ✅ 超过 `maxPayloadBytes` 的 JSON 被截断并带 `[truncated]` 标记。
+- ✅ 维护任务按保留期清理过期行并计入 `JobResult.contentLogsRemoved`。
+- ✅ 管理员可在 Settings 页面启用/修改配置。
+- ✅ API 类型检查与测试通过。
+
 ### 优先级
 
 **低**。此功能非用户当前痛点，且有隐私合规风险。建议在其他阶段完成后再评估是否需要实现。
@@ -286,13 +323,13 @@ CREATE INDEX model_consumption_stats_upstream_idx ON model_consumption_stats(ups
 | 阶段四：每日消耗统计      | 🔴 高  | 阶段三 | 中（新增表 + upsert + API + 前端） | ✅ 已完成 |
 | 阶段五：缓存 Token 字段   | 🟡 中  | 无     | 小（表字段 + adapter 提取）        | ✅ 已完成 |
 | 阶段二：Capabilities 过滤 | 🟡 中  | 无     | 中（新增过滤逻辑 + 测试）          | ✅ 已完成 |
-| 阶段六：内容日志开关      | 🟢 低  | 无     | 中（开关 + 表 + 脱敏 + 前端）      | ⏳ 待做   |
+| 阶段六：内容日志开关      | 🟢 低  | 无     | 中（开关 + 表 + 脱敏 + 前端）      | ✅ 已完成 |
 
 当前队列中靠前的待做项：
 
 - ✅ `fusion-plan.md` 阶段七 7.4 Group 负载均衡已完成。
 - ✅ 本文件阶段二 Capabilities 路由过滤已完成。
-- 本文件阶段六内容日志开关（低优先级）。
+- ✅ 本文件阶段六内容日志开关已完成。
 
 ---
 
@@ -312,3 +349,49 @@ CREATE INDEX model_consumption_stats_upstream_idx ON model_consumption_stats(ups
 | `fusion-plan.md` 7.2 多端点延迟探测       | ✅ 已实现                                                                                                           |
 | `fusion-plan.md` 7.5 First-Token 超时切换 | ✅ 已实现                                                                                                           |
 | `testing.md` 测试策略                     | ✅ 已有测试框架                                                                                                     |
+| Phase 8.1 Provider Descriptor + 预设库重构 | ✅ 29 个 provider descriptor 已迁移至 `packages/shared/src/provider-registry`                                       |
+
+---
+
+## 阶段八：Provider Descriptor + 预设库重构（Phase 8.1）✅ 已完成
+
+### 目标
+
+把离散在 `apps/api/src/modules/providers/*.ts` 中的 `ProviderPreset` 迁移为统一的 `ProviderDescriptor`，并提升到 `packages/shared`，使新增 provider 只需在共享包预设库添加一份 descriptor，无需改动 API registry 核心代码。
+
+### 实现
+
+- `packages/shared/src/provider-registry/descriptor.ts` 定义 `ProviderDescriptor` 及辅助类型（`metadata`、`branding`、`capabilities`、`endpoints`、`authStrategies`、`modelSyncUrl`、`defaultModel`、`modelExamples` 等）。
+- `packages/shared/src/provider-registry/presets.ts` 集中存放 29 个 descriptor，按 `displayName` 排序，并提供 `getProviderDescriptor` / `listProviderDescriptors`。
+- `apps/api/src/modules/providers/index.ts` 改为从 `@modelharbor/shared` 读取 descriptor 并构建轻量 `ProviderModule`，保留 `ProviderPreset` 兼容类型与 `getProviderAdapter` 包装逻辑。
+- 删除 29 个旧的 provider preset 文件与 `guide-url.ts`。
+- `apps/api/src/modules/admin/upstream-keys.ts` 的 `/api/admin/provider-presets` 自动返回 richer descriptor 字段。
+- 前端 `apps/web/src/api/admin.ts` 扩展 `ProviderPreset` 类型，`UpstreamKeys.vue` 展示 `branding.color/icon`、`metadata` 链接，并用 `defaultModel` 作为 ping 测试模型默认值。
+- 新增 `packages/shared/src/provider-registry/presets.test.ts`，更新 `apps/api/test/providers.test.ts`。
+
+### 涉及文件
+
+| 文件 | 改动 |
+| --- | --- |
+| `packages/shared/src/provider-registry/descriptor.ts` | 新增 ProviderDescriptor 类型定义 |
+| `packages/shared/src/provider-registry/presets.ts` | 29 个 descriptor 预设库 |
+| `packages/shared/src/index.ts` | re-export provider-registry |
+| `packages/shared/src/provider-registry/presets.test.ts` | 新增 descriptor 校验测试 |
+| `apps/api/src/modules/providers/index.ts` | 基于 descriptor 构建 modules |
+| `apps/api/src/modules/providers/presets.ts` | 兼容 re-export |
+| `apps/api/src/modules/providers/types.ts` | ProviderPreset 作为 ProviderDescriptor 兼容别名 |
+| `apps/api/src/modules/providers/{xxx}.ts` | 删除 29 个旧 preset 文件 |
+| `apps/api/src/modules/providers/guide-url.ts` | 删除 |
+| `apps/api/test/providers.test.ts` | 更新 preset 断言 |
+| `apps/web/src/api/admin.ts` | 扩展 ProviderPreset 类型 |
+| `apps/web/src/pages/UpstreamKeys.vue` | 使用 descriptor metadata/branding/defaultModel |
+| `docs/provider-adapters.md` | 更新 descriptor 说明 |
+| `docs/api-contract.md` | 新增 `/api/admin/provider-presets` 响应字段说明 |
+
+### 验收标准
+
+- ✅ 新增 descriptor 后 `/api/admin/provider-presets` 无需改代码即可返回。
+- ✅ 现有 29 个 provider 的 endpoint、auth strategy、default extra headers/params 行为与重构前一致。
+- ✅ `pnpm --filter @modelharbor/shared test`、`pnpm --filter @modelharbor/api test` 全部通过。
+- ✅ Web 端 typecheck 与 build 通过。
+- ✅ UI 可展示 provider metadata 链接与 branding 颜色/图标。

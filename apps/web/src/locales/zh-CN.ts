@@ -201,6 +201,9 @@ const messages: Messages = {
         manual: '手动配置',
         guideLink: '查看密钥获取指引',
         guideLinkHint: '在新标签页中打开当前预设的获取凭证步骤。',
+        docsUrl: 'API 文档',
+        statusPageUrl: '状态页',
+        apiKeyUrl: '获取 API 密钥',
       },
       name: '名称',
       provider: '提供商',
@@ -276,6 +279,8 @@ const messages: Messages = {
     ping: {
       title: '测试连接：{name}',
       pingAll: '全部测试',
+      quickPing: '测试模型',
+      quickPingPlaceholder: '输入要测试的模型名称',
       button: '测试',
       success: '正常（{ms}ms）',
       failed: '失败',
@@ -609,6 +614,16 @@ const messages: Messages = {
       firstTokenTimeoutMs: '首 Token 超时（毫秒）',
       save: '保存',
       saved: '流式设置已保存',
+    },
+    contentLogging: {
+      title: '内容日志',
+      warning:
+        '启用后，提示词和响应内容会存入数据库。请确保这符合你的隐私政策。',
+      enabled: '启用内容日志',
+      retentionDays: '保留天数',
+      maxPayloadBytes: '每行最大负载字节数',
+      save: '保存',
+      saved: '内容日志设置已保存',
     },
     secretsNote:
       '敏感信息（原始消费密钥、原始上游 API 密钥、Authorization / x-api-key 值）在写入应用日志或审计存储前会被脱敏。',

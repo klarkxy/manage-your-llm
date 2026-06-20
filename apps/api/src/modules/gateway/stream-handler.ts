@@ -53,6 +53,7 @@ import {
 } from '../upstream/endpoint-health.js';
 import { startUpstreamStream, type RawStreamEvent, type StreamStart } from './stream-sender.js';
 import { writeUsageRecord } from '../usage/index.js';
+import { writeContentLog } from '../observability/content-logs.js';
 import {
   generateTraceId,
   writeTraceLogEntry,
@@ -887,6 +888,30 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
       stickyHit,
       sessionStickyHit,
     );
+    // Optional prompt/response content logging (M6). For streaming requests we
+    // store the prompt plus a response summary (token usage); the full streamed
+    // text is not accumulated. Best-effort.
+    void writeContentLog(ctx.db, {
+      requestTraceId: traceId,
+      appId: ctx.appId,
+      consumerKeyId: ctx.consumerKeyId,
+      requestedTargetName: streamCtx.ir.requestedModel,
+      resolvedTargetType: target.targetType,
+      resolvedTargetId: target.targetId,
+      sourceProtocol: streamCtx.sourceProtocol,
+      upstreamKeyId: candidate.upstreamKeyId,
+      upstreamKeyName: candidate.upstreamKeyName,
+      realModelName: candidate.realModelName,
+      prompt: streamCtx.ir.rawRequest,
+      response: {
+        stream: true,
+        usage: usageBag.value,
+      },
+      inputTokens: usageBag.value?.inputTokens,
+      outputTokens: usageBag.value?.outputTokens,
+      totalTokens: usageBag.value?.totalTokens,
+      now: new Date(),
+    });
     const usageTokens = usageBag.value ?? {
       inputTokens: 0,
       outputTokens: 0,

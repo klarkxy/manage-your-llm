@@ -260,13 +260,12 @@ MVP settings:
 - Circuit Breaker: enable/disable, failure threshold, base/max cooldown, half-open success count.
 - Endpoint Health Probe: enable/disable, probe interval, probe timeout, degraded latency threshold.
 - Streaming: first-token timeout (`firstTokenTimeoutMs`, `0` disables failover).
-- Logging settings placeholder.
+- Content Logging: enable/disable, retention days, max payload bytes per row.
 
 Future settings:
 
 - OIDC.
 - Postgres/Redis status.
-- Content logging controls.
 - Backup hints.
 
 ## Naive UI Component Guidance

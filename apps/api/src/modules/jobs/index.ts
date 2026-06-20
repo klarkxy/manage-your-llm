@@ -19,7 +19,7 @@ import { resetExpiredCounters } from '../quota/index.js';
 import { pruneExpiredStickyBindings } from '../sticky/index.js';
 import { pruneExpiredStickySessions } from '../sticky/session.js';
 
-import { pruneTraceLogs } from '../observability/index.js';
+import { pruneTraceLogs, pruneContentLogs } from '../observability/index.js';
 import {
   ensureDefaultCircuitBreakerSettings,
   pruneCircuitBreakers,
@@ -34,6 +34,7 @@ export interface JobResult {
   tracesRemoved: number;
   circuitBreakersRemoved: number;
   endpointsPruned: number;
+  contentLogsRemoved: number;
 }
 
 export async function runMaintenancePass(db: Db, now: Date = new Date()): Promise<JobResult> {
@@ -42,6 +43,7 @@ export async function runMaintenancePass(db: Db, now: Date = new Date()): Promis
   const stickyRemoved = await pruneExpiredStickyBindings(db, now);
   const stickySessionsRemoved = await pruneExpiredStickySessions(db, now);
   const tracesRemoved = await pruneTraceLogs(db, { now });
+  const contentLogsRemoved = await pruneContentLogs(db, now);
   const circuitBreakersRemoved = await pruneCircuitBreakers(db, { now });
   const endpointsPruned = await pruneOrphanEndpointHealth(db);
   // Cooldowns whose `cooldownUntil` is in the past get nulled out so the row
@@ -72,6 +74,7 @@ export async function runMaintenancePass(db: Db, now: Date = new Date()): Promis
     stickySessionsRemoved,
     cooldownsCleared,
     tracesRemoved,
+    contentLogsRemoved,
     circuitBreakersRemoved,
     endpointsPruned,
   };

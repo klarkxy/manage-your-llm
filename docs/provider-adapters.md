@@ -28,11 +28,26 @@ MVP adapters:
 - `openai_compatible`
 - `codex` (OpenAI Responses API / GPT-5.5+)
 
-Official provider presets are kept in `apps/api/src/modules/providers/presets.ts`. Each preset can declare one or more endpoints, so a single upstream key can serve both Anthropic- and OpenAI-protocol clients. Presets cover mainstream international and China-region providers such as OpenAI, Anthropic, DeepSeek, Moonshot, MiniMax, OpenRouter, OpenCode Go, OpenCode Zen, Groq, Together, Cerebras, Fireworks, xAI, Qwen, Zhipu, Baichuan, ByteDance Volcano Ark, Tencent Hunyuan, Baidu Qianfan, StepFun, and SiliconFlow (硅基流动).
+Official provider presets are now maintained as **Provider Descriptors** in `packages/shared/src/provider-registry/presets.ts`. A descriptor can declare one or more endpoints, so a single upstream key can serve both Anthropic- and OpenAI-protocol clients. The registry covers mainstream international and China-region providers such as OpenAI, Anthropic, DeepSeek, Moonshot, MiniMax, OpenRouter, OpenCode Go, OpenCode Zen, Groq, Together, Cerebras, Fireworks, xAI, Qwen, Zhipu, Baichuan, ByteDance Volcano Ark, Tencent Hunyuan, Baidu Qianfan, StepFun, SiliconFlow (硅基流动), Coze, and Codex.
 
-Presets no longer ship hardcoded model lists. They only declare endpoints, display metadata, and optional default headers. The legacy `modelMappings` field on `GET /api/admin/provider-presets` is kept empty for API compatibility. Admins discover available models by calling `POST /api/admin/upstream-keys/discover-models`, which probes the upstream `/v1/models` endpoint and returns `{ realName, publicName }` pairs with `publicName` defaulting to `realName`.
+A `ProviderDescriptor` includes:
 
-The admin UI consumes presets through `GET /api/admin/provider-presets` and uses the preset `id` as an i18n key under `providers.{id}` in `apps/web/src/locales/*.ts`. Each preset may also declare an `icon` (emoji or future SVG identifier) that the UI renders next to the localized display name.
+- `id` – stable identifier and i18n key (`providers.{id}`).
+- `metadata` – `displayName`, optional `docsUrl`, `statusPageUrl`, and `apiKeyUrl`.
+- `branding` – optional `icon` (emoji or SVG identifier) and `color`.
+- `capabilities` – served `protocols` and feature flags (`supportsTools`, `supportsToolChoice`, `supportsVision`, `supportsJsonMode`, `supportsThinking`).
+- `endpoints` – one or more `{ protocol, baseUrl, providerType, apiPath? }` entries.
+- `authStrategies` – optional `{ default, available }` strategy list.
+- `defaultExtraHeaders` / `defaultExtraParams` – seeds for per-key overrides.
+- `guideUrl` – link to the setup guide.
+- `modelSyncUrl` – optional model-list sync endpoint (for Phase 8.4).
+- `defaultModel` / `modelExamples` – defaults for ping tests and UI examples.
+
+Adding a new provider only requires appending a descriptor to `packages/shared/src/provider-registry/presets.ts`; the API layer derives its preset view and adapter selection automatically from the descriptor.
+
+Presets no longer ship hardcoded model lists. The legacy `modelMappings` field on `GET /api/admin/provider-presets` is kept empty for API compatibility. Admins discover available models by calling `POST /api/admin/upstream-keys/discover-models`, which probes the upstream `/v1/models` endpoint and returns `{ realName, publicName }` pairs with `publicName` defaulting to `realName`.
+
+The admin UI consumes presets through `GET /api/admin/provider-presets` and uses the preset `id` as an i18n key under `providers.{id}` in `apps/web/src/locales/*.ts`. Each preset may also declare an `icon` and `color` that the UI renders next to the localized display name.
 
 When an admin selects a preset while creating an upstream key, the form auto-fills the endpoint details and the model mapping list. The model mappings are editable in the UI: each row is `{ realName (required) -> publicName (optional) }`, with add/remove/toggle controls. The preset's computed `modelMappings` become the default template, but the admin can override, disable, or extend them before submitting. The finalized list is sent as `modelMappings` on `POST /api/admin/upstream-keys` and drives automatic model onboarding.
 
@@ -183,7 +198,7 @@ Router behavior can then decide whether to retry, cool down, freeze, or return t
 
 Checklist:
 
-1. Add a provider preset in `apps/api/src/modules/providers/presets.ts` with the correct `baseUrl`, `providerType`, optional `apiPath`, and model mappings. If the provider has distinct China and international endpoints, add separate presets.
+1. Add a provider descriptor in `packages/shared/src/provider-registry/presets.ts` with the correct `baseUrl`, `providerType`, optional `apiPath`, `metadata`, `branding`, `capabilities`, and `authStrategies`. If the provider has distinct China and international endpoints, add separate descriptors.
 2. If the provider needs a new transport or request/response shape, add a provider type and implement the adapter contract.
 3. Declare capabilities.
 4. Add admin dashboard preset labels and help text.

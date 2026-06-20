@@ -244,6 +244,62 @@ Returns the current admin user.
 
 ### Upstream Keys
 
+#### GET /api/admin/provider-presets
+
+Lists built-in provider presets used to seed upstream key configuration.
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "icon": "🤖",
+      "metadata": {
+        "displayName": "OpenAI",
+        "docsUrl": "https://platform.openai.com/docs",
+        "apiKeyUrl": "https://platform.openai.com/api-keys",
+        "statusPageUrl": "https://status.openai.com"
+      },
+      "branding": {
+        "icon": "🤖",
+        "color": "#10A37F"
+      },
+      "capabilities": {
+        "protocols": ["openai"],
+        "supportsTools": false,
+        "supportsToolChoice": false,
+        "supportsVision": false,
+        "supportsJsonMode": false,
+        "supportsThinking": false
+      },
+      "endpoints": [
+        {
+          "protocol": "openai",
+          "baseUrl": "https://api.openai.com",
+          "providerType": "openai_compatible"
+        }
+      ],
+      "authStrategies": {
+        "default": "pat",
+        "available": ["pat"]
+      },
+      "defaultExtraHeaders": {},
+      "defaultExtraParams": {},
+      "guideUrl": "/docs/provider-guides/openai.md",
+      "modelSyncUrl": null,
+      "defaultModel": "gpt-4o-mini",
+      "modelExamples": ["gpt-4o", "gpt-4o-mini", "o3-mini"],
+      "modelMappings": []
+    }
+  ]
+}
+```
+
+Legacy fields (`id`, `name`, `icon`, `endpoints`, `modelMappings`, `authStrategies`, `defaultExtraHeaders`, `defaultExtraParams`, `guideUrl`) remain present for backward compatibility. New descriptor fields (`metadata`, `branding`, `capabilities`, `modelSyncUrl`, `defaultModel`, `modelExamples`) are optional and may be absent for some presets.
+
 #### GET /api/admin/upstream-keys
 
 Returns upstream keys without raw secret values.

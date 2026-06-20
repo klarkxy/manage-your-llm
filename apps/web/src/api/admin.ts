@@ -205,6 +205,28 @@ export interface ProviderPreset {
   // Optional URL to a setup guide explaining how to obtain credentials for
   // this provider. The admin drawer renders this as an external link.
   guideUrl?: string;
+  // Richer provider descriptor metadata (Phase 8.1).
+  metadata?: {
+    displayName: string;
+    docsUrl?: string;
+    statusPageUrl?: string;
+    apiKeyUrl?: string;
+  };
+  branding?: {
+    icon?: string;
+    color?: string;
+  };
+  capabilities?: {
+    protocols: ('anthropic' | 'openai' | 'codex')[];
+    supportsTools: boolean;
+    supportsToolChoice: boolean;
+    supportsVision: boolean;
+    supportsJsonMode: boolean;
+    supportsThinking: boolean;
+  };
+  modelSyncUrl?: string;
+  defaultModel?: string;
+  modelExamples?: string[];
 }
 
 export const providerPresetsApi = {
@@ -594,10 +616,17 @@ export interface StreamingSettings {
   firstTokenTimeoutMs: number;
 }
 
+export interface ContentLogSettings {
+  enabled: boolean;
+  retentionDays: number;
+  maxPayloadBytes: number;
+}
+
 export interface SettingsResponse {
   circuitBreaker: CircuitBreakerSettings;
   endpointHealth: EndpointHealthSettings;
   streaming: StreamingSettings;
+  contentLogging: ContentLogSettings;
 }
 
 export interface CircuitBreakerItem {
@@ -622,6 +651,7 @@ export const settingsApi = {
     circuitBreaker?: Partial<CircuitBreakerSettings>;
     endpointHealth?: Partial<EndpointHealthSettings>;
     streaming?: Partial<StreamingSettings>;
+    contentLogging?: Partial<ContentLogSettings>;
   }) => api.put<SettingsResponse>('/api/admin/settings', payload),
 };
 

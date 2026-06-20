@@ -401,6 +401,22 @@ const messages = {
         ip: 'IP',
       },
     },
+    streaming: {
+      title: 'Streaming',
+      firstTokenTimeoutMs: 'First-token timeout (ms)',
+      save: 'Save',
+      saved: 'Streaming settings saved',
+    },
+    contentLogging: {
+      title: 'Content logging',
+      warning:
+        'When enabled, prompts and responses are stored in the database. Make sure this complies with your privacy policy.',
+      enabled: 'Enable content logging',
+      retentionDays: 'Retention days',
+      maxPayloadBytes: 'Max payload bytes per row',
+      save: 'Save',
+      saved: 'Content logging settings saved',
+    },
     secretsNote:
       'Los secretos (claves de consumidor en bruto, claves API de origen en bruto, valores Authorization / x-api-key) se enmascaran antes de llegar al registro de la aplicación o al almacén de auditoría.',
   },

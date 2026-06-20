@@ -25,6 +25,7 @@ import {
   NPopconfirm,
   useMessage,
   type DataTableColumns,
+  type SelectOption,
 } from 'naive-ui';
 import {
   providerPresetsApi,
@@ -96,6 +97,7 @@ const pingKey = ref<UpstreamKey | null>(null);
 const pingCandidates = ref<UpstreamKeyCandidate[]>([]);
 const pingLoading = ref<Set<string>>(new Set());
 const pingResults = ref<Record<string, UpstreamKeyPingResult>>({});
+const quickPingModel = ref('');
 
 const healthOpen = ref(false);
 const healthKey = ref<UpstreamKey | null>(null);
@@ -466,6 +468,9 @@ async function openPing(row: UpstreamKey) {
   pingKey.value = row;
   pingResults.value = {};
   pingLoading.value = new Set();
+  const preset = presets.value.find((p) => p.id === row.providerPresetId);
+  quickPingModel.value =
+    preset?.defaultModel ?? preset?.modelExamples?.[0] ?? '';
   pingOpen.value = true;
   await refreshPingCandidates(row.id);
 }
@@ -653,18 +658,34 @@ const authTypeOptions = computed(() => {
   return [{ label: t('upstreamKeys.drawer.authType.pat'), value: 'pat' }];
 });
 
-const presetOptions = computed(() => {
+interface PresetOption extends SelectOption {
+  icon?: string;
+  color?: string;
+}
+
+const presetOptions = computed<PresetOption[]>(() => {
   const sorted = [...presets.value].sort((a, b) =>
     t(`providers.${a.id}`).localeCompare(t(`providers.${b.id}`)),
   );
   return [
     { label: t('upstreamKeys.drawer.preset.manual'), value: '' },
     ...sorted.map((p) => ({
-      label: `${p.icon ? `${p.icon} ` : ''}${t(`providers.${p.id}`)}`,
+      label: t(`providers.${p.id}`),
       value: p.id,
+      icon: p.icon,
+      color: p.branding?.color,
     })),
   ];
 });
+
+function renderPresetLabel(option: PresetOption) {
+  const prefix = option.icon ? `${option.icon} ` : '';
+  return h(
+    'span',
+    { style: { color: option.color || undefined, display: 'inline-flex', alignItems: 'center', gap: '4px' } },
+    `${prefix}${option.label}`,
+  );
+}
 
 const selectedPreset = computed(() => presets.value.find((p) => p.id === selectedPresetId.value));
 
@@ -927,6 +948,7 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
             <NSelect
               v-model:value="selectedPresetId"
               :options="presetOptions"
+              :render-label="renderPresetLabel"
               :loading="presetsLoading"
               :placeholder="t('upstreamKeys.drawer.preset.placeholder')"
               :disabled="isEdit"
@@ -948,6 +970,37 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
               rel="noopener noreferrer"
               style="font-size: 12px"
               >{{ t('upstreamKeys.drawer.preset.guideLink') }} ↗</a
+            >
+          </NSpace>
+          <NSpace
+            v-if="selectedPreset?.metadata"
+            align="center"
+            :size="12"
+            style="margin-top: -12px; margin-bottom: 12px"
+          >
+            <a
+              v-if="selectedPreset.metadata.docsUrl"
+              :href="selectedPreset.metadata.docsUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              style="font-size: 12px"
+              >{{ t('upstreamKeys.drawer.preset.docsUrl') }} ↗</a
+            >
+            <a
+              v-if="selectedPreset.metadata.statusPageUrl"
+              :href="selectedPreset.metadata.statusPageUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              style="font-size: 12px"
+              >{{ t('upstreamKeys.drawer.preset.statusPageUrl') }} ↗</a
+            >
+            <a
+              v-if="selectedPreset.metadata.apiKeyUrl"
+              :href="selectedPreset.metadata.apiKeyUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              style="font-size: 12px"
+              >{{ t('upstreamKeys.drawer.preset.apiKeyUrl') }} ↗</a
             >
           </NSpace>
           <NFormItem :label="t('upstreamKeys.drawer.name')" required>
@@ -1156,6 +1209,21 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
     >
       <NSpace vertical>
         <NText depth="3">{{ pingKey?.baseUrl }}</NText>
+        <NSpace align="center" style="width: 100%">
+          <NInput
+            v-model:value="quickPingModel"
+            :placeholder="t('upstreamKeys.ping.quickPingPlaceholder')"
+            style="flex: 1"
+          />
+          <NButton
+            size="small"
+            :disabled="!quickPingModel.trim() || pingLoading.size > 0"
+            :loading="pingLoading.has(quickPingModel.trim())"
+            @click="handlePing(pingKey!.id, quickPingModel.trim())"
+          >
+            {{ t('upstreamKeys.ping.quickPing') }}
+          </NButton>
+        </NSpace>
         <NSpace v-if="pingHealthRows.length > 0" vertical size="small" style="width: 100%">
           <NText depth="3" style="font-size: 12px">{{
             t('upstreamKeys.ping.endpointHealthTitle')

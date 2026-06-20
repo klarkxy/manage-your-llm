@@ -400,6 +400,22 @@ const messages = {
         ip: 'IP',
       },
     },
+    streaming: {
+      title: '串流回應',
+      firstTokenTimeoutMs: '首 Token 逾時（毫秒）',
+      save: '儲存',
+      saved: '串流設定已儲存',
+    },
+    contentLogging: {
+      title: '內容記錄',
+      warning:
+        '啟用後，提示詞與回應內容會存入資料庫。請確保符合你的隱私政策。',
+      enabled: '啟用內容記錄',
+      retentionDays: '保留天數',
+      maxPayloadBytes: '每行最大負載位元組數',
+      save: '儲存',
+      saved: '內容記錄設定已儲存',
+    },
     secretsNote:
       '敏感資訊（原始消費金鑰、原始上游 API 金鑰、Authorization / x-api-key 值）在寫入應用程式記錄或稽核儲存前會被去識別化。',
   },

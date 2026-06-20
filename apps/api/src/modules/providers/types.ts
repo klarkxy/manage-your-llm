@@ -149,50 +149,27 @@ export interface ProviderAdapter {
   extractUsage(context: ProviderResponseContext): NormalizedChatResponse['usage'];
 }
 
-export interface ProviderPresetEndpoint {
-  // Client protocol this endpoint serves.
-  protocol: SourceProtocol;
-  // Upstream base URL for this endpoint (e.g. "https://api.minimaxi.com/anthropic").
-  baseUrl: string;
-  // Adapter used to talk to this endpoint (anthropic_compatible / openai_compatible).
-  providerType: ProviderType;
-  // Optional full request path override. When omitted the adapter appends its
-  // default protocol path ("/v1/messages" or "/v1/chat/completions"). Use this
-  // for providers whose endpoint path does not include the standard /v1 segment.
-  apiPath?: string;
-}
+// Re-export descriptor types from the shared package. API code continues to use
+// the `ProviderPreset*` names for backward compatibility; they are now aliases
+// to the canonical `ProviderDescriptor*` types.
+import type {
+  ProviderDescriptor,
+  ProviderDescriptorEndpoint,
+  ProviderDescriptorAuthStrategies,
+} from '@modelharbor/shared';
 
-export interface ProviderPresetAuthStrategies {
-  default: string;
-  available: string[];
-}
+export type { ProviderDescriptorEndpoint as ProviderPresetEndpoint };
+export type { ProviderDescriptorAuthStrategies as ProviderPresetAuthStrategies };
 
-export interface ProviderPreset {
-  id: string;
-  // English display name. The frontend should use the preset id as an i18n key
-  // (providers.{id}) and fall back to this name when no translation exists.
+// Runtime compatibility shim: legacy code expects every preset to expose the
+// top-level `name` and `icon` fields. The conversion helper in `index.ts`
+// spreads the descriptor and adds these aliases when building modules.
+export type ProviderPreset = ProviderDescriptor & {
+  /** @deprecated Use `metadata.displayName` instead. */
   name: string;
-  // Optional icon hint for the admin UI. This can be an emoji, an SVG filename,
-  // or any identifier the frontend understands. Official provider SVGs can be
-  // dropped into apps/web/public/icons/providers/{id}.svg and referenced here.
+  /** @deprecated Use `branding.icon` instead. */
   icon?: string;
-  endpoints: ProviderPresetEndpoint[];
-  // Extra headers to send on every request (e.g. anthropic-version).
-  defaultHeaders?: Record<string, string>;
-  // Default extra headers / body params for this provider. They seed the
-  // upstream-key config and can be overridden per key in the admin UI.
-  defaultExtraHeaders?: Record<string, string>;
-  defaultExtraParams?: Record<string, unknown>;
-  // Supported authentication strategies for this provider. When omitted the
-  // upstream key falls back to the generic PAT (static apiKey) strategy.
-  authStrategies?: ProviderPresetAuthStrategies;
-  // Optional absolute or root-relative URL to a setup guide explaining how to
-  // obtain credentials for this provider. The admin drawer renders this as a
-  // hyperlink when the preset is selected. The typical value is
-  // "/docs/provider-guides/{id}.md" which is served as a static asset from
-  // the web app's public folder.
-  guideUrl?: string;
-}
+};
 
 export interface ModelMapping {
   publicName: string;

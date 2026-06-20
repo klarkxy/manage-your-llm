@@ -37,9 +37,15 @@ const STATEMENTS: readonly string[] = [
      endpoint_health_probe_timeout_ms INTEGER NOT NULL DEFAULT 10000,
      endpoint_health_probe_degraded_latency_ms INTEGER NOT NULL DEFAULT 5000,
      first_token_timeout_ms INTEGER NOT NULL DEFAULT 15000,
+     content_log_enabled INTEGER NOT NULL DEFAULT 0,
+     content_log_retention_days INTEGER NOT NULL DEFAULT 7,
+     content_log_max_payload_bytes INTEGER NOT NULL DEFAULT 100000,
      created_at INTEGER NOT NULL,
      updated_at INTEGER NOT NULL
    )`,
+  `ALTER TABLE admin_settings ADD COLUMN content_log_enabled INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE admin_settings ADD COLUMN content_log_retention_days INTEGER NOT NULL DEFAULT 7`,
+  `ALTER TABLE admin_settings ADD COLUMN content_log_max_payload_bytes INTEGER NOT NULL DEFAULT 100000`,
   `ALTER TABLE admin_settings ADD COLUMN endpoint_health_probe_enabled INTEGER NOT NULL DEFAULT 1`,
   `ALTER TABLE admin_settings ADD COLUMN endpoint_health_probe_interval_ms INTEGER NOT NULL DEFAULT 3600000`,
   `ALTER TABLE admin_settings ADD COLUMN endpoint_health_probe_timeout_ms INTEGER NOT NULL DEFAULT 10000`,
@@ -411,6 +417,31 @@ const STATEMENTS: readonly string[] = [
   `CREATE INDEX IF NOT EXISTS request_trace_logs_created_at_idx ON request_trace_logs(created_at)`,
   `CREATE INDEX IF NOT EXISTS request_trace_logs_consumer_idx ON request_trace_logs(consumer_key_id, created_at)`,
   `CREATE INDEX IF NOT EXISTS request_trace_logs_upstream_idx ON request_trace_logs(upstream_key_id, created_at)`,
+
+  // M6: content logs
+  `CREATE TABLE IF NOT EXISTS content_logs (
+     id TEXT PRIMARY KEY,
+     request_trace_id TEXT,
+     app_id TEXT,
+     consumer_key_id TEXT,
+     requested_target_name TEXT,
+     resolved_target_type TEXT,
+     resolved_target_id TEXT,
+     source_protocol TEXT,
+     upstream_key_id TEXT,
+     upstream_key_name TEXT,
+     real_model_name TEXT,
+     prompt_json TEXT,
+     response_json TEXT,
+     input_tokens INTEGER,
+     output_tokens INTEGER,
+     total_tokens INTEGER,
+     created_at INTEGER NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS content_logs_trace_id_idx ON content_logs(request_trace_id)`,
+  `CREATE INDEX IF NOT EXISTS content_logs_created_at_idx ON content_logs(created_at)`,
+  `CREATE INDEX IF NOT EXISTS content_logs_consumer_idx ON content_logs(consumer_key_id, created_at)`,
+  `CREATE INDEX IF NOT EXISTS content_logs_upstream_idx ON content_logs(upstream_key_id, created_at)`,
 
   // M8: model consumption stats
   `CREATE TABLE IF NOT EXISTS model_consumption_stats (

@@ -733,12 +733,14 @@ describe('provider presets', () => {
       'siliconflow',
       'agnes-ai',
       'kimi-code',
+      'coze',
       'codex',
     ];
     for (const id of presets) {
       const preset = getProviderPreset(id);
       expect(preset, `preset ${id} should exist`).toBeTruthy();
       expect(preset!.endpoints.length).toBeGreaterThan(0);
+      expect(preset!.name).toBe(preset!.metadata.displayName);
       expect(getModelMappings(preset!).length).toBe(0);
       for (const ep of preset!.endpoints) {
         expect(ep.protocol).toMatch(/^(anthropic|openai|codex)$/);

@@ -65,10 +65,12 @@ Potential additions:
 
 - OIDC admin login.
 - Multiple admin users and roles.
-- Content logging with redaction.
+- Per-app content logging policy.
 - Retention policies.
 - External secret manager support.
 - Backup and restore UI.
+
+MVP already ships a global content-logging switch with redaction, truncation, and retention (off by default).
 
 MVP keeps one local admin role.
 

@@ -1,7 +1,8 @@
 // Admin routes for global settings and circuit breaker management (M9).
 
+import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
-import { type Db } from '../db/index.js';
+import { type Db, adminSettings } from '../db/index.js';
 import {
   ensureDefaultCircuitBreakerSettings,
   getCircuitBreakerSettings,
@@ -9,6 +10,10 @@ import {
   resetCircuitBreaker,
   updateCircuitBreakerSettings,
 } from '../router/circuit-breaker.js';
+import {
+  getContentLogSettings,
+  type ContentLogSettings,
+} from '../observability/content-logs.js';
 
 export interface SettingsRouteDeps {
   db: Db;
@@ -20,6 +25,7 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
   app.get('/api/admin/settings', async () => {
     await ensureDefaultCircuitBreakerSettings(db);
     const settings = await getCircuitBreakerSettings(db);
+    const contentLog = await getContentLogSettings(db);
     return {
       circuitBreaker: {
         enabled: settings.circuitBreakerEnabled,
@@ -36,6 +42,11 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
       },
       streaming: {
         firstTokenTimeoutMs: settings.firstTokenTimeoutMs,
+      },
+      contentLogging: {
+        enabled: contentLog.enabled,
+        retentionDays: contentLog.retentionDays,
+        maxPayloadBytes: contentLog.maxPayloadBytes,
       },
     };
   });
@@ -58,22 +69,53 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
       streaming?: {
         firstTokenTimeoutMs?: number;
       };
+      contentLogging?: Partial<ContentLogSettings>;
     };
     const cbInput = body.circuitBreaker ?? {};
     const ehInput = body.endpointHealth ?? {};
     const streamInput = body.streaming ?? {};
-    const updated = await updateCircuitBreakerSettings(db, {
-      circuitBreakerEnabled: cbInput.enabled,
-      circuitBreakerFailureThreshold: cbInput.failureThreshold,
-      circuitBreakerBaseCooldownMs: cbInput.baseCooldownMs,
-      circuitBreakerMaxCooldownMs: cbInput.maxCooldownMs,
-      circuitBreakerHalfOpenSuccessCount: cbInput.halfOpenSuccessCount,
-      endpointHealthProbeEnabled: ehInput.probeEnabled,
-      endpointHealthProbeIntervalMs: ehInput.probeIntervalMs,
-      endpointHealthProbeTimeoutMs: ehInput.probeTimeoutMs,
-      endpointHealthProbeDegradedLatencyMs: ehInput.degradedLatencyMs,
-      firstTokenTimeoutMs: streamInput.firstTokenTimeoutMs,
-    });
+    const clInput = body.contentLogging ?? {};
+
+    const values: Partial<typeof adminSettings.$inferInsert> = {};
+    if (typeof cbInput.enabled === 'boolean') values.circuitBreakerEnabled = cbInput.enabled;
+    if (typeof cbInput.failureThreshold === 'number') {
+      values.circuitBreakerFailureThreshold = Math.max(1, Math.round(cbInput.failureThreshold));
+    }
+    if (typeof cbInput.baseCooldownMs === 'number') {
+      values.circuitBreakerBaseCooldownMs = Math.max(1000, Math.round(cbInput.baseCooldownMs));
+    }
+    if (typeof cbInput.maxCooldownMs === 'number') {
+      values.circuitBreakerMaxCooldownMs = Math.max(1000, Math.round(cbInput.maxCooldownMs));
+    }
+    if (typeof cbInput.halfOpenSuccessCount === 'number') {
+      values.circuitBreakerHalfOpenSuccessCount = Math.max(1, Math.round(cbInput.halfOpenSuccessCount));
+    }
+    if (typeof ehInput.probeEnabled === 'boolean') values.endpointHealthProbeEnabled = ehInput.probeEnabled;
+    if (typeof ehInput.probeIntervalMs === 'number') {
+      values.endpointHealthProbeIntervalMs = Math.max(60_000, Math.round(ehInput.probeIntervalMs));
+    }
+    if (typeof ehInput.probeTimeoutMs === 'number') {
+      values.endpointHealthProbeTimeoutMs = Math.max(1_000, Math.round(ehInput.probeTimeoutMs));
+    }
+    if (typeof ehInput.degradedLatencyMs === 'number') {
+      values.endpointHealthProbeDegradedLatencyMs = Math.max(1_000, Math.round(ehInput.degradedLatencyMs));
+    }
+    if (typeof streamInput.firstTokenTimeoutMs === 'number') {
+      values.firstTokenTimeoutMs = Math.max(0, Math.round(streamInput.firstTokenTimeoutMs));
+    }
+    if (typeof clInput.enabled === 'boolean') values.contentLogEnabled = clInput.enabled;
+    if (typeof clInput.retentionDays === 'number') {
+      values.contentLogRetentionDays = Math.max(1, Math.round(clInput.retentionDays));
+    }
+    if (typeof clInput.maxPayloadBytes === 'number') {
+      values.contentLogMaxPayloadBytes = Math.max(0, Math.round(clInput.maxPayloadBytes));
+    }
+
+    await ensureDefaultCircuitBreakerSettings(db);
+    await db.update(adminSettings).set({ ...values, updatedAt: new Date() }).where(eq(adminSettings.id, 'default'));
+
+    const updated = await getCircuitBreakerSettings(db);
+    const contentLog = await getContentLogSettings(db);
     return {
       circuitBreaker: {
         enabled: updated.circuitBreakerEnabled,
@@ -90,6 +132,11 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
       },
       streaming: {
         firstTokenTimeoutMs: updated.firstTokenTimeoutMs,
+      },
+      contentLogging: {
+        enabled: contentLog.enabled,
+        retentionDays: contentLog.retentionDays,
+        maxPayloadBytes: contentLog.maxPayloadBytes,
       },
     };
   });
