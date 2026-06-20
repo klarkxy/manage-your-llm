@@ -605,19 +605,12 @@ export async function discoverUpstreamModels(
         throw new ValidationError('workspaceId is required for Coze discovery');
       }
       const botsUrl = buildCozeBotsUrl(baseUrl, workspaceId);
-      console.error(
-        `[modelharbor upstream] discover bots --> GET ${botsUrl} (providerType=coze, keySource=${upstreamKeyId ? 'stored' : 'payload'})`,
-      );
       const res = await fetch(botsUrl, {
         method: 'GET',
         headers,
         signal: controller.signal,
       });
       const bodyText = await res.text();
-      const bodyPreview = bodyText.slice(0, 500);
-      console.error(
-        `[modelharbor upstream] discover bots <-- ${res.status} ${botsUrl} body=${bodyPreview}`,
-      );
       if (!res.ok) {
         throw new Error(
           `upstream returned ${res.status}${bodyText ? `: ${bodyText.slice(0, 200)}` : ''}`,
@@ -645,19 +638,12 @@ export async function discoverUpstreamModels(
     }
 
     const modelsUrl = buildModelsUrl(baseUrl);
-    console.error(
-      `[modelharbor upstream] discover models --> GET ${modelsUrl} (providerType=${providerType}, keySource=${upstreamKeyId ? 'stored' : 'payload'})`,
-    );
     const res = await fetch(modelsUrl, {
       method: 'GET',
       headers,
       signal: controller.signal,
     });
     const bodyText = await res.text();
-    const bodyPreview = bodyText.slice(0, 500);
-    console.error(
-      `[modelharbor upstream] discover models <-- ${res.status} ${modelsUrl} body=${bodyPreview}`,
-    );
     if (!res.ok) {
       throw new Error(
         `upstream returned ${res.status}${bodyText ? `: ${bodyText.slice(0, 200)}` : ''}`,
@@ -684,10 +670,6 @@ export async function discoverUpstreamModels(
     }));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(
-      `[modelharbor upstream] discover models <-- transport/error ${buildModelsUrl(baseUrl)}`,
-      { message },
-    );
     throw new Error(`failed to fetch models: ${message}`);
   } finally {
     clearTimeout(timer);
@@ -1299,10 +1281,12 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
   // Built-in provider presets for the admin onboarding UI.
   app.get('/api/admin/provider-presets', async () => {
     return {
-      items: listProviderPresets().map((preset) => ({
-        ...preset,
-        modelMappings: getModelMappings(preset),
-      })),
+      items: listProviderPresets()
+        .filter((preset) => preset.id !== 'codex')
+        .map((preset) => ({
+          ...preset,
+          modelMappings: getModelMappings(preset),
+        })),
     };
   });
 

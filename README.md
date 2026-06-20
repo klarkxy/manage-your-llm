@@ -115,7 +115,7 @@ apps/
   web/         Vue 3 admin dashboard
 packages/
   shared/      Protocol-neutral types, error classes, IR converters
-docs/          Architecture, API contract, security model, operations
+docs/          Administrator guide, security, operations, troubleshooting
 e2e/           Playwright end-to-end tests
 ```
 
@@ -127,13 +127,17 @@ e2e/           Playwright end-to-end tests
 | ---------------------------- | --------------------------- | ----------------------------------- |
 | `MODELHARBOR_HOST`           | `0.0.0.0`                   | Bind address                        |
 | `MODELHARBOR_PORT`           | `5420`                      | API port                            |
-| `MODELHARBOR_DATABASE_URL`   | `file:./modelharbor.sqlite` | SQLite database path                |
-| `MODELHARBOR_SECRET_KEY`     | _(none)_                    | Encryption key for upstream secrets |
+| `MODELHARBOR_DATABASE_URL`   | `file:./data/modelharbor.sqlite` | SQLite database path          |
+| `MODELHARBOR_SECRET_KEY`     | `dev-secret-change-me`      | Encryption key for upstream secrets |
 | `MODELHARBOR_ADMIN_USERNAME` | `admin`                     | First admin username                |
 | `MODELHARBOR_ADMIN_PASSWORD` | `change-me-on-first-run`    | First admin password                |
+| `MODELHARBOR_ADMIN_DISPLAY_NAME` | `Admin`                 | First admin display name            |
 | `MODELHARBOR_LOG_LEVEL`      | `info`                      | Log level                           |
+| `MODELHARBOR_LOG_FILE`       | `./logs/app.log`            | File log path                       |
+| `MODELHARBOR_SERVE_WEB`      | unset                       | Set `1` to serve the built dashboard outside production mode |
+| `NODE_ENV`                   | `development`               | Set `production` to enable production checks and serve the built dashboard |
 
-> **Production note:** Change `MODELHARBOR_SECRET_KEY` and `MODELHARBOR_ADMIN_PASSWORD` before exposing the service. If `SECRET_KEY` is lost, encrypted upstream keys cannot be recovered.
+> **Production note:** The default secret exists only for local development. Change `MODELHARBOR_SECRET_KEY` and `MODELHARBOR_ADMIN_PASSWORD` before exposing the service; production mode rejects the default values. If `SECRET_KEY` is lost, encrypted upstream keys cannot be recovered.
 
 ---
 
@@ -248,11 +252,17 @@ pnpm e2e          # Run end-to-end tests
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) — System design and package boundaries
-- [API Contract](docs/api-contract.md) — Gateway and admin endpoints (developer reference)
-- [Security Model](docs/security.md) — Authentication, authorization, and privacy
-- [Operations](docs/operations.md) — Deployment, backups, and health checks
-- [Provider Adapters](docs/provider-adapters.md) — Adapter interface and capabilities
+- [管理员手册](docs/README.md) — 部署、配置、运维和排障指南
+- [快速开始](docs/getting-started.md) — 安装、启动和第一条请求
+- [部署与运维](docs/deployment.md) — 环境变量、备份、升级、健康检查
+- [上游密钥配置](docs/upstream-keys.md) — 添加供应商 key、发现模型、配额
+- [模型管理](docs/models.md) — 公共模型、模型组、候选与路由策略
+- [应用与 Consumer Key](docs/apps-and-keys.md) — 接入授权与密钥管理
+- [路由与韧性](docs/routing-and-resilience.md) — 熔断、健康探测、粘性、负载均衡
+- [用量与监控](docs/usage-and-monitoring.md) — 统计、链路追踪、日志
+- [安全配置](docs/security.md) — 密钥、加密、审计、内容日志
+- [API 使用指南](docs/api-usage.md) — 下游调用网关的协议与示例
+- [常见问题与排查](docs/troubleshooting.md) — 错误码、故障排查
 
 ---
 

@@ -1,150 +1,141 @@
-# Security Model
+# 安全配置
 
-## Goals
+ModelHarbor 管理两类高敏感凭证：上游供应商 API key 和下游 Consumer Key。本节说明如何安全地部署和运营。
 
-ModelHarbor manages sensitive upstream API keys and client consumer keys. Security defaults should be conservative without making self-hosting painful.
+---
 
-Primary goals:
+## 安全目标
 
-- Protect upstream API keys.
-- Protect consumer keys.
-- Keep dashboard access private.
-- Avoid leaking prompt, completion, or provider error data by default.
-- Keep admin actions auditable.
+- 保护上游 API key 不被泄露。
+- 保护 Consumer Key 不被泄露。
+- 保证管理后台访问受控。
+- 默认不记录用户 prompt / completion。
+- 管理操作可审计。
 
-## Admin Authentication
+---
 
-MVP uses local administrator username and password.
+## 部署安全清单
 
-Requirements:
+上线前请确认：
 
-- Hash passwords with a modern password hash.
-- Store admin sessions as hashes.
-- Prefer HTTP-only, secure cookies for browser sessions.
-- Expire sessions.
-- Reject disabled admin users.
-- Rate-limit login attempts if practical in MVP.
+- [ ] 已设置强随机字符串作为 `MODELHARBOR_SECRET_KEY`。
+- [ ] 已修改默认管理员密码。
+- [ ] 管理后台不直接暴露在公网，或至少位于 VPN / 内网 / WAF 之后。
+- [ ] 数据库文件持久化目录有适当访问控制。
+- [ ] 日志收集系统不会把 DEBUG 级日志外泄。
+- [ ] 备份文件与 secret key 分开存储但都能安全恢复。
 
-OIDC is out of scope for MVP.
+---
 
-## Consumer Key Security
+## 管理员认证
 
-Consumer keys authenticate gateway requests.
+MVP 使用本地用户名和密码：
 
-Requirements:
+- 密码使用 `scrypt` 哈希存储。
+- 会话使用 HTTP-only、signed cookie。
+- 登录失败有速率限制。
+- 会话有过期时间。
 
-- Generate high-entropy keys.
-- Store only `keyHash` and `keyPrefix`.
-- Return raw key only once on creation or rotation.
-- Allow revocation.
-- Allow rotation.
-- Never log raw keys.
+> OIDC 支持不在当前版本。如需统一身份认证，请在反向代理层接入 SSO。
 
-Supported client auth:
+---
 
-- `Authorization: Bearer mh_...`
-- `x-api-key: mh_...`
+## 上游 API key 保护
 
-If both are present, `Authorization` wins.
+- 创建后**不再返回**原始 key。
+- 管理后台只显示 key 前缀用于识别。
+- key 使用 `MODELHARBOR_SECRET_KEY` 加密存储。开发环境有默认 secret 便于启动，生产环境必须改为强随机值。
+- 运行日志和错误信息中不会包含原始上游 key。
+- 如果 secret key 丢失，加密的上游 key 无法恢复，需要重新创建。
 
-## Upstream Key Security
+---
 
-Upstream API keys are the most sensitive stored secret.
+## Consumer Key 保护
 
-Requirements:
+- 形如 `mh_...`，创建时只显示一次。
+- 系统只存储 key 的哈希和前缀。
+- 支持轮换和撤销。
+- 运行日志中不包含原始 Consumer Key。
 
-- Never return raw upstream keys after creation.
-- Never log raw upstream keys.
-- Store only a display prefix for UI identification.
-- Encrypt upstream keys at rest when an encryption secret is configured.
+如果怀疑某个 Consumer Key 泄露，应立即：
 
-Recommended environment variable:
+1. 在应用详情页找到该 key。
+2. 点击 **Rotate** 生成新 key。
+3. 通知对应应用方更新配置。
+4. 确认旧 key 不再被使用后，点击 **Revoke** 彻底禁用。
 
-```text
-MODELHARBOR_SECRET_KEY
-```
+---
 
-If encryption is not configured in early development, the UI and logs must still never expose raw values after creation.
+## 授权模型
 
-## Authorization Model
+- 每个 Consumer Key 必须显式授权才能访问公共模型或模型组。
+- 默认不授权任何目标。
+- App 本身没有隐式访问权限。
 
-MVP has one admin role.
+授权原则：最小权限。每个 key 只给它需要的模型。
 
-Gateway authorization:
+---
 
-- Consumer key resolves to an app.
-- Consumer key grants define accessible public models and model groups.
-- Apps do not grant access implicitly unless the implementation explicitly chooses an app-wide default later.
+## 内容日志与隐私
 
-Admin authorization:
+默认行为：
 
-- Logged-in admin can manage all resources.
-- Audit events should record sensitive operations.
+- 不存储完整 prompt。
+- 不存储完整 completion。
+- 不存储上游错误原始响应体（可能包含敏感请求信息）。
 
-## Logging And Privacy
+可选开启内容日志：
 
-Default behavior:
+- 全局开关在 **Settings → Content Logging**。
+- 开启后会记录成功请求的 prompt/response。
+- 写入前会进行脱敏（移除 `mh_`、`sk-`、`Bearer` 等 token）。
+- 可按保留期自动清理。
+- 可设置单行最大长度，超出的内容会截断并标记 `[truncated]`。
 
-- Store metadata and usage statistics only.
-- Do not store full prompt.
-- Do not store full completion.
-- Do not store raw upstream error bodies if they may contain sensitive request details.
+> 开启内容日志前请确认符合隐私合规要求，并注意存储增长。
 
-Optional behavior (admin-controlled, off by default):
+---
 
-- Global content logging in `admin_settings` (`contentLogEnabled`, `contentLogRetentionDays`, `contentLogMaxPayloadBytes`).
-- Redaction rules applied before persistence (`mh_`, `sk-`, `Bearer` tokens are redacted).
-- Retention policy enforced by the maintenance pass.
+## 错误安全
 
-Future behavior:
+返回给客户端的错误不会包含：
 
-- Per-app content logging override.
-- More granular redaction rules.
+- 上游 API key
+- Consumer Key
+- 管理员 session token
+- 内部堆栈
+- 完整请求体
+- 上游原始 header
 
-## Error Safety
+上游错误会被归一化后再返回，保留诊断所需的最少信息。
 
-External errors must not expose:
+---
 
-- Upstream API keys.
-- Consumer keys.
-- Admin session tokens.
-- Internal stack traces.
-- Full request bodies.
-- Raw provider headers.
+## 审计
 
-Provider errors should be normalized before returning to clients.
+以下管理操作会记录审计事件：
 
-## Audit Events
+- 管理员登录成功/失败
+- 上游密钥的创建、更新、冻结、解冻、轮换、禁用
+- 公共模型的创建、更新、禁用
+- 模型组的创建、更新、禁用
+- Consumer Key 的创建、撤销、轮换
+- Consumer Key 授权变更
 
-Audit events should record admin-side changes.
+审计日志可通过管理后台或数据库查询，**不包含任何原始密钥**。
 
-Recommended audited actions:
+---
 
-- Admin login success and failure.
-- Create, update, freeze, unfreeze, rotate, and disable upstream key.
-- Create, update, and disable public model.
-- Create, update, and disable model group.
-- Create, revoke, and rotate consumer key.
-- Update consumer key access grants.
+## Secret 管理建议
 
-Audit summaries must not include raw secrets.
+- `MODELHARBOR_SECRET_KEY` 和初始管理员密码应通过环境变量注入，不要写入代码或镜像。
+- 考虑使用 Docker secrets、Kubernetes secrets 或外部 secret manager。
+- 备份时务必备份 secret key，否则无法恢复加密的上游 key。
 
-## Deployment Secrets
+---
 
-Recommended secrets:
+## 依赖与合规
 
-- `MODELHARBOR_SECRET_KEY` for encryption and signing.
-- Initial admin password or setup token.
-
-Secrets should be read from environment variables or mounted files, not committed to the repository.
-
-## Dependency Hygiene
-
-Before adding major dependencies, check:
-
-- License compatibility with AGPL-3.0-or-later.
-- Maintenance status.
-- Transitive native binary risk.
-- Whether the dependency handles secrets or network requests.
-
-Avoid pulling in large provider SDKs when a small HTTP adapter is enough.
+- 项目采用 AGPL-3.0-or-later 许可证。
+- 新增依赖时应注意许可证兼容性。
+- 避免引入不必要的大型供应商 SDK。

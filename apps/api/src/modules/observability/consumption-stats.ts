@@ -9,7 +9,6 @@ import { generateId } from '@modelharbor/shared';
 import {
   type Db,
   type ModelConsumptionStatInsert,
-  type ModelConsumptionStatRow,
   modelConsumptionStats,
 } from '../db/index.js';
 

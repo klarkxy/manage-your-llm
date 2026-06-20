@@ -146,18 +146,12 @@ async function tryCandidates(
     });
     const adapter = getProviderAdapter(candidate);
     const request = await buildHttpRequest(ctx, { ir: args.ir, candidate, adapter });
-    console.error(
-      `[modelharbor upstream] candidate provider=${candidate.providerType} model=${candidate.realModelName} upstreamKeyId=${candidate.upstreamKeyId} baseUrl=${request.url}`,
-    );
     const outcome = await sendUpstreamRequest(request, {
       timeoutMs: ctx.defaultUpstreamTimeoutMs ?? DEFAULT_UPSTREAM_TIMEOUT_MS,
     });
 
     const classified = classifyOutcome(adapter, { outcome, request, ir: args.ir });
     if (classified.kind === 'error') {
-      console.error(
-        `[modelharbor upstream] classified error: ${classified.error.category} providerCode=${classified.error.providerCode} message=${classified.error.providerMessage}`,
-      );
       await args.log({
         step: 'candidate_fail',
         upstreamKeyId: candidate.upstreamKeyId,

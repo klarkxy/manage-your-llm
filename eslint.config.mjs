@@ -12,6 +12,7 @@ export default [
       '**/coverage/**',
       '**/.vite/**',
       '**/data/**',
+      '**/reference/**',
     ],
   },
   js.configs.recommended,

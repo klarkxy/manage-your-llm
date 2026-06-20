@@ -27,7 +27,6 @@ export async function sendUpstreamRequest(
   }
   const start = performance.now();
   try {
-    console.error(`[modelharbor upstream] --> ${req.method} ${req.url}`);
     const res = await fetch(req.url, {
       method: req.method,
       headers: req.headers,
@@ -41,8 +40,6 @@ export async function sendUpstreamRequest(
     });
     const bodyText = await res.text();
     const bodyJson = tryParseJson(bodyText);
-    const bodyPreview = bodyText.slice(0, 500);
-    console.error(`[modelharbor upstream] <-- ${res.status} ${req.url} body=${bodyPreview}`);
     return {
       response: {
         status: res.status,
@@ -61,7 +58,6 @@ export async function sendUpstreamRequest(
       message: e.message ?? String(err),
       ...(code !== undefined ? { code } : {}),
     };
-    console.error(`[modelharbor upstream] <-- transport error ${req.url}`, transportError);
     return {
       transportError,
     };

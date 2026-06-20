@@ -165,7 +165,7 @@ async function persistRotatedRefreshToken(
   } catch (err) {
     // Persisting the rotated refresh token is best-effort. If it fails the
     // in-memory cache still has the new token, and the current request succeeds.
-    console.error('[codex_oauth] failed to persist rotated refresh token:', err);
+    void err;
   }
 }
 

@@ -8,10 +8,7 @@ export * from './registry.js';
 export * from './ir-converters.js';
 
 import type { ProviderDescriptor } from '@modelharbor/shared';
-import {
-  getProviderDescriptor,
-  listProviderDescriptors,
-} from '@modelharbor/shared';
+import { listProviderDescriptors } from '@modelharbor/shared';
 import type {
   ProviderAdapter,
   ProviderHttpRequest,

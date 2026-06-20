@@ -13,7 +13,7 @@
 // key enters cooldown. The counter engine is for the administrator's own
 // spending cap, not for smoothing out upstream bursts.
 
-import { and, eq, lte } from 'drizzle-orm';
+import { and, eq, lte, sql } from 'drizzle-orm';
 import { generateId } from '@modelharbor/shared';
 import {
   type Db,
@@ -111,21 +111,17 @@ export async function incrementAndCheck(
         ),
       )
       .get();
+    const counter = await incrementCounterAtomically(db, args);
+    if (!counter) return null;
     if (!quota || !quota.enabled) {
       // No quota configured or quota disabled — still record usage so the
       // dashboard can see what was billed. Return the row without freezing.
-      return await incrementOnly(db, args);
+      return { counter, overQuota: false, overDimension: null };
     }
-    const bounds = periodBounds(args.period, args.now);
-    const existing = await getCurrentCounter(db, {
-      upstreamKeyId: args.upstreamKeyId,
-      period: args.period,
-      now: args.now,
-    });
-    const newRequestCount = (existing?.requestCount ?? 0) + args.delta.requests;
-    const newInput = (existing?.inputTokens ?? 0) + (args.delta.inputTokens ?? 0);
-    const newOutput = (existing?.outputTokens ?? 0) + (args.delta.outputTokens ?? 0);
-    const newTotal = (existing?.totalTokens ?? 0) + (args.delta.totalTokens ?? 0);
+    const newRequestCount = counter.requestCount;
+    const newInput = counter.inputTokens;
+    const newOutput = counter.outputTokens;
+    const newTotal = counter.totalTokens;
     const overRequest = quota.requestLimit !== null && newRequestCount > quota.requestLimit;
     const overInput = quota.inputTokenLimit !== null && newInput > quota.inputTokenLimit;
     const overOutput = quota.outputTokenLimit !== null && newOutput > quota.outputTokenLimit;
@@ -141,59 +137,8 @@ export async function incrementAndCheck(
             ? 'total'
             : null;
 
-    const now = args.now;
-    if (existing) {
-      await db
-        .update(upstreamKeyCounters)
-        .set({
-          requestCount: newRequestCount,
-          inputTokens: newInput,
-          outputTokens: newOutput,
-          totalTokens: newTotal,
-          updatedAt: now,
-        })
-        .where(eq(upstreamKeyCounters.id, existing.id));
-      return {
-        counter: {
-          ...existing,
-          requestCount: newRequestCount,
-          inputTokens: newInput,
-          outputTokens: newOutput,
-          totalTokens: newTotal,
-          updatedAt: now,
-        },
-        overQuota,
-        overDimension,
-      };
-    }
-    const id = generateId('upstreamKey') + '_c';
-    await db.insert(upstreamKeyCounters).values({
-      id,
-      upstreamKeyId: args.upstreamKeyId,
-      period: args.period,
-      periodStartedAt: bounds.start,
-      periodEndsAt: bounds.end,
-      requestCount: newRequestCount,
-      inputTokens: newInput,
-      outputTokens: newOutput,
-      totalTokens: newTotal,
-      createdAt: now,
-      updatedAt: now,
-    });
     return {
-      counter: {
-        id,
-        upstreamKeyId: args.upstreamKeyId,
-        period: args.period,
-        periodStartedAt: bounds.start,
-        periodEndsAt: bounds.end,
-        requestCount: newRequestCount,
-        inputTokens: newInput,
-        outputTokens: newOutput,
-        totalTokens: newTotal,
-        createdAt: now,
-        updatedAt: now,
-      },
+      counter,
       overQuota,
       overDimension,
     };
@@ -202,80 +147,51 @@ export async function incrementAndCheck(
   }
 }
 
-async function incrementOnly(
+async function incrementCounterAtomically(
   db: Db,
   args: { upstreamKeyId: string; period: QuotaPeriod; delta: QuotaUsageDelta; now: Date },
-): Promise<QuotaDecision | null> {
-  try {
-    const bounds = periodBounds(args.period, args.now);
-    const existing = await getCurrentCounter(db, {
-      upstreamKeyId: args.upstreamKeyId,
-      period: args.period,
-      now: args.now,
-    });
-    const newRequestCount = (existing?.requestCount ?? 0) + args.delta.requests;
-    const newInput = (existing?.inputTokens ?? 0) + (args.delta.inputTokens ?? 0);
-    const newOutput = (existing?.outputTokens ?? 0) + (args.delta.outputTokens ?? 0);
-    const newTotal = (existing?.totalTokens ?? 0) + (args.delta.totalTokens ?? 0);
-    const now = args.now;
-    if (existing) {
-      await db
-        .update(upstreamKeyCounters)
-        .set({
-          requestCount: newRequestCount,
-          inputTokens: newInput,
-          outputTokens: newOutput,
-          totalTokens: newTotal,
-          updatedAt: now,
-        })
-        .where(eq(upstreamKeyCounters.id, existing.id));
-      return {
-        counter: {
-          ...existing,
-          requestCount: newRequestCount,
-          inputTokens: newInput,
-          outputTokens: newOutput,
-          totalTokens: newTotal,
-          updatedAt: now,
-        },
-        overQuota: false,
-        overDimension: null,
-      };
-    }
-    const id = generateId('upstreamKey') + '_c';
-    await db.insert(upstreamKeyCounters).values({
+): Promise<UpstreamKeyCounterRow | null> {
+  const bounds = periodBounds(args.period, args.now);
+  const id = generateId('upstreamKey') + '_c';
+  const inputTokens = args.delta.inputTokens ?? 0;
+  const outputTokens = args.delta.outputTokens ?? 0;
+  const totalTokens = args.delta.totalTokens ?? 0;
+
+  await db
+    .insert(upstreamKeyCounters)
+    .values({
       id,
       upstreamKeyId: args.upstreamKeyId,
       period: args.period,
       periodStartedAt: bounds.start,
       periodEndsAt: bounds.end,
-      requestCount: newRequestCount,
-      inputTokens: newInput,
-      outputTokens: newOutput,
-      totalTokens: newTotal,
-      createdAt: now,
-      updatedAt: now,
-    });
-    return {
-      counter: {
-        id,
-        upstreamKeyId: args.upstreamKeyId,
-        period: args.period,
-        periodStartedAt: bounds.start,
-        periodEndsAt: bounds.end,
-        requestCount: newRequestCount,
-        inputTokens: newInput,
-        outputTokens: newOutput,
-        totalTokens: newTotal,
-        createdAt: now,
-        updatedAt: now,
+      requestCount: args.delta.requests,
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      createdAt: args.now,
+      updatedAt: args.now,
+    })
+    .onConflictDoUpdate({
+      target: [
+        upstreamKeyCounters.upstreamKeyId,
+        upstreamKeyCounters.period,
+        upstreamKeyCounters.periodStartedAt,
+      ],
+      set: {
+        requestCount: sql`${upstreamKeyCounters.requestCount} + ${args.delta.requests}`,
+        inputTokens: sql`${upstreamKeyCounters.inputTokens} + ${inputTokens}`,
+        outputTokens: sql`${upstreamKeyCounters.outputTokens} + ${outputTokens}`,
+        totalTokens: sql`${upstreamKeyCounters.totalTokens} + ${totalTokens}`,
+        updatedAt: args.now,
       },
-      overQuota: false,
-      overDimension: null,
-    };
-  } catch {
-    return null;
-  }
+    });
+
+  return await getCurrentCounter(db, {
+    upstreamKeyId: args.upstreamKeyId,
+    period: args.period,
+    now: args.now,
+  });
 }
 
 // Freeze the upstream key with a quota-specific reason. The router filter

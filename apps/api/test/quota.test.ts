@@ -203,6 +203,33 @@ describe('quota: incrementAndCheck', () => {
     expect(counter?.requestCount).toBe(3);
     expect(counter?.inputTokens).toBe(30);
   });
+
+  it('does not lose increments from concurrent calls', async () => {
+    const { id } = await seedUpstreamKey(rig);
+    await setQuota(rig, { upstreamKeyId: id, period: 'total', requestLimit: 100 });
+    const now = new Date();
+
+    await Promise.all(
+      Array.from({ length: 20 }, () =>
+        incrementAndCheck(rig.db, {
+          upstreamKeyId: id,
+          period: 'total',
+          delta: { requests: 1, inputTokens: 2, outputTokens: 3, totalTokens: 5 },
+          now,
+        }),
+      ),
+    );
+
+    const counter = await getCurrentCounter(rig.db, {
+      upstreamKeyId: id,
+      period: 'total',
+      now,
+    });
+    expect(counter?.requestCount).toBe(20);
+    expect(counter?.inputTokens).toBe(40);
+    expect(counter?.outputTokens).toBe(60);
+    expect(counter?.totalTokens).toBe(100);
+  });
 });
 
 describe('quota: wouldExceedQuota', () => {

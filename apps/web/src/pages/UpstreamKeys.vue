@@ -631,7 +631,6 @@ const healthColumns = computed<DataTableColumns<UpstreamEndpointHealth>>(() => [
 const providerOptions = computed(() => [
   { label: t('upstreamKeys.drawer.providers.anthropic'), value: 'anthropic_compatible' },
   { label: t('upstreamKeys.drawer.providers.openai'), value: 'openai_compatible' },
-  { label: t('upstreamKeys.drawer.providers.codex'), value: 'codex' },
 ]);
 
 const authTypeOptions = computed(() => {

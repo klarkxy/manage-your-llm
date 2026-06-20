@@ -193,7 +193,7 @@ async function persistRotatedRefreshToken(
       .set({ authConfigCiphertext: updatedCiphertext, updatedAt: new Date() })
       .where(eq(upstreamKeys.id, ctx.row.id));
   } catch (err) {
-    console.error('[coze_oauth_pkce] failed to persist rotated refresh token:', err);
+    void err;
   }
 }
 

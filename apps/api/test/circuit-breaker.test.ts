@@ -268,7 +268,7 @@ describe('circuit breaker admin API', () => {
     };
 
     // Seed an upstream key so we can create a breaker row.
-    const { encryptUpstreamApiKey, generateId } = await import('../src/modules/admin/index.js');
+    const { encryptUpstreamApiKey } = await import('../src/modules/admin/index.js');
     const { upstreamKeys } = await import('../src/modules/db/index.js');
     const now = new Date();
     const enc = encryptUpstreamApiKey('sk-test', 'test-secret-key-for-m4');

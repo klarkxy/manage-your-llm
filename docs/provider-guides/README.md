@@ -2,7 +2,7 @@
 
 本目录汇总 ModelHarbor 支持的每一个上游提供商的「如何获取密钥」指引。管理后台的「新建上游密钥」抽屉中会通过超链接打开对应的指引，帮助管理员快速完成凭证填写。
 
-> 提示：所有指引文档同时托管在 Web 静态资源目录 [apps/web/public/docs/provider-guides/](../../apps/web/public/docs/provider-guides/) 中。仓库中保留本目录的副本以便 PR 审阅；修改时请保持两边一致（文件路径一一对应）。
+> 提示：当前可直接打开的指引文档托管在 Web 静态资源目录 [apps/web/public/docs/provider-guides/](../../apps/web/public/docs/provider-guides/) 中。本文件是管理员文档索引；如后续在 `docs/provider-guides/` 增加镜像副本，请与 Web 静态资源保持一致。
 
 ## 索引
 
@@ -10,7 +10,6 @@
 | --- | --- | --- | --- |
 | OpenAI | `openai` | PAT | [openai.md](../../apps/web/public/docs/provider-guides/openai.md) |
 | Anthropic | `anthropic` | PAT | [anthropic.md](../../apps/web/public/docs/provider-guides/anthropic.md) |
-| OpenAI Codex | `codex` | OAuth（默认）/ PAT | [codex.md](../../apps/web/public/docs/provider-guides/codex.md) |
 | Coze（扣子） | `coze` | OAuth JWT | [coze.md](../../apps/web/public/docs/provider-guides/coze.md) |
 | DeepSeek | `deepseek` | PAT | [deepseek.md](../../apps/web/public/docs/provider-guides/deepseek.md) |
 | Moonshot (Kimi)（国际） | `moonshot` | PAT | [moonshot.md](../../apps/web/public/docs/provider-guides/moonshot.md) |
@@ -40,7 +39,7 @@
 
 ## 新增指引
 
-1. 在 `apps/web/public/docs/provider-guides/{id}.md`（英文，与 Web 资源同源）创建指引文件。
-2. 在 `docs/provider-guides/{id}.md` 同步保留仓库版本（可选用中文）。
-3. 在 `apps/api/src/modules/providers/{id}.ts` 的 `preset` 对象中加入 `guideUrl: providerGuideUrl('id')`。
-4. 把新的提供商追加到上表，保持按字母顺序排列。
+1. 在 `apps/web/public/docs/provider-guides/{id}.md` 创建指引文件。
+2. 在 `packages/shared/src/provider-registry/presets.ts` 对应 descriptor 中设置 `guideUrl: '/docs/provider-guides/{id}.md'`。
+3. 把新的提供商追加到上表，保持按字母顺序排列。
+4. 如果需要在 `docs/provider-guides/` 保留审阅副本，请同步创建同名文件并保持内容一致。

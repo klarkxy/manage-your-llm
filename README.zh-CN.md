@@ -23,6 +23,7 @@ ModelHarbor（模型港）是一个轻量级、以仪表盘为核心的 LLM API 
 | ----------------------- | --------------------------- | ------------------------ |
 | Anthropic Messages      | `POST /v1/messages`         | ✅ 支持（流式 + 非流式） |
 | OpenAI Chat Completions | `POST /v1/chat/completions` | ✅ 支持（流式 + 非流式） |
+| OpenAI Responses        | `POST /v1/responses`        | ✅ 支持（流式 + 非流式） |
 | OpenAI 模型列表         | `GET /v1/models`            | ✅ 支持                  |
 
 ---
@@ -114,7 +115,7 @@ apps/
   web/         Vue 3 管理仪表盘
 packages/
   shared/      协议无关的类型、错误类、IR 转换器
-docs/          架构设计、API 契约、安全模型、运维文档
+docs/          管理员指南、安全、运维与排障文档
 e2e/           Playwright 端到端测试
 ```
 
@@ -126,13 +127,17 @@ e2e/           Playwright 端到端测试
 | ---------------------------- | --------------------------- | ----------------- |
 | `MODELHARBOR_HOST`           | `0.0.0.0`                   | 绑定地址          |
 | `MODELHARBOR_PORT`           | `5420`                      | API 端口          |
-| `MODELHARBOR_DATABASE_URL`   | `file:./modelharbor.sqlite` | SQLite 数据库路径 |
-| `MODELHARBOR_SECRET_KEY`     | _(无)_                      | 上游密钥加密密钥  |
+| `MODELHARBOR_DATABASE_URL`   | `file:./data/modelharbor.sqlite` | SQLite 数据库路径 |
+| `MODELHARBOR_SECRET_KEY`     | `dev-secret-change-me`      | 上游密钥加密密钥  |
 | `MODELHARBOR_ADMIN_USERNAME` | `admin`                     | 首个管理员用户名  |
 | `MODELHARBOR_ADMIN_PASSWORD` | `change-me-on-first-run`    | 首个管理员密码    |
+| `MODELHARBOR_ADMIN_DISPLAY_NAME` | `Admin`                 | 首个管理员展示名  |
 | `MODELHARBOR_LOG_LEVEL`      | `info`                      | 日志级别          |
+| `MODELHARBOR_LOG_FILE`       | `./logs/app.log`            | 文件日志路径      |
+| `MODELHARBOR_SERVE_WEB`      | 未设置                      | 非生产模式下设为 `1` 可由 API 进程托管已构建的前端 |
+| `NODE_ENV`                   | `development`               | 设为 `production` 时启用生产校验并托管已构建的前端 |
 
-> **生产环境注意：** 在暴露服务前，务必修改 `MODELHARBOR_SECRET_KEY` 和 `MODELHARBOR_ADMIN_PASSWORD`。如果 `SECRET_KEY` 丢失，加密的上游密钥将无法恢复。
+> **生产环境注意：** 默认 secret 仅用于本地开发。在暴露服务前，务必修改 `MODELHARBOR_SECRET_KEY` 和 `MODELHARBOR_ADMIN_PASSWORD`；生产模式会拒绝默认值。如果 `SECRET_KEY` 丢失，加密的上游密钥将无法恢复。
 
 ---
 
@@ -247,11 +252,17 @@ pnpm e2e          # 运行端到端测试
 
 ## 文档
 
-- [Architecture](docs/architecture.md) — 系统设计与包边界
-- [API Contract](docs/api-contract.md) — 网关与管理端点（开发者参考）
-- [Security Model](docs/security.md) — 认证、授权与隐私
-- [Operations](docs/operations.md) — 部署、备份与健康检查
-- [Provider Adapters](docs/provider-adapters.md) — 适配器接口与能力声明
+- [管理员手册](docs/README.md) — 部署、配置、运维和排障指南
+- [快速开始](docs/getting-started.md) — 安装、启动和第一条请求
+- [部署与运维](docs/deployment.md) — 环境变量、备份、升级、健康检查
+- [上游密钥配置](docs/upstream-keys.md) — 添加供应商 key、发现模型、配额
+- [模型管理](docs/models.md) — 公共模型、模型组、候选与路由策略
+- [应用与 Consumer Key](docs/apps-and-keys.md) — 接入授权与密钥管理
+- [路由与韧性](docs/routing-and-resilience.md) — 熔断、健康探测、粘性、负载均衡
+- [用量与监控](docs/usage-and-monitoring.md) — 统计、链路追踪、日志
+- [安全配置](docs/security.md) — 密钥、加密、审计、内容日志
+- [API 使用指南](docs/api-usage.md) — 下游调用网关的协议与示例
+- [常见问题与排查](docs/troubleshooting.md) — 错误码、故障排查
 
 ---
 

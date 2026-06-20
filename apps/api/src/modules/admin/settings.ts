@@ -8,7 +8,6 @@ import {
   getCircuitBreakerSettings,
   listCircuitBreakers,
   resetCircuitBreaker,
-  updateCircuitBreakerSettings,
 } from '../router/circuit-breaker.js';
 import {
   getContentLogSettings,
@@ -51,7 +50,7 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
     };
   });
 
-  app.put('/api/admin/settings', async (req, reply) => {
+  app.put('/api/admin/settings', async (req) => {
     const body = (req.body ?? {}) as {
       circuitBreaker?: {
         enabled?: boolean;

@@ -578,6 +578,7 @@ describe('upstream keys admin', () => {
     };
     expect(Array.isArray(body.items)).toBe(true);
     expect(body.items.length).toBeGreaterThan(0);
+    expect(body.items.some((p) => p.id === 'codex')).toBe(false);
     const openai = body.items.find((p) => p.id === 'openai');
     expect(openai).toBeTruthy();
     expect(openai!.icon).toBeTruthy();
