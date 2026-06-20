@@ -2,7 +2,8 @@
 
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
-import { type Db, adminSettings } from '../db/index.js';
+import type { Db } from '../db/index.js';
+import { adminSettings } from '../db/tables/settings.js';
 import {
   ensureDefaultCircuitBreakerSettings,
   getCircuitBreakerSettings,

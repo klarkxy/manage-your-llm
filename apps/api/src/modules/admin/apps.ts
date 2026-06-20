@@ -1,7 +1,8 @@
 import { eq, desc } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { generateId, ValidationError } from '@modelharbor/shared';
-import { type Db, type AppRow, apps } from '../db/index.js';
+import type { Db } from '../db/index.js';
+import { type AppRow, apps } from '../db/tables/apps.js';
 import { auditMetaFromRequest } from './upstream-keys.js';
 import { recordAuditEvent } from '../observability/index.js';
 

@@ -1,16 +1,18 @@
 import { eq, inArray } from 'drizzle-orm';
 import { isCircuitBreakerOpen, type CircuitBreakerSettings } from './circuit-breaker.js';
+import type { Db } from '../db/index.js';
 import {
-  type Db,
   type ModelGroupMemberRow,
   type PublicModelCandidateRow,
   type PublicModelRow,
-  type UpstreamKeyRow,
   modelGroupMembers,
   publicModelCandidates,
   publicModels,
+} from '../db/tables/models.js';
+import {
+  type UpstreamKeyRow,
   upstreamKeys,
-} from '../db/index.js';
+} from '../db/tables/upstream.js';
 import {
   protocolFor,
   opencodeGoEndpointProtocolForModel,

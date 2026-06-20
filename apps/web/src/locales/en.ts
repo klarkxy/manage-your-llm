@@ -178,6 +178,7 @@ const messages = {
       delete: 'Delete',
       test: 'Test',
       health: 'Health',
+      duplicate: 'Duplicate',
     },
     confirm: {
       freeze: 'Freeze this key?',
@@ -187,6 +188,7 @@ const messages = {
     toast: {
       created: 'Upstream key created',
       updated: 'Upstream key updated',
+      duplicated: 'Upstream key duplicated',
       frozen: 'Frozen',
       unfrozen: 'Unfrozen',
       deleted: 'Upstream key deleted',
@@ -273,6 +275,20 @@ const messages = {
         clientId: 'app_EMoamEEZ73f0CkXaXp7hrann',
         tokenUrl: 'https://auth.openai.com/oauth/token',
         cozeClientId: 'Paste from your Coze OAuth app',
+      },
+    },
+    duplicate: {
+      title: 'Duplicate key: {name}',
+      name: 'New key name',
+      apiKey: 'New API key',
+      hint: 'Duplicate keeps the provider, endpoints, headers, parameters, model mappings, and sticky settings. Usage, health, freeze, and cooldown state start fresh for the new account.',
+      placeholders: {
+        name: 'DeepSeek key 2',
+      },
+      routingMode: {
+        label: 'Routing mode',
+        failover: 'Failover: lower priority',
+        pool: 'Pool: same priority',
       },
     },
     ping: {

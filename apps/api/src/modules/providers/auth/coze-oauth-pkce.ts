@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { ValidationError } from '@modelharbor/shared';
 import { decryptSecret, encryptSecret } from '../../auth/crypto.js';
 import { parseJsonRecord } from '../../admin/helpers.js';
-import { upstreamKeys } from '../../db/index.js';
+import { upstreamKeys } from '../../db/tables/upstream.js';
 import type { AuthHeaderResult, UpstreamAuthContext, UpstreamAuthStrategy } from './index.js';
 
 export interface CozeOauthPkceConfig {

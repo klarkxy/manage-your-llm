@@ -6,7 +6,8 @@
 // is at least visible in tests.
 
 import { generateId } from '@modelharbor/shared';
-import { type AuditEventInsert, type Db, auditEvents } from '../db/index.js';
+import type { Db } from '../db/index.js';
+import { type AuditEventInsert, auditEvents } from '../db/tables/observability.js';
 import { redactValue } from './redaction.js';
 
 export type AuditAction =

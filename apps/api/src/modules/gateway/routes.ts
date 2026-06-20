@@ -1,14 +1,18 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { Db } from '../db/index.js';
 import {
   type AppRow,
   type ConsumerKeyRow,
-  type Db,
+} from '../db/tables/apps.js';
+import {
   type TargetType,
+  targetNames,
+} from '../db/tables/routing.js';
+import {
   modelGroups,
   publicModels,
-  targetNames,
-} from '../db/index.js';
+} from '../db/tables/models.js';
 import { listConsumerKeyAccess, requireConsumerKey } from '../auth/consumer-key.js';
 import {
   handleAnthropicRequest,

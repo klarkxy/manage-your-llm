@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { generatePkce } from './oauth-pkce.js';
 import { parseJsonRecord } from '../../admin/helpers.js';
 import { decryptSecret, encryptSecret } from '../../auth/crypto.js';
-import { upstreamKeys } from '../../db/index.js';
+import { upstreamKeys } from '../../db/tables/upstream.js';
 import type { AuthHeaderResult, UpstreamAuthContext, UpstreamAuthStrategy } from './index.js';
 
 export interface CodexOauthConfig {

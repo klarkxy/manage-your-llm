@@ -16,7 +16,8 @@ import {
   isNormalizedError,
 } from '@modelharbor/shared';
 import { eq } from 'drizzle-orm';
-import { type Db, upstreamKeys } from '../db/index.js';
+import type { Db } from '../db/index.js';
+import { upstreamKeys } from '../db/tables/upstream.js';
 import { resolveAuthorizationHeader } from '../providers/auth/index.js';
 import {
   type ResolvedCandidate,

@@ -15,7 +15,8 @@
 import { createHash } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { generateId } from '@modelharbor/shared';
-import { type Db, type StickyBindingRow, stickyBindings } from '../db/index.js';
+import type { Db } from '../db/index.js';
+import { type StickyBindingRow, stickyBindings } from '../db/tables/routing.js';
 import type { ResolvedCandidate } from '../router/candidates.js';
 
 // Conversation fingerprint. Derived from a stable prefix of the IR (system +

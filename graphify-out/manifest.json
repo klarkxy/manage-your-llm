@@ -1,0 +1,1062 @@
+{
+  "D:\\0 code\\llm-router\\apps\\api\\package.json": {
+    "mtime": 1781832437.7618644,
+    "ast_hash": "bfca0914312c3f46389ec19a0c9d40da",
+    "semantic_hash": "bfca0914312c3f46389ec19a0c9d40da"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\config\\env.ts": {
+    "mtime": 1781839111.187131,
+    "ast_hash": "d423b9d2874a2b3fb6aff6e5e3e01d3c",
+    "semantic_hash": "d423b9d2874a2b3fb6aff6e5e3e01d3c"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\errors.ts": {
+    "mtime": 1781784811.954445,
+    "ast_hash": "cdea80d7823390d5f4ed14803ce0b6c3",
+    "semantic_hash": "cdea80d7823390d5f4ed14803ce0b6c3"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\main.ts": {
+    "mtime": 1781832437.7645404,
+    "ast_hash": "b796f04aa086a4743f53230baf0a5f16",
+    "semantic_hash": "b796f04aa086a4743f53230baf0a5f16"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\admin\\apps.ts": {
+    "mtime": 1781784850.8270762,
+    "ast_hash": "1b8cb273976356be6f5c010f746ca951",
+    "semantic_hash": "1b8cb273976356be6f5c010f746ca951"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\admin\\audit-log.ts": {
+    "mtime": 1781784812.013237,
+    "ast_hash": "f1bc4308c4704b8eb19a3ead948a6ce8",
+    "semantic_hash": "f1bc4308c4704b8eb19a3ead948a6ce8"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\admin\\consumer-keys.ts": {
+    "mtime": 1781784873.6682699,
+    "ast_hash": "5bb6a4011996144e5d0ee558518ef2d3",
+    "semantic_hash": "5bb6a4011996144e5d0ee558518ef2d3"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\admin\\helpers.ts": {
+    "mtime": 1781962059.5261543,
+    "ast_hash": "7fd7c995ec3ae80267b87bbee29bb680",
+    "semantic_hash": "7fd7c995ec3ae80267b87bbee29bb680"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\admin\\index.ts": {
+    "mtime": 1781842092.6773355,
+    "ast_hash": "d99f346737f934d66d3dd80cc23f8591",
+    "semantic_hash": "d99f346737f934d66d3dd80cc23f8591"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\admin\\model-groups.ts": {
+    "mtime": 1781861282.3142123,
+    "ast_hash": "7348c79f0af1b62fcffe128002820ab6",
+    "semantic_hash": "7348c79f0af1b62fcffe128002820ab6"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\admin\\observability.ts": {
+    "mtime": 1781803480.0787985,
+    "ast_hash": "3469d7f346a611aaa44c54b48774cd38",
+    "semantic_hash": "3469d7f346a611aaa44c54b48774cd38"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\admin\\public-models.ts": {
+    "mtime": 1781962189.798107,
+    "ast_hash": "bd0c15ca301264cee506380cdc0dff2a",
+    "semantic_hash": "bd0c15ca301264cee506380cdc0dff2a"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\admin\\settings.ts": {
+    "mtime": 1781942233.3895478,
+    "ast_hash": "b5100af8772ac61219684d6c5067ef20",
+    "semantic_hash": "b5100af8772ac61219684d6c5067ef20"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\admin\\upstream-keys.ts": {
+    "mtime": 1781963082.1238286,
+    "ast_hash": "577fe4f70a232e91377580874480a66c",
+    "semantic_hash": "577fe4f70a232e91377580874480a66c"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\admin\\upstream-oauth.ts": {
+    "mtime": 1781830841.9822898,
+    "ast_hash": "09d5052e321c829b17799a4a41f952a9",
+    "semantic_hash": "09d5052e321c829b17799a4a41f952a9"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\admin\\upstream-onboarding.ts": {
+    "mtime": 1781962395.021903,
+    "ast_hash": "561496a22f6ca9d9367dce1b13563bfa",
+    "semantic_hash": "561496a22f6ca9d9367dce1b13563bfa"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\auth\\admin.ts": {
+    "mtime": 1781784812.355359,
+    "ast_hash": "428560726386370c0539a230b65782e5",
+    "semantic_hash": "428560726386370c0539a230b65782e5"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\auth\\consumer-key.ts": {
+    "mtime": 1781784812.3659213,
+    "ast_hash": "19bea9b9bac8bde3218194b2dc37274d",
+    "semantic_hash": "19bea9b9bac8bde3218194b2dc37274d"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\auth\\crypto.ts": {
+    "mtime": 1781784812.3760962,
+    "ast_hash": "6263c9fea3516f4def6dd55ac8f33d54",
+    "semantic_hash": "6263c9fea3516f4def6dd55ac8f33d54"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\auth\\index.ts": {
+    "mtime": 1781613707.392662,
+    "ast_hash": "c4f7d11195cc280690eb0a715598e437",
+    "semantic_hash": "c4f7d11195cc280690eb0a715598e437"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\auth\\session.ts": {
+    "mtime": 1781784812.3916595,
+    "ast_hash": "63a9b17ea34f821290752d89767b8bdb",
+    "semantic_hash": "63a9b17ea34f821290752d89767b8bdb"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\db\\client.ts": {
+    "mtime": 1781784812.399346,
+    "ast_hash": "6ca602b422685acbb97ecb996dd58b8c",
+    "semantic_hash": "6ca602b422685acbb97ecb996dd58b8c"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\db\\index.ts": {
+    "mtime": 1781602420.167434,
+    "ast_hash": "d789a9abfba38f46de0a3d7958c8168d",
+    "semantic_hash": "d789a9abfba38f46de0a3d7958c8168d"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\db\\init.ts": {
+    "mtime": 1781961959.474381,
+    "ast_hash": "6f44d67aea6d39b2c7a3754ddead9424",
+    "semantic_hash": "6f44d67aea6d39b2c7a3754ddead9424"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\db\\schema.ts": {
+    "mtime": 1781962394.7691276,
+    "ast_hash": "3cbabcb409f57b03a61602f6c95e6199",
+    "semantic_hash": "3cbabcb409f57b03a61602f6c95e6199"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\gateway\\cooldown.ts": {
+    "mtime": 1781784812.4885938,
+    "ast_hash": "3e86a0d97c9b74d3a2bdccf40b2d8e95",
+    "semantic_hash": "3e86a0d97c9b74d3a2bdccf40b2d8e95"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\gateway\\error-shapes.ts": {
+    "mtime": 1781784812.4949982,
+    "ast_hash": "33bf7d4de4f2f5bc323262a22ca3cd6f",
+    "semantic_hash": "33bf7d4de4f2f5bc323262a22ca3cd6f"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\gateway\\handler.ts": {
+    "mtime": 1781942193.484554,
+    "ast_hash": "13483ab84895b2d3fda0f275d467bcd3",
+    "semantic_hash": "13483ab84895b2d3fda0f275d467bcd3"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\gateway\\index.ts": {
+    "mtime": 1781784812.5287163,
+    "ast_hash": "fd7eb93b5486436c42a673a64944033c",
+    "semantic_hash": "fd7eb93b5486436c42a673a64944033c"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\gateway\\response-shapes.ts": {
+    "mtime": 1781796884.9548166,
+    "ast_hash": "5215ed15389f15f0df329cd7672e81cb",
+    "semantic_hash": "5215ed15389f15f0df329cd7672e81cb"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\gateway\\routes.ts": {
+    "mtime": 1781803156.072088,
+    "ast_hash": "8c0d45d83cb0c863d6c4afcdaef2fdb0",
+    "semantic_hash": "8c0d45d83cb0c863d6c4afcdaef2fdb0"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\gateway\\sender.ts": {
+    "mtime": 1781942193.2829487,
+    "ast_hash": "71478f3f38d8fa63fd576de1057b4c4c",
+    "semantic_hash": "71478f3f38d8fa63fd576de1057b4c4c"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\gateway\\stream-handler.ts": {
+    "mtime": 1781876550.7480843,
+    "ast_hash": "4ed0a301c12e205c9b9c526383db2dff",
+    "semantic_hash": "4ed0a301c12e205c9b9c526383db2dff"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\gateway\\stream-sender.ts": {
+    "mtime": 1781850334.1726289,
+    "ast_hash": "7dec9df5d17a987bbf3d355706e480dd",
+    "semantic_hash": "7dec9df5d17a987bbf3d355706e480dd"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\jobs\\index.ts": {
+    "mtime": 1781875941.5743346,
+    "ast_hash": "1a19aa75b7529fb0155049dc752d86ad",
+    "semantic_hash": "1a19aa75b7529fb0155049dc752d86ad"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\observability\\audit.ts": {
+    "mtime": 1781784812.6443744,
+    "ast_hash": "7001a7f3c9bc0ec64b7204b82ef2c259",
+    "semantic_hash": "7001a7f3c9bc0ec64b7204b82ef2c259"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\observability\\consumption-stats.ts": {
+    "mtime": 1781942233.6883876,
+    "ast_hash": "6b8f3fa5f5d75b7af7357a92ba0b6f56",
+    "semantic_hash": "6b8f3fa5f5d75b7af7357a92ba0b6f56"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\observability\\content-logs.ts": {
+    "mtime": 1781875855.6943235,
+    "ast_hash": "8f8680d573f08553f453ef339be2780c",
+    "semantic_hash": "8f8680d573f08553f453ef339be2780c"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\observability\\index.ts": {
+    "mtime": 1781875865.6070607,
+    "ast_hash": "0513d392c921d0ac6c20ca9ba5a1eed8",
+    "semantic_hash": "0513d392c921d0ac6c20ca9ba5a1eed8"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\observability\\login-rate-limit.ts": {
+    "mtime": 1781784812.6563926,
+    "ast_hash": "84bac430019d1673ddbd8aeeeee2b891",
+    "semantic_hash": "84bac430019d1673ddbd8aeeeee2b891"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\observability\\redaction.ts": {
+    "mtime": 1781784812.666593,
+    "ast_hash": "091143c3f60d9da917d3b879a47e521c",
+    "semantic_hash": "091143c3f60d9da917d3b879a47e521c"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\observability\\trace-logs.ts": {
+    "mtime": 1781861761.436075,
+    "ast_hash": "79ab2dda20e9fc582e3e5d78c4cf8b4b",
+    "semantic_hash": "79ab2dda20e9fc582e3e5d78c4cf8b4b"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\observability\\usage-stats.ts": {
+    "mtime": 1781784812.6869662,
+    "ast_hash": "800875ef32ad54eadef5726fb66bff79",
+    "semantic_hash": "800875ef32ad54eadef5726fb66bff79"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\anthropic-compatible.ts": {
+    "mtime": 1781829585.518395,
+    "ast_hash": "6ce85d6f585413f743db4a22e8f2cf65",
+    "semantic_hash": "6ce85d6f585413f743db4a22e8f2cf65"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\auth\\codex-oauth.ts": {
+    "mtime": 1781942217.2010634,
+    "ast_hash": "b5d35f99edb93c981df6ce0b882dfc44",
+    "semantic_hash": "b5d35f99edb93c981df6ce0b882dfc44"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\auth\\coze-oauth-jwt.ts": {
+    "mtime": 1781784812.72691,
+    "ast_hash": "f15215087dbf0727dc11056273fb2e0b",
+    "semantic_hash": "f15215087dbf0727dc11056273fb2e0b"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\auth\\coze-oauth-pkce.ts": {
+    "mtime": 1781942217.4064054,
+    "ast_hash": "386a75f8375a7911cdfb74aa6d6ae017",
+    "semantic_hash": "386a75f8375a7911cdfb74aa6d6ae017"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\auth\\index.ts": {
+    "mtime": 1781800664.763533,
+    "ast_hash": "2ab18f698ce085413262e918ad457c2b",
+    "semantic_hash": "2ab18f698ce085413262e918ad457c2b"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\auth\\oauth-pkce.ts": {
+    "mtime": 1781800590.1402774,
+    "ast_hash": "6a5117797df2eee7d8ec5b6ffc73ca12",
+    "semantic_hash": "6a5117797df2eee7d8ec5b6ffc73ca12"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\auth\\pat.ts": {
+    "mtime": 1781783458.3298821,
+    "ast_hash": "00c2cce72852954eceae4d22bdf9d0ed",
+    "semantic_hash": "00c2cce72852954eceae4d22bdf9d0ed"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\codex-adapter.ts": {
+    "mtime": 1781829585.7072594,
+    "ast_hash": "06e492efa4b3dbcffd94af08ee1fffa7",
+    "semantic_hash": "06e492efa4b3dbcffd94af08ee1fffa7"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\coze.ts": {
+    "mtime": 1781829585.8203144,
+    "ast_hash": "672308267889cea31ae89608fa07ddc7",
+    "semantic_hash": "672308267889cea31ae89608fa07ddc7"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\errors.ts": {
+    "mtime": 1781829585.8961744,
+    "ast_hash": "5a3bcf2d8464766e90b3bbad06cfb43d",
+    "semantic_hash": "5a3bcf2d8464766e90b3bbad06cfb43d"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\index.ts": {
+    "mtime": 1781942233.9846241,
+    "ast_hash": "fe2c82e5ab81db8dc37cb7775548a2f1",
+    "semantic_hash": "fe2c82e5ab81db8dc37cb7775548a2f1"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\ir-converters.ts": {
+    "mtime": 1781829586.1271875,
+    "ast_hash": "c26bb06ea3f08bd2ec92bf83591d9f38",
+    "semantic_hash": "c26bb06ea3f08bd2ec92bf83591d9f38"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\openai-compatible.ts": {
+    "mtime": 1781829586.3644612,
+    "ast_hash": "17eb30db7bc71720fdf8ce84a5914176",
+    "semantic_hash": "17eb30db7bc71720fdf8ce84a5914176"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\presets.ts": {
+    "mtime": 1781935828.5507803,
+    "ast_hash": "3c15dd2e8b6df3a7c63c200aba7ef471",
+    "semantic_hash": "3c15dd2e8b6df3a7c63c200aba7ef471"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\registry.ts": {
+    "mtime": 1781829586.7604642,
+    "ast_hash": "629dbde291a09823d0f3390eaf4d9e6a",
+    "semantic_hash": "629dbde291a09823d0f3390eaf4d9e6a"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\providers\\types.ts": {
+    "mtime": 1781935814.0299833,
+    "ast_hash": "2de72353b7cabfff9e3aa21d8193f051",
+    "semantic_hash": "2de72353b7cabfff9e3aa21d8193f051"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\quota\\index.ts": {
+    "mtime": 1781942138.2365978,
+    "ast_hash": "ba013c58967b9d4d452266debffd9ce1",
+    "semantic_hash": "ba013c58967b9d4d452266debffd9ce1"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\router\\access.ts": {
+    "mtime": 1781784812.9606373,
+    "ast_hash": "59837794bc013cecb9e953966549a5c6",
+    "semantic_hash": "59837794bc013cecb9e953966549a5c6"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\router\\candidates.ts": {
+    "mtime": 1781961983.2978976,
+    "ast_hash": "8caa3404860220a50ac0838cc8ae0822",
+    "semantic_hash": "8caa3404860220a50ac0838cc8ae0822"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\router\\circuit-breaker.ts": {
+    "mtime": 1781849957.7387886,
+    "ast_hash": "f16b7aa4e62590aca139be8185f5f3d4",
+    "semantic_hash": "f16b7aa4e62590aca139be8185f5f3d4"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\router\\group-balancer.ts": {
+    "mtime": 1781861761.1895504,
+    "ast_hash": "1b9e727548e6b7331493d502431f74b5",
+    "semantic_hash": "1b9e727548e6b7331493d502431f74b5"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\router\\index.ts": {
+    "mtime": 1781784812.9916594,
+    "ast_hash": "053e20865ccd6a9cfdd040dda840d9d6",
+    "semantic_hash": "053e20865ccd6a9cfdd040dda840d9d6"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\router\\policy.ts": {
+    "mtime": 1781784812.9997227,
+    "ast_hash": "f7a51d17bab6b24a7e8d4be1767ac252",
+    "semantic_hash": "f7a51d17bab6b24a7e8d4be1767ac252"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\router\\resolve.ts": {
+    "mtime": 1781784813.0092447,
+    "ast_hash": "8845c7cf2b0640ccfce147172235e1a6",
+    "semantic_hash": "8845c7cf2b0640ccfce147172235e1a6"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\sticky\\index.ts": {
+    "mtime": 1781784813.025058,
+    "ast_hash": "16958bd8f0eaa0c639883790de2fe7b7",
+    "semantic_hash": "16958bd8f0eaa0c639883790de2fe7b7"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\sticky\\session.ts": {
+    "mtime": 1781855648.597713,
+    "ast_hash": "3c92bc0d80f939a55ac726f8df860849",
+    "semantic_hash": "3c92bc0d80f939a55ac726f8df860849"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\upstream\\endpoint-health.ts": {
+    "mtime": 1781848406.6947694,
+    "ast_hash": "80318bef8af93b3ed347e244e84de432",
+    "semantic_hash": "80318bef8af93b3ed347e244e84de432"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\modules\\usage\\index.ts": {
+    "mtime": 1781854261.9156795,
+    "ast_hash": "dc8d21785a94a50947233e94f8aba710",
+    "semantic_hash": "dc8d21785a94a50947233e94f8aba710"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\plugins\\health.ts": {
+    "mtime": 1781784813.03916,
+    "ast_hash": "a4af228edb01ddea352232633e9a598d",
+    "semantic_hash": "a4af228edb01ddea352232633e9a598d"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\src\\server.ts": {
+    "mtime": 1781847021.428652,
+    "ast_hash": "b094725f6faab93ea0cba8070eea94ec",
+    "semantic_hash": "b094725f6faab93ea0cba8070eea94ec"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\auth-strategies.test.ts": {
+    "mtime": 1781802003.3756182,
+    "ast_hash": "578903e092af479583558c8ab7a7cb95",
+    "semantic_hash": "578903e092af479583558c8ab7a7cb95"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\auth.test.ts": {
+    "mtime": 1781784813.0767245,
+    "ast_hash": "a5bb0734991378623d47828c1b1c89b1",
+    "semantic_hash": "a5bb0734991378623d47828c1b1c89b1"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\circuit-breaker.test.ts": {
+    "mtime": 1781942251.433734,
+    "ast_hash": "2cca1615fd8ea3c86b7e0ad1b06b9e16",
+    "semantic_hash": "2cca1615fd8ea3c86b7e0ad1b06b9e16"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\consumer-keys.test.ts": {
+    "mtime": 1781784813.1012626,
+    "ast_hash": "1ffda4c42b1abdca63863bb02b8f9474",
+    "semantic_hash": "1ffda4c42b1abdca63863bb02b8f9474"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\content-logs.test.ts": {
+    "mtime": 1781876771.1148045,
+    "ast_hash": "b48cfd91a937dceed631c00780ec59d0",
+    "semantic_hash": "b48cfd91a937dceed631c00780ec59d0"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\db.test.ts": {
+    "mtime": 1781784813.109817,
+    "ast_hash": "2ff46c7e02ef7e341f4d1a1e69657524",
+    "semantic_hash": "2ff46c7e02ef7e341f4d1a1e69657524"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\endpoint-health.test.ts": {
+    "mtime": 1781848906.1179717,
+    "ast_hash": "826a65010e21e72031ca79083579dcd3",
+    "semantic_hash": "826a65010e21e72031ca79083579dcd3"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\fake-upstream.ts": {
+    "mtime": 1781850080.8932436,
+    "ast_hash": "a3a6f44ee57f7e93b27259d7eda05977",
+    "semantic_hash": "a3a6f44ee57f7e93b27259d7eda05977"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\gateway-helper.ts": {
+    "mtime": 1781784813.1465943,
+    "ast_hash": "de5eb73d7d3277c81aa3c94ac158bd96",
+    "semantic_hash": "de5eb73d7d3277c81aa3c94ac158bd96"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\gateway.test.ts": {
+    "mtime": 1781962274.280134,
+    "ast_hash": "6644d3269763ee34e75a15220895d313",
+    "semantic_hash": "6644d3269763ee34e75a15220895d313"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\group-balancer-gateway.test.ts": {
+    "mtime": 1781861761.7549372,
+    "ast_hash": "9d34e0f30c91b3954092048ab54151d3",
+    "semantic_hash": "9d34e0f30c91b3954092048ab54151d3"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\group-balancer.test.ts": {
+    "mtime": 1781861761.7387204,
+    "ast_hash": "8e8977e37474f67b6035023304c123d3",
+    "semantic_hash": "8e8977e37474f67b6035023304c123d3"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\helper.ts": {
+    "mtime": 1781784813.2131484,
+    "ast_hash": "4f90366a8a214752466f463e70663202",
+    "semantic_hash": "4f90366a8a214752466f463e70663202"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\model-groups.test.ts": {
+    "mtime": 1781861821.8971643,
+    "ast_hash": "6c0640ca7a0c51a157613fb6e4bdaffc",
+    "semantic_hash": "6c0640ca7a0c51a157613fb6e4bdaffc"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\observability.test.ts": {
+    "mtime": 1781840557.2071915,
+    "ast_hash": "f83de060fd30939ffade6ae9d21a3219",
+    "semantic_hash": "f83de060fd30939ffade6ae9d21a3219"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\providers.test.ts": {
+    "mtime": 1781961308.189942,
+    "ast_hash": "f639ed09a2f504af0ed17a8cb154a10a",
+    "semantic_hash": "f639ed09a2f504af0ed17a8cb154a10a"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\public-models.test.ts": {
+    "mtime": 1781784813.3203826,
+    "ast_hash": "b6f54a3f9d9869f581526cc2c86ec0ab",
+    "semantic_hash": "b6f54a3f9d9869f581526cc2c86ec0ab"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\quota.test.ts": {
+    "mtime": 1781942339.0366015,
+    "ast_hash": "59107506ac4ba8ef411f0c737069c009",
+    "semantic_hash": "59107506ac4ba8ef411f0c737069c009"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\router.test.ts": {
+    "mtime": 1781875154.8914447,
+    "ast_hash": "aba28f154e574735af12c0532e6b9c0d",
+    "semantic_hash": "aba28f154e574735af12c0532e6b9c0d"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\server.test.ts": {
+    "mtime": 1781784813.3596318,
+    "ast_hash": "de7cab9c4b529a35640df831cb3c8990",
+    "semantic_hash": "de7cab9c4b529a35640df831cb3c8990"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\sticky-session.test.ts": {
+    "mtime": 1781855648.6491427,
+    "ast_hash": "de49c1847c7ca1093f82a345c85bb482",
+    "semantic_hash": "de49c1847c7ca1093f82a345c85bb482"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\sticky.test.ts": {
+    "mtime": 1781784813.380589,
+    "ast_hash": "5c86fd7bc0e1e33a3cbccd6071aa0849",
+    "semantic_hash": "5c86fd7bc0e1e33a3cbccd6071aa0849"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\streaming.test.ts": {
+    "mtime": 1781852155.0994153,
+    "ast_hash": "46f5696d0b54bcca80f0007555078741",
+    "semantic_hash": "46f5696d0b54bcca80f0007555078741"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\transactions.test.ts": {
+    "mtime": 1781784813.4411922,
+    "ast_hash": "4e6bbfc87d8d95008f9996058b3f131c",
+    "semantic_hash": "4e6bbfc87d8d95008f9996058b3f131c"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\upstream-keys.test.ts": {
+    "mtime": 1781963120.0569227,
+    "ast_hash": "c33ed4083889aa6ab9600cd239595a74",
+    "semantic_hash": "c33ed4083889aa6ab9600cd239595a74"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\test\\upstream-oauth.test.ts": {
+    "mtime": 1781839562.984543,
+    "ast_hash": "7d181f77488efaff6f0aea9da7a6edad",
+    "semantic_hash": "7d181f77488efaff6f0aea9da7a6edad"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\tsconfig.json": {
+    "mtime": 1781784813.487238,
+    "ast_hash": "9d473e6c2ac0efeb1db9d3fa26bfdfb3",
+    "semantic_hash": "9d473e6c2ac0efeb1db9d3fa26bfdfb3"
+  },
+  "D:\\0 code\\llm-router\\apps\\api\\vitest.config.ts": {
+    "mtime": 1781784813.4912384,
+    "ast_hash": "818d6d689b344f8f71eb3229a70759ec",
+    "semantic_hash": "818d6d689b344f8f71eb3229a70759ec"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\env.d.ts": {
+    "mtime": 1781784813.4976647,
+    "ast_hash": "0352474ba2918efe13895edbc3780d94",
+    "semantic_hash": "0352474ba2918efe13895edbc3780d94"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\package.json": {
+    "mtime": 1781711505.0325506,
+    "ast_hash": "e01a2b1478c24e958632458037ea2a6a",
+    "semantic_hash": "e01a2b1478c24e958632458037ea2a6a"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\App.vue": {
+    "mtime": 1781711505.1133413,
+    "ast_hash": "6984c0d173aa16d7cf8638a4a35fc79a",
+    "semantic_hash": "6984c0d173aa16d7cf8638a4a35fc79a"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\api\\admin.ts": {
+    "mtime": 1781963474.3900948,
+    "ast_hash": "f1d975dab1f83397f9c398b9f1637e45",
+    "semantic_hash": "f1d975dab1f83397f9c398b9f1637e45"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\api\\auth.ts": {
+    "mtime": 1781784813.5620058,
+    "ast_hash": "3e0b28e9fbe20cda00267fed478ef3ea",
+    "semantic_hash": "3e0b28e9fbe20cda00267fed478ef3ea"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\api\\client.ts": {
+    "mtime": 1781669620.2885406,
+    "ast_hash": "2c6e18702104fc11bc3d89dcc5ea7df2",
+    "semantic_hash": "2c6e18702104fc11bc3d89dcc5ea7df2"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\components\\AppConsumerKeys.vue": {
+    "mtime": 1781711505.5434186,
+    "ast_hash": "b1ddc93c0931c6d2c376c9a50c8b47ee",
+    "semantic_hash": "b1ddc93c0931c6d2c376c9a50c8b47ee"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\components\\EmptyState.vue": {
+    "mtime": 1781711505.555422,
+    "ast_hash": "63660bd3d3c7ed538cbe889670259480",
+    "semantic_hash": "63660bd3d3c7ed538cbe889670259480"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\components\\KeyValueEditor.vue": {
+    "mtime": 1781763834.7062566,
+    "ast_hash": "d1eacc394c7164dc3727b93068a34f43",
+    "semantic_hash": "d1eacc394c7164dc3727b93068a34f43"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\components\\ModelMappingEditor.vue": {
+    "mtime": 1781762640.0021842,
+    "ast_hash": "a74b5a9d26c006843eb96a90e9bfd85a",
+    "semantic_hash": "a74b5a9d26c006843eb96a90e9bfd85a"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\i18n\\index.ts": {
+    "mtime": 1781711505.561932,
+    "ast_hash": "cdb500450d103decdb34b0e584a98072",
+    "semantic_hash": "cdb500450d103decdb34b0e584a98072"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\i18n\\locales.ts": {
+    "mtime": 1781711505.5699322,
+    "ast_hash": "7db1a1ce84ef48a81079ad945bb7640b",
+    "semantic_hash": "7db1a1ce84ef48a81079ad945bb7640b"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\layouts\\AdminLayout.test.ts": {
+    "mtime": 1781711505.7224317,
+    "ast_hash": "5f08482483039387495c2b968187a4d8",
+    "semantic_hash": "5f08482483039387495c2b968187a4d8"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\layouts\\AdminLayout.vue": {
+    "mtime": 1781711505.1779883,
+    "ast_hash": "e48d58b69cd435626cf621e98b835dbd",
+    "semantic_hash": "e48d58b69cd435626cf621e98b835dbd"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\locales\\de.ts": {
+    "mtime": 1781882683.7076416,
+    "ast_hash": "b7dbbd61e33f55590a014129aca64706",
+    "semantic_hash": "b7dbbd61e33f55590a014129aca64706"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\locales\\en.ts": {
+    "mtime": 1781963537.4402308,
+    "ast_hash": "e544ddfb3e18fba88be9c7907ad3731f",
+    "semantic_hash": "e544ddfb3e18fba88be9c7907ad3731f"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\locales\\es.ts": {
+    "mtime": 1781882687.7419677,
+    "ast_hash": "1ac5b47bc10e5fd1d032ee34db30a095",
+    "semantic_hash": "1ac5b47bc10e5fd1d032ee34db30a095"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\locales\\fr.ts": {
+    "mtime": 1781882691.7882237,
+    "ast_hash": "7f7f48a25fb1fe8fee64bc95d1a44741",
+    "semantic_hash": "7f7f48a25fb1fe8fee64bc95d1a44741"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\locales\\index.ts": {
+    "mtime": 1781711505.7109227,
+    "ast_hash": "17c4c94178b5f6653c51b078a7bc88c4",
+    "semantic_hash": "17c4c94178b5f6653c51b078a7bc88c4"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\locales\\ja.ts": {
+    "mtime": 1781882696.7551458,
+    "ast_hash": "2cab4a51c2a1845b37a04cd496a0fae0",
+    "semantic_hash": "2cab4a51c2a1845b37a04cd496a0fae0"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\locales\\ko.ts": {
+    "mtime": 1781882701.0542297,
+    "ast_hash": "302baf848bc3319627c2406daa4039c0",
+    "semantic_hash": "302baf848bc3319627c2406daa4039c0"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\locales\\pt.ts": {
+    "mtime": 1781882705.512447,
+    "ast_hash": "a4f50a4c6a6541ba51176076c7dc75cf",
+    "semantic_hash": "a4f50a4c6a6541ba51176076c7dc75cf"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\locales\\ru.ts": {
+    "mtime": 1781882709.7472646,
+    "ast_hash": "b4e2aefdf1a23d4afc1795e24e69528c",
+    "semantic_hash": "b4e2aefdf1a23d4afc1795e24e69528c"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\locales\\types.ts": {
+    "mtime": 1781711505.7154331,
+    "ast_hash": "7ac754a7a6a5ca39d09b4ad7db9270f6",
+    "semantic_hash": "7ac754a7a6a5ca39d09b4ad7db9270f6"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\locales\\zh-CN.ts": {
+    "mtime": 1781963571.6658094,
+    "ast_hash": "1e782257275a187b242e5acf8024279a",
+    "semantic_hash": "1e782257275a187b242e5acf8024279a"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\locales\\zh-TW.ts": {
+    "mtime": 1781882717.3703854,
+    "ast_hash": "18a32fa7b749b29e1dc87c8046887dec",
+    "semantic_hash": "18a32fa7b749b29e1dc87c8046887dec"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\main.ts": {
+    "mtime": 1781711505.068007,
+    "ast_hash": "600e632a7b517283d407fdb4712247e7",
+    "semantic_hash": "600e632a7b517283d407fdb4712247e7"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\pages\\Apps.vue": {
+    "mtime": 1781711505.4110112,
+    "ast_hash": "e8af4d6ff5b36398e77973d30bb9bca0",
+    "semantic_hash": "e8af4d6ff5b36398e77973d30bb9bca0"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\pages\\Login.vue": {
+    "mtime": 1781711505.208913,
+    "ast_hash": "53daa1caa19812f8e55424dd3d3e4aee",
+    "semantic_hash": "53daa1caa19812f8e55424dd3d3e4aee"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\pages\\ModelGroups.vue": {
+    "mtime": 1781861371.0355046,
+    "ast_hash": "da49346134cf6f8907d91d5010a0c9ba",
+    "semantic_hash": "da49346134cf6f8907d91d5010a0c9ba"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\pages\\OAuthCallback.vue": {
+    "mtime": 1781800873.0321076,
+    "ast_hash": "14a368618d70298bed0c97bb4279a7b4",
+    "semantic_hash": "14a368618d70298bed0c97bb4279a7b4"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\pages\\Overview.test.ts": {
+    "mtime": 1781711505.729143,
+    "ast_hash": "8c18c26cc13db8cf00d20007eb4689b1",
+    "semantic_hash": "8c18c26cc13db8cf00d20007eb4689b1"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\pages\\Overview.vue": {
+    "mtime": 1781711505.247427,
+    "ast_hash": "bf37e1a8c07357aab324431818358ec0",
+    "semantic_hash": "bf37e1a8c07357aab324431818358ec0"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\pages\\PublicModels.vue": {
+    "mtime": 1781711505.3446956,
+    "ast_hash": "0538dac9e6a791e1f8eecb90796d805d",
+    "semantic_hash": "0538dac9e6a791e1f8eecb90796d805d"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\pages\\Settings.test.ts": {
+    "mtime": 1781711505.7376554,
+    "ast_hash": "3955c3ec8b07b75bb25541f385c33c39",
+    "semantic_hash": "3955c3ec8b07b75bb25541f385c33c39"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\pages\\Settings.vue": {
+    "mtime": 1781876062.0382364,
+    "ast_hash": "eecf0fe06dcb2f0745699904e7ee4795",
+    "semantic_hash": "eecf0fe06dcb2f0745699904e7ee4795"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\pages\\UpstreamKeys.vue": {
+    "mtime": 1781963571.6297116,
+    "ast_hash": "618f6d8a5d26d5eb60a489c131b7f8e3",
+    "semantic_hash": "618f6d8a5d26d5eb60a489c131b7f8e3"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\pages\\Usage.vue": {
+    "mtime": 1781840725.8022158,
+    "ast_hash": "8fc5f3a4ef9ca0cd051b1264e5ce90cb",
+    "semantic_hash": "8fc5f3a4ef9ca0cd051b1264e5ce90cb"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\router\\index.ts": {
+    "mtime": 1781801276.9922836,
+    "ast_hash": "d10af9d3c6787db8a0ffc61108bfbb60",
+    "semantic_hash": "d10af9d3c6787db8a0ffc61108bfbb60"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\stores\\auth.ts": {
+    "mtime": 1781784814.4119709,
+    "ast_hash": "2b65acee5f7ccde69717674aa504c8ef",
+    "semantic_hash": "2b65acee5f7ccde69717674aa504c8ef"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\src\\test-utils.ts": {
+    "mtime": 1781711505.7437577,
+    "ast_hash": "8171c13082faf0a76df717a5707068b6",
+    "semantic_hash": "8171c13082faf0a76df717a5707068b6"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\tsconfig.json": {
+    "mtime": 1781784814.4272063,
+    "ast_hash": "64991c94c0a1adc243a6f3c4df8fc070",
+    "semantic_hash": "64991c94c0a1adc243a6f3c4df8fc070"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\vite.config.ts": {
+    "mtime": 1781839127.2252593,
+    "ast_hash": "425c0e74b10667dff2d02da84efb9023",
+    "semantic_hash": "425c0e74b10667dff2d02da84efb9023"
+  },
+  "D:\\0 code\\llm-router\\e2e\\login.spec.ts": {
+    "mtime": 1781784814.7640715,
+    "ast_hash": "cdb1960d4c831de1d8e21d0b434373f3",
+    "semantic_hash": "cdb1960d4c831de1d8e21d0b434373f3"
+  },
+  "D:\\0 code\\llm-router\\eslint.config.mjs": {
+    "mtime": 1781942233.1630828,
+    "ast_hash": "2d8ece8198005c83d95121216b5ba2c7",
+    "semantic_hash": "2d8ece8198005c83d95121216b5ba2c7"
+  },
+  "D:\\0 code\\llm-router\\package.json": {
+    "mtime": 1781754500.5895975,
+    "ast_hash": "cb158b6b355c475fde5ac92f24341013",
+    "semantic_hash": "cb158b6b355c475fde5ac92f24341013"
+  },
+  "D:\\0 code\\llm-router\\packages\\shared\\package.json": {
+    "mtime": 1781784814.7914104,
+    "ast_hash": "38524967a877ad9063508dd25952e07c",
+    "semantic_hash": "38524967a877ad9063508dd25952e07c"
+  },
+  "D:\\0 code\\llm-router\\packages\\shared\\src\\capabilities.ts": {
+    "mtime": 1781839674.403999,
+    "ast_hash": "a40a7114a0c2d247c64b0ff8bc23a146",
+    "semantic_hash": "a40a7114a0c2d247c64b0ff8bc23a146"
+  },
+  "D:\\0 code\\llm-router\\packages\\shared\\src\\errors.ts": {
+    "mtime": 1781784814.811641,
+    "ast_hash": "627fa0d3d2bb8348267e97208d54bedc",
+    "semantic_hash": "627fa0d3d2bb8348267e97208d54bedc"
+  },
+  "D:\\0 code\\llm-router\\packages\\shared\\src\\ids.ts": {
+    "mtime": 1781876546.3099551,
+    "ast_hash": "8eb77a87960c166202e1336dfb3da41d",
+    "semantic_hash": "8eb77a87960c166202e1336dfb3da41d"
+  },
+  "D:\\0 code\\llm-router\\packages\\shared\\src\\index.test.ts": {
+    "mtime": 1781778008.0905356,
+    "ast_hash": "21f1f58740adb0e0aa705240df2a2baa",
+    "semantic_hash": "21f1f58740adb0e0aa705240df2a2baa"
+  },
+  "D:\\0 code\\llm-router\\packages\\shared\\src\\index.ts": {
+    "mtime": 1781961280.4872174,
+    "ast_hash": "a614a9e267a06cf48363b862203a6780",
+    "semantic_hash": "a614a9e267a06cf48363b862203a6780"
+  },
+  "D:\\0 code\\llm-router\\packages\\shared\\src\\ir.ts": {
+    "mtime": 1781803617.767274,
+    "ast_hash": "c8331a3f3b7a5f9054a1b470621d619f",
+    "semantic_hash": "c8331a3f3b7a5f9054a1b470621d619f"
+  },
+  "D:\\0 code\\llm-router\\packages\\shared\\src\\protocols.ts": {
+    "mtime": 1781797333.1564968,
+    "ast_hash": "b2345a651c4758b5190c3f0354c774f7",
+    "semantic_hash": "b2345a651c4758b5190c3f0354c774f7"
+  },
+  "D:\\0 code\\llm-router\\packages\\shared\\src\\provider-registry\\descriptor.ts": {
+    "mtime": 1781935471.3848555,
+    "ast_hash": "6c08d5be3d08888e77c346a7ee34ad6e",
+    "semantic_hash": "6c08d5be3d08888e77c346a7ee34ad6e"
+  },
+  "D:\\0 code\\llm-router\\packages\\shared\\src\\provider-registry\\opencode-go.ts": {
+    "mtime": 1781961456.8614068,
+    "ast_hash": "67f0200078726157304c108c602a6b36",
+    "semantic_hash": "67f0200078726157304c108c602a6b36"
+  },
+  "D:\\0 code\\llm-router\\packages\\shared\\src\\provider-registry\\presets.test.ts": {
+    "mtime": 1781961456.9577446,
+    "ast_hash": "577e86047eecc20c87da18d8180e0c11",
+    "semantic_hash": "577e86047eecc20c87da18d8180e0c11"
+  },
+  "D:\\0 code\\llm-router\\packages\\shared\\src\\provider-registry\\presets.ts": {
+    "mtime": 1781961456.9193237,
+    "ast_hash": "c3b4e0228f2d174f6fcfa0c6dafa5659",
+    "semantic_hash": "c3b4e0228f2d174f6fcfa0c6dafa5659"
+  },
+  "D:\\0 code\\llm-router\\packages\\shared\\tsconfig.json": {
+    "mtime": 1781784814.8521838,
+    "ast_hash": "c978d686ea61a82fe928849c9b611fad",
+    "semantic_hash": "c978d686ea61a82fe928849c9b611fad"
+  },
+  "D:\\0 code\\llm-router\\packages\\shared\\vitest.config.ts": {
+    "mtime": 1781784814.8562133,
+    "ast_hash": "fb8ae5b57e4f2ae5d0ec7d9c67e18c1b",
+    "semantic_hash": "fb8ae5b57e4f2ae5d0ec7d9c67e18c1b"
+  },
+  "D:\\0 code\\llm-router\\playwright.config.ts": {
+    "mtime": 1781784814.8612134,
+    "ast_hash": "67dbeb54cd5cd767dadebe560ac5253f",
+    "semantic_hash": "67dbeb54cd5cd767dadebe560ac5253f"
+  },
+  "D:\\0 code\\llm-router\\scripts\\predev-port.mjs": {
+    "mtime": 1781839127.2216308,
+    "ast_hash": "f4fb0c7264794a0f2f4083420a1fd534",
+    "semantic_hash": "f4fb0c7264794a0f2f4083420a1fd534"
+  },
+  "D:\\0 code\\llm-router\\tsconfig.base.json": {
+    "mtime": 1781784814.960403,
+    "ast_hash": "9d938306ceb98aacd6e8960aca726247",
+    "semantic_hash": "9d938306ceb98aacd6e8960aca726247"
+  },
+  "D:\\0 code\\llm-router\\tsconfig.json": {
+    "mtime": 1781784814.9687293,
+    "ast_hash": "53a288b6077d1abc0955cea6fcbb66af",
+    "semantic_hash": "53a288b6077d1abc0955cea6fcbb66af"
+  },
+  "D:\\0 code\\llm-router\\README.md": {
+    "mtime": 1781943386.573741,
+    "ast_hash": "d81b26c07726806842c4c3240f4a332b",
+    "semantic_hash": "d81b26c07726806842c4c3240f4a332b"
+  },
+  "D:\\0 code\\llm-router\\README.zh-CN.md": {
+    "mtime": 1781943386.8173542,
+    "ast_hash": "28442b8e2cc98a3dbd195497f60df61d",
+    "semantic_hash": "28442b8e2cc98a3dbd195497f60df61d"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\index.html": {
+    "mtime": 1781784813.5222635,
+    "ast_hash": "f8750e1ae248e7e16a475073c6821cfc",
+    "semantic_hash": "f8750e1ae248e7e16a475073c6821cfc"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\agnes-ai.md": {
+    "mtime": 1781827800.7997992,
+    "ast_hash": "14d9ab13578db2cd484ed92c7cf6c277",
+    "semantic_hash": "14d9ab13578db2cd484ed92c7cf6c277"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\anthropic.md": {
+    "mtime": 1781827775.0650597,
+    "ast_hash": "7940b454ba5a1919c2b5ccfa64146542",
+    "semantic_hash": "7940b454ba5a1919c2b5ccfa64146542"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\baichuan.md": {
+    "mtime": 1781827795.6637402,
+    "ast_hash": "8ee4e531a48249a08f3aa96ccff0fa7a",
+    "semantic_hash": "8ee4e531a48249a08f3aa96ccff0fa7a"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\bytedance.md": {
+    "mtime": 1781827796.702695,
+    "ast_hash": "1472ae2549fc43e5657540ac431e4136",
+    "semantic_hash": "1472ae2549fc43e5657540ac431e4136"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\cerebras.md": {
+    "mtime": 1781827787.4536972,
+    "ast_hash": "09cd2c2e13cfbbc4441f703f5df29ba5",
+    "semantic_hash": "09cd2c2e13cfbbc4441f703f5df29ba5"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\codex.md": {
+    "mtime": 1781830719.8332653,
+    "ast_hash": "aa65b798dc2d22f51ee185e6bf5be7ae",
+    "semantic_hash": "aa65b798dc2d22f51ee185e6bf5be7ae"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\coze.md": {
+    "mtime": 1781827803.898611,
+    "ast_hash": "48f658f42ed2def0363c9462d00a7266",
+    "semantic_hash": "48f658f42ed2def0363c9462d00a7266"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\deepseek.md": {
+    "mtime": 1781827776.0881925,
+    "ast_hash": "a09acc3550094d65830a811f85d61862",
+    "semantic_hash": "a09acc3550094d65830a811f85d61862"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\fireworks.md": {
+    "mtime": 1781827788.4823532,
+    "ast_hash": "270c63c61c0ebc3034c4d85aa5d9298e",
+    "semantic_hash": "270c63c61c0ebc3034c4d85aa5d9298e"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\groq.md": {
+    "mtime": 1781827785.3888383,
+    "ast_hash": "cff21a6e3ddf43e73d3af69d4378a3e8",
+    "semantic_hash": "cff21a6e3ddf43e73d3af69d4378a3e8"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\hunyuan.md": {
+    "mtime": 1781827797.7259223,
+    "ast_hash": "70c6d36c67c944ccdd1c6661bf0d70ab",
+    "semantic_hash": "70c6d36c67c944ccdd1c6661bf0d70ab"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\kimi-code.md": {
+    "mtime": 1781827801.8270445,
+    "ast_hash": "09667373caf5c61dc55dec350aee1b66",
+    "semantic_hash": "09667373caf5c61dc55dec350aee1b66"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\minimax-intl.md": {
+    "mtime": 1781827781.255622,
+    "ast_hash": "32405559f1d713033e4791f6b0db20f5",
+    "semantic_hash": "32405559f1d713033e4791f6b0db20f5"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\minimax.md": {
+    "mtime": 1781827780.2193494,
+    "ast_hash": "d7abb0176db7c9e66181a20a799442d8",
+    "semantic_hash": "d7abb0176db7c9e66181a20a799442d8"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\moonshot-cn.md": {
+    "mtime": 1781827778.1422188,
+    "ast_hash": "db7fdc7407b03ea797a6aab4676f7195",
+    "semantic_hash": "db7fdc7407b03ea797a6aab4676f7195"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\moonshot.md": {
+    "mtime": 1781827779.18162,
+    "ast_hash": "9448dbd24e51a353b8f7a4da2d7ffad0",
+    "semantic_hash": "9448dbd24e51a353b8f7a4da2d7ffad0"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\openai.md": {
+    "mtime": 1781827774.0218697,
+    "ast_hash": "7487bb04d97dd7fda883a7279460edb1",
+    "semantic_hash": "7487bb04d97dd7fda883a7279460edb1"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\opencode-go.md": {
+    "mtime": 1781961281.4249673,
+    "ast_hash": "c2709602f2f7d55de07de0d094708c7d",
+    "semantic_hash": "c2709602f2f7d55de07de0d094708c7d"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\opencode-zen.md": {
+    "mtime": 1781827784.3631938,
+    "ast_hash": "02c3b95f0b82c3c0e515c91fb586cb79",
+    "semantic_hash": "02c3b95f0b82c3c0e515c91fb586cb79"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\openrouter.md": {
+    "mtime": 1781827782.297543,
+    "ast_hash": "6759735fb219e19d8d5a0ff44ccf6681",
+    "semantic_hash": "6759735fb219e19d8d5a0ff44ccf6681"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\qianfan.md": {
+    "mtime": 1781827798.7536805,
+    "ast_hash": "6ff927949369b047ce741062e5643c32",
+    "semantic_hash": "6ff927949369b047ce741062e5643c32"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\qwen-intl.md": {
+    "mtime": 1781827791.555434,
+    "ast_hash": "7bf6f42ad1c281bc16a890367efd6137",
+    "semantic_hash": "7bf6f42ad1c281bc16a890367efd6137"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\qwen.md": {
+    "mtime": 1781827790.5334163,
+    "ast_hash": "97c71c4fb7aa37a57d281031aeffc13d",
+    "semantic_hash": "97c71c4fb7aa37a57d281031aeffc13d"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\siliconflow.md": {
+    "mtime": 1781827794.6392646,
+    "ast_hash": "4a99ac389707a0862fa11275a653d464",
+    "semantic_hash": "4a99ac389707a0862fa11275a653d464"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\stepfun.md": {
+    "mtime": 1781827799.7766361,
+    "ast_hash": "cff9bbd8d6d94cf88e69692607f89002",
+    "semantic_hash": "cff9bbd8d6d94cf88e69692607f89002"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\together.md": {
+    "mtime": 1781827786.4245758,
+    "ast_hash": "7a994ad652cf788aa3de540f69c2c25f",
+    "semantic_hash": "7a994ad652cf788aa3de540f69c2c25f"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\xai.md": {
+    "mtime": 1781827789.502877,
+    "ast_hash": "e072ddbba9fb5d56e76551ad8ee42152",
+    "semantic_hash": "e072ddbba9fb5d56e76551ad8ee42152"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\zhipu-coding.md": {
+    "mtime": 1781827793.6137438,
+    "ast_hash": "b8105185b15d573e8b008d8e4f11b244",
+    "semantic_hash": "b8105185b15d573e8b008d8e4f11b244"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\docs\\provider-guides\\zhipu.md": {
+    "mtime": 1781827792.5813549,
+    "ast_hash": "3d0d61e1d39c74068d7ae21b75aa6cd2",
+    "semantic_hash": "3d0d61e1d39c74068d7ae21b75aa6cd2"
+  },
+  "D:\\0 code\\llm-router\\docs\\README.md": {
+    "mtime": 1781943332.1208317,
+    "ast_hash": "4c8ca9ba12e1ee7436e5b39a52ea1d31",
+    "semantic_hash": "4c8ca9ba12e1ee7436e5b39a52ea1d31"
+  },
+  "D:\\0 code\\llm-router\\docs\\api-usage.md": {
+    "mtime": 1781943297.5501964,
+    "ast_hash": "3e92a858166d6378ec7b02ead60e8e8e",
+    "semantic_hash": "3e92a858166d6378ec7b02ead60e8e8e"
+  },
+  "D:\\0 code\\llm-router\\docs\\apps-and-keys.md": {
+    "mtime": 1781940355.2310977,
+    "ast_hash": "ef7b68ccf76663ece1f9c0646ee04bf4",
+    "semantic_hash": "ef7b68ccf76663ece1f9c0646ee04bf4"
+  },
+  "D:\\0 code\\llm-router\\docs\\deployment.md": {
+    "mtime": 1781943387.054353,
+    "ast_hash": "7fe02da107f2a987233d7fb800d6b97c",
+    "semantic_hash": "7fe02da107f2a987233d7fb800d6b97c"
+  },
+  "D:\\0 code\\llm-router\\docs\\getting-started.md": {
+    "mtime": 1781940256.0242116,
+    "ast_hash": "6eeeea0b18bbd5f9fc5eec192d9c3565",
+    "semantic_hash": "6eeeea0b18bbd5f9fc5eec192d9c3565"
+  },
+  "D:\\0 code\\llm-router\\docs\\models.md": {
+    "mtime": 1781943297.776669,
+    "ast_hash": "312f93bf492a957f3b114d94c4703f00",
+    "semantic_hash": "312f93bf492a957f3b114d94c4703f00"
+  },
+  "D:\\0 code\\llm-router\\docs\\provider-guides\\README.md": {
+    "mtime": 1781943297.9872446,
+    "ast_hash": "241c5d8e0977c5c842b2cf5c29471116",
+    "semantic_hash": "241c5d8e0977c5c842b2cf5c29471116"
+  },
+  "D:\\0 code\\llm-router\\docs\\routing-and-resilience.md": {
+    "mtime": 1781943297.2727578,
+    "ast_hash": "853f27ddae197b7beaf990790c03b11a",
+    "semantic_hash": "853f27ddae197b7beaf990790c03b11a"
+  },
+  "D:\\0 code\\llm-router\\docs\\security.md": {
+    "mtime": 1781943298.202574,
+    "ast_hash": "3e7daf488f9db85df400dfb89e576abf",
+    "semantic_hash": "3e7daf488f9db85df400dfb89e576abf"
+  },
+  "D:\\0 code\\llm-router\\docs\\troubleshooting.md": {
+    "mtime": 1781943332.3727314,
+    "ast_hash": "7e9278c3a8211adaa1463cf31b2f1a31",
+    "semantic_hash": "7e9278c3a8211adaa1463cf31b2f1a31"
+  },
+  "D:\\0 code\\llm-router\\docs\\upstream-keys.md": {
+    "mtime": 1781943297.0443113,
+    "ast_hash": "623666cb12b21b0b8aa4417e21562bcf",
+    "semantic_hash": "623666cb12b21b0b8aa4417e21562bcf"
+  },
+  "D:\\0 code\\llm-router\\docs\\usage-and-monitoring.md": {
+    "mtime": 1781943298.4162483,
+    "ast_hash": "76f3695c36c656ab45d1cc355e0de6cf",
+    "semantic_hash": "76f3695c36c656ab45d1cc355e0de6cf"
+  },
+  "D:\\0 code\\llm-router\\plan.md": {
+    "mtime": 1781936251.2136242,
+    "ast_hash": "3e380eb914739afcf1c64108e0defb93",
+    "semantic_hash": "3e380eb914739afcf1c64108e0defb93"
+  },
+  "D:\\0 code\\llm-router\\pnpm-workspace.yaml": {
+    "mtime": 1781784814.869954,
+    "ast_hash": "fbd67b0f3ed9c01d1044f34a66384a4e",
+    "semantic_hash": "fbd67b0f3ed9c01d1044f34a66384a4e"
+  },
+  "D:\\0 code\\llm-router\\apps\\web\\public\\favicon.svg": {
+    "mtime": 1781597564.5545287,
+    "ast_hash": "6f2a626e7d8e745e2a0c290affe95755",
+    "semantic_hash": "6f2a626e7d8e745e2a0c290affe95755"
+  }
+}

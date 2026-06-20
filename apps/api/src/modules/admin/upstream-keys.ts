@@ -8,18 +8,20 @@ import {
   type SourceProtocol,
   type ChatRequestIR,
 } from '@modelharbor/shared';
+import type { Db } from '../db/index.js';
 import {
   type UpstreamKeyCounterRow,
   type UpstreamKeyQuotaRow,
   type UpstreamKeyQuotaInsert,
   type UpstreamKeyRow,
   type UpstreamEndpointHealthRow,
-  type Db,
-  publicModelCandidates,
   upstreamKeyCounters,
   upstreamKeyQuotas,
   upstreamKeys,
-} from '../db/index.js';
+} from '../db/tables/upstream.js';
+import {
+  publicModelCandidates,
+} from '../db/tables/models.js';
 import {
   listUpstreamEndpointHealth,
   pruneOrphanEndpointHealth,
@@ -135,6 +137,14 @@ interface CreateUpstreamKeyBody {
   };
 }
 
+interface DuplicateUpstreamKeyBody {
+  name?: unknown;
+  apiKey?: unknown;
+  routingMode?: unknown;
+}
+
+type DuplicateRoutingMode = 'failover' | 'pool';
+
 function presentUpstreamKey(
   row: UpstreamKeyRow,
   quota: UpstreamKeyQuotaRow | null,
@@ -221,6 +231,12 @@ function normalizeExtraHeaders(value: unknown): Record<string, string> {
 function normalizeExtraParams(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return { ...(value as Record<string, unknown>) };
+}
+
+function normalizeDuplicateRoutingMode(value: unknown): DuplicateRoutingMode {
+  if (value === undefined || value === null) return 'failover';
+  if (value === 'failover' || value === 'pool') return value;
+  throw new ValidationError('routingMode must be failover or pool');
 }
 
 function normalizeModelMappings(value: unknown): OnboardingMapping[] {
@@ -1160,6 +1176,105 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
       enabled: row.enabled,
     });
     return presentUpstreamKey(row, quota, []);
+  });
+
+  app.post('/api/admin/upstream-keys/:id/duplicate', async (req, reply) => {
+    const { id: sourceId } = req.params as { id: string };
+    const body = (req.body ?? {}) as DuplicateUpstreamKeyBody;
+    const source = await db.select().from(upstreamKeys).where(eq(upstreamKeys.id, sourceId)).get();
+    if (!source) {
+      reply.code(404).send({
+        error: {
+          message: 'upstream key not found',
+          type: 'target_not_found',
+          code: 'target_not_found',
+        },
+      });
+      return;
+    }
+    if (source.authType !== 'pat') {
+      throw new ValidationError('duplicate currently supports PAT upstream keys only');
+    }
+
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (!name) throw new ValidationError('name is required');
+    const apiKey = typeof body.apiKey === 'string' ? body.apiKey : '';
+    if (!apiKey) throw new ValidationError('apiKey is required');
+    const routingMode = normalizeDuplicateRoutingMode(body.routingMode);
+
+    const existing = await db.select().from(upstreamKeys).where(eq(upstreamKeys.name, name)).get();
+    if (existing) {
+      reply.code(409).send({
+        error: {
+          message: 'upstream key name already in use',
+          type: 'validation_error',
+          code: 'validation_error',
+        },
+      });
+      return;
+    }
+
+    const now = new Date();
+    const newId = generateId('upstreamKey');
+    const enc = encryptUpstreamApiKey(apiKey, secretKey);
+    const sourceCandidates = await db
+      .select()
+      .from(publicModelCandidates)
+      .where(eq(publicModelCandidates.upstreamKeyId, sourceId))
+      .all();
+
+    await db.transaction(async (tx) => {
+      await tx.insert(upstreamKeys).values({
+        id: newId,
+        name,
+        providerType: source.providerType,
+        baseUrl: source.baseUrl,
+        authType: source.authType,
+        apiKeyCiphertext: enc.ciphertext,
+        apiKeyPrefix: enc.prefix,
+        authConfigCiphertext: null,
+        defaultHeadersJson: source.defaultHeadersJson,
+        extraHeadersJson: source.extraHeadersJson,
+        extraParamsJson: source.extraParamsJson,
+        supportedModelsJson: source.supportedModelsJson,
+        endpointsJson: source.endpointsJson,
+        providerPresetId: source.providerPresetId,
+        stickySessionTtlMs: source.stickySessionTtlMs,
+        enabled: true,
+        frozen: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+      if (sourceCandidates.length > 0) {
+        await tx.insert(publicModelCandidates).values(
+          sourceCandidates.map((c) => ({
+            id: generateId('publicModel') + '_c',
+            publicModelId: c.publicModelId,
+            upstreamKeyId: newId,
+            realModelName: c.realModelName,
+            endpointProtocol: c.endpointProtocol,
+            endpointProviderType: c.endpointProviderType,
+            endpointBaseUrl: c.endpointBaseUrl,
+            endpointApiPath: c.endpointApiPath,
+            enabled: c.enabled,
+            priority: routingMode === 'failover' ? c.priority + 10 : c.priority,
+            weight: c.weight,
+            createdAt: now,
+            updatedAt: now,
+          })),
+        );
+      }
+    });
+
+    const row = await db.select().from(upstreamKeys).where(eq(upstreamKeys.id, newId)).get();
+    if (!row) throw new Error('insert failed');
+    await audit(db, auditMetaFromRequest(req), 'upstream_key.create', newId, {
+      name,
+      duplicatedFrom: sourceId,
+      routingMode,
+      candidates: sourceCandidates.length,
+    });
+    return presentUpstreamKey(row, null, [], sourceCandidates.length);
   });
 
   app.post('/api/admin/upstream-keys/:id/rotate-secret', async (req, reply) => {

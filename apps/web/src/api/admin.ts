@@ -76,6 +76,12 @@ export interface UpstreamKeyCreatePayload {
   };
 }
 
+export interface UpstreamKeyDuplicatePayload {
+  name: string;
+  apiKey: string;
+  routingMode?: 'failover' | 'pool';
+}
+
 export interface DiscoverModelsPayload {
   baseUrl: string;
   apiKey?: string;
@@ -171,6 +177,8 @@ export const upstreamKeysApi = {
     api.post<{ id: string; apiKeyPrefix: string }>(`/api/admin/upstream-keys/${id}/rotate-secret`, {
       apiKey: newApiKey,
     }),
+  duplicate: (id: string, payload: UpstreamKeyDuplicatePayload) =>
+    api.post<UpstreamKey>(`/api/admin/upstream-keys/${id}/duplicate`, payload),
   ping: (id: string, payload: UpstreamKeyPingPayload) =>
     api.post<UpstreamKeyPingResult>(`/api/admin/upstream-keys/${id}/ping`, payload),
   delete: (id: string) =>

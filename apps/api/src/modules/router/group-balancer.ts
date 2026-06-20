@@ -7,7 +7,9 @@
 // to the front, that candidate is used regardless of the balancer's choice.
 
 import { eq, sql } from 'drizzle-orm';
-import { type Db, type TargetType, modelGroups } from '../db/index.js';
+import type { Db } from '../db/index.js';
+import { type TargetType } from '../db/tables/routing.js';
+import { modelGroups } from '../db/tables/models.js';
 import type { ResolvedCandidate } from './candidates.js';
 
 export interface GroupBalanceTarget {

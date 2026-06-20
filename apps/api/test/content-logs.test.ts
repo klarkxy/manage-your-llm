@@ -1,7 +1,7 @@
 // M6: optional prompt/response content logging.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { contentLogs } from '../src/modules/db/index.js';
+import { contentLogs } from '../src/modules/db/tables/observability.js';
 import { makeGatewayRig, type GatewayTestRig } from './gateway-helper.js';
 import { makeAdminRig, type AdminTestRig } from './helper.js';
 

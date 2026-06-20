@@ -8,13 +8,13 @@
 
 import { eq, inArray, sql } from 'drizzle-orm';
 import { generateId, type ProviderType, type SourceProtocol } from '@modelharbor/shared';
+import type { Db } from '../db/index.js';
 import {
-  type Db,
   type UpstreamEndpointHealthRow,
   type UpstreamKeyRow,
   upstreamEndpointHealth,
   upstreamKeys,
-} from '../db/index.js';
+} from '../db/tables/upstream.js';
 interface ProbeResponse {
   status: number;
   ttfbMs: number;

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { upstreamKeys, upstreamEndpointHealth } from '../src/modules/db/index.js';
+import { upstreamKeys, upstreamEndpointHealth } from '../src/modules/db/tables/upstream.js';
 import { makeAdminRig, type AdminTestRig } from './helper.js';
 import {
   listEndpointTargetsForKey,

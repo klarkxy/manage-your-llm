@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { modelGroups, targetNames } from '../src/modules/db/index.js';
+import { modelGroups } from '../src/modules/db/tables/models.js';
+import { targetNames } from '../src/modules/db/tables/routing.js';
 import { makeAdminRig, seedFullRoute, type AdminTestRig } from './helper.js';
 
 describe('model groups admin', () => {

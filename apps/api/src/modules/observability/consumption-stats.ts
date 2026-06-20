@@ -6,11 +6,11 @@
 
 import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import { generateId } from '@modelharbor/shared';
+import type { Db } from '../db/index.js';
 import {
-  type Db,
   type ModelConsumptionStatInsert,
   modelConsumptionStats,
-} from '../db/index.js';
+} from '../db/tables/observability.js';
 
 export interface ConsumptionDelta {
   requestCount: number;

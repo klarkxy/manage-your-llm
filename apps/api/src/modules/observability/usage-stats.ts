@@ -6,16 +6,22 @@
 // indexed range scan (created_at has an index) without any extra help.
 
 import { and, count, eq, gte, sql } from 'drizzle-orm';
+import type { Db } from '../db/index.js';
 import {
-  type Db,
   type UsageRecordRow,
+  usageRecords,
+} from '../db/tables/routing.js';
+import {
   apps,
   consumerKeys,
+} from '../db/tables/apps.js';
+import {
   publicModels,
   modelGroups,
+} from '../db/tables/models.js';
+import {
   upstreamKeys,
-  usageRecords,
-} from '../db/index.js';
+} from '../db/tables/upstream.js';
 
 export interface TimeWindow {
   since: Date;

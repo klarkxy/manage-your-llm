@@ -15,15 +15,15 @@
 
 import { and, eq, lte, sql } from 'drizzle-orm';
 import { generateId } from '@modelharbor/shared';
+import type { Db } from '../db/index.js';
 import {
-  type Db,
   type QuotaPeriod,
   type UpstreamKeyCounterRow,
   type UpstreamKeyQuotaRow,
   upstreamKeyCounters,
   upstreamKeyQuotas,
   upstreamKeys,
-} from '../db/index.js';
+} from '../db/tables/upstream.js';
 
 export interface PeriodBounds {
   start: Date;

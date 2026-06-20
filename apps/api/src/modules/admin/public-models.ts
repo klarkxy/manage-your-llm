@@ -6,14 +6,18 @@ import {
   type ProviderType,
   type SourceProtocol,
 } from '@modelharbor/shared';
+import type { Db } from '../db/index.js';
 import {
-  type Db,
   type PublicModelRow,
   publicModels,
   publicModelCandidates,
+} from '../db/tables/models.js';
+import {
   targetNames,
+} from '../db/tables/routing.js';
+import {
   upstreamKeys,
-} from '../db/index.js';
+} from '../db/tables/upstream.js';
 import {
   assertTargetName,
   assertProviderType,

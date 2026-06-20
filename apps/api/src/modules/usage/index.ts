@@ -1,5 +1,6 @@
 import { generateId, type ProviderType, type SourceProtocol } from '@modelharbor/shared';
-import { type Db, type TargetType, type UsageRecordInsert, usageRecords } from '../db/index.js';
+import type { Db } from '../db/index.js';
+import { type TargetType, type UsageRecordInsert, usageRecords } from '../db/tables/routing.js';
 
 export interface UsageRecordInput {
   appId: string;

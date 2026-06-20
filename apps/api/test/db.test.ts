@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { createDb, initSchema, adminUsers, type Db } from '../src/modules/db/index.js';
+import { createDb, initSchema, type Db } from '../src/modules/db/index.js';
+import { adminUsers } from '../src/modules/db/tables/auth-admin.js';
 
 interface TestRig {
   db: Db;

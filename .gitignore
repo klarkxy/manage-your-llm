@@ -58,3 +58,5 @@ playwright-report/
 
 # 参考项目
 reference/
+
+graphify-out/cache

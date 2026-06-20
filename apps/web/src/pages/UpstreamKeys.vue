@@ -104,6 +104,15 @@ const healthKey = ref<UpstreamKey | null>(null);
 const healthRows = ref<UpstreamEndpointHealth[]>([]);
 const healthLoading = ref(false);
 
+const duplicateOpen = ref(false);
+const duplicateKey = ref<UpstreamKey | null>(null);
+const duplicateSubmitting = ref(false);
+const duplicateForm = ref({
+  name: '',
+  apiKey: '',
+  routingMode: 'failover' as 'failover' | 'pool',
+});
+
 function resetForm() {
   form.value = {
     name: '',
@@ -464,13 +473,45 @@ async function handleDelete(row: UpstreamKey) {
   }
 }
 
+function openDuplicate(row: UpstreamKey) {
+  duplicateKey.value = row;
+  duplicateForm.value = {
+    name: `${row.name} copy`,
+    apiKey: '',
+    routingMode: 'failover',
+  };
+  duplicateOpen.value = true;
+}
+
+async function handleDuplicate() {
+  if (!duplicateKey.value) return;
+  if (!duplicateForm.value.name.trim() || !duplicateForm.value.apiKey) {
+    message.error(t('upstreamKeys.validation.required'));
+    return;
+  }
+  duplicateSubmitting.value = true;
+  try {
+    await upstreamKeysApi.duplicate(duplicateKey.value.id, {
+      name: duplicateForm.value.name.trim(),
+      apiKey: duplicateForm.value.apiKey,
+      routingMode: duplicateForm.value.routingMode,
+    });
+    duplicateOpen.value = false;
+    message.success(t('upstreamKeys.toast.duplicated'));
+    await refresh();
+  } catch (err) {
+    message.error((err as Error).message);
+  } finally {
+    duplicateSubmitting.value = false;
+  }
+}
+
 async function openPing(row: UpstreamKey) {
   pingKey.value = row;
   pingResults.value = {};
   pingLoading.value = new Set();
   const preset = presets.value.find((p) => p.id === row.providerPresetId);
-  quickPingModel.value =
-    preset?.defaultModel ?? preset?.modelExamples?.[0] ?? '';
+  quickPingModel.value = preset?.defaultModel ?? preset?.modelExamples?.[0] ?? '';
   pingOpen.value = true;
   await refreshPingCandidates(row.id);
 }
@@ -681,7 +722,14 @@ function renderPresetLabel(option: PresetOption) {
   const prefix = option.icon ? `${option.icon} ` : '';
   return h(
     'span',
-    { style: { color: option.color || undefined, display: 'inline-flex', alignItems: 'center', gap: '4px' } },
+    {
+      style: {
+        color: option.color || undefined,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+      },
+    },
     `${prefix}${option.label}`,
   );
 }
@@ -892,7 +940,7 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
   {
     title: t('upstreamKeys.columns.actions'),
     key: 'actions',
-    width: 280,
+    width: 340,
     render: (row) =>
       h(NSpace, { size: 'small', align: 'center' }, () => [
         h(NButton, { size: 'small', onClick: () => openPing(row) }, () =>
@@ -903,6 +951,11 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
         ),
         h(NButton, { size: 'small', onClick: () => openEdit(row) }, () =>
           t('upstreamKeys.actions.edit'),
+        ),
+        h(
+          NButton,
+          { size: 'small', disabled: row.authType !== 'pat', onClick: () => openDuplicate(row) },
+          () => t('upstreamKeys.actions.duplicate'),
         ),
         h(
           NPopconfirm,
@@ -1198,6 +1251,57 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
         </template>
       </NDrawerContent>
     </NDrawer>
+
+    <NModal
+      v-model:show="duplicateOpen"
+      preset="card"
+      style="max-width: 480px"
+      :title="t('upstreamKeys.duplicate.title', { name: duplicateKey?.name ?? '' })"
+      @update:show="(v: boolean) => (duplicateOpen = v)"
+    >
+      <NForm label-placement="top">
+        <NFormItem :label="t('upstreamKeys.duplicate.name')" required>
+          <NInput
+            v-model:value="duplicateForm.name"
+            :placeholder="t('upstreamKeys.duplicate.placeholders.name')"
+          />
+        </NFormItem>
+        <NFormItem :label="t('upstreamKeys.duplicate.apiKey')" required>
+          <NInput
+            v-model:value="duplicateForm.apiKey"
+            type="password"
+            show-password-on="click"
+            :placeholder="t('upstreamKeys.drawer.placeholders.apiKey')"
+          />
+        </NFormItem>
+        <NFormItem :label="t('upstreamKeys.duplicate.routingMode.label')">
+          <NSelect
+            v-model:value="duplicateForm.routingMode"
+            :options="[
+              {
+                label: t('upstreamKeys.duplicate.routingMode.failover'),
+                value: 'failover',
+              },
+              {
+                label: t('upstreamKeys.duplicate.routingMode.pool'),
+                value: 'pool',
+              },
+            ]"
+          />
+        </NFormItem>
+        <NText depth="3" style="font-size: 12px">
+          {{ t('upstreamKeys.duplicate.hint') }}
+        </NText>
+      </NForm>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="duplicateOpen = false">{{ t('common.cancel') }}</NButton>
+          <NButton type="primary" :loading="duplicateSubmitting" @click="handleDuplicate">
+            {{ t('upstreamKeys.actions.duplicate') }}
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
 
     <NModal
       v-model:show="pingOpen"

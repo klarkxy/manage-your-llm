@@ -14,7 +14,7 @@
 
 import type { Db } from '../db/index.js';
 import { eq, lte } from 'drizzle-orm';
-import { upstreamKeys } from '../db/index.js';
+import { upstreamKeys } from '../db/tables/upstream.js';
 import { resetExpiredCounters } from '../quota/index.js';
 import { pruneExpiredStickyBindings } from '../sticky/index.js';
 import { pruneExpiredStickySessions } from '../sticky/session.js';

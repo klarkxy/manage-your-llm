@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { consumerKeys, consumerKeyAccess } from '../src/modules/db/index.js';
+import { consumerKeys, consumerKeyAccess } from '../src/modules/db/tables/apps.js';
 import { makeAdminRig, seedFullRoute, type AdminTestRig } from './helper.js';
 
 describe('consumer keys admin', () => {

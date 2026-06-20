@@ -1,14 +1,14 @@
 import { eq, and, isNull } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { Db } from '../db/index.js';
 import {
   type AppRow,
   type ConsumerKeyAccessRow,
   type ConsumerKeyRow,
-  type Db,
   apps,
   consumerKeyAccess,
   consumerKeys,
-} from '../db/index.js';
+} from '../db/tables/apps.js';
 import { AuthenticationError, PermissionError } from '@modelharbor/shared';
 import { hashSessionId } from './session.js';
 

@@ -6,12 +6,12 @@
 
 import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import { generateId } from '@modelharbor/shared';
+import type { Db } from '../db/index.js';
 import {
-  type Db,
   type RequestTraceLogInsert,
   type RequestTraceLogRow,
   requestTraceLogs,
-} from '../db/index.js';
+} from '../db/tables/observability.js';
 import type { FilterReason } from '../router/candidates.js';
 import type { NormalizedProviderError } from '../providers/types.js';
 

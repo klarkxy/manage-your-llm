@@ -1,5 +1,7 @@
 import { eq, and, lte, sql } from 'drizzle-orm';
-import { type Db, adminSettings, circuitBreakers, upstreamKeys } from '../db/index.js';
+import type { Db } from '../db/index.js';
+import { adminSettings } from '../db/tables/settings.js';
+import { circuitBreakers, upstreamKeys } from '../db/tables/upstream.js';
 import type { NormalizedProviderError } from '../providers/types.js';
 import { generateId } from '@modelharbor/shared';
 

@@ -7,7 +7,8 @@
 
 import { and, eq, gte, sql } from 'drizzle-orm';
 import { generateId } from '@modelharbor/shared';
-import { type Db, loginAttempts } from '../db/index.js';
+import type { Db } from '../db/index.js';
+import { loginAttempts } from '../db/tables/auth-admin.js';
 
 export interface RateLimitOptions {
   windowMs: number;

@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import http from 'node:http';
 import { eq } from 'drizzle-orm';
-import { usageRecords, upstreamKeys, publicModelCandidates } from '../src/modules/db/index.js';
+import { usageRecords } from '../src/modules/db/tables/routing.js';
+import { upstreamKeys } from '../src/modules/db/tables/upstream.js';
+import { publicModelCandidates } from '../src/modules/db/tables/models.js';
 import { encryptUpstreamApiKey } from '../src/modules/admin/index.js';
 import { generateId } from '@modelharbor/shared';
 import { updateCircuitBreakerSettings } from '../src/modules/router/circuit-breaker.js';

@@ -4,7 +4,8 @@
 
 import { desc } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
-import { type Db, auditEvents } from '../db/index.js';
+import type { Db } from '../db/index.js';
+import { auditEvents } from '../db/tables/observability.js';
 
 export interface AuditRouteDeps {
   db: Db;

@@ -3,10 +3,12 @@ import type { Db } from '../db/index.js';
 import {
   publicModels,
   modelGroups,
+} from '../db/tables/models.js';
+import {
   targetNames,
   type TargetNameRow,
   type TargetType,
-} from '../db/index.js';
+} from '../db/tables/routing.js';
 import { decryptSecret, encryptSecret, randomBase64Url } from '../auth/crypto.js';
 import { hashSessionId } from '../auth/session.js';
 import {

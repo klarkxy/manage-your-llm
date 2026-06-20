@@ -13,13 +13,15 @@
 
 import { and, eq } from 'drizzle-orm';
 import { generateId } from '@modelharbor/shared';
+import type { Db } from '../db/index.js';
 import {
-  type Db,
   type StickySessionRow,
   type StickySessionInsert,
   stickySessions,
+} from '../db/tables/routing.js';
+import {
   upstreamKeys,
-} from '../db/index.js';
+} from '../db/tables/upstream.js';
 import type { ResolvedCandidate } from '../router/candidates.js';
 
 export const DEFAULT_SESSION_STICKY_TTL_MS = 5 * 60 * 1000;

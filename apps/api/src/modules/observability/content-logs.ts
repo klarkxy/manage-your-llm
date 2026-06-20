@@ -9,7 +9,9 @@
 
 import { eq, lte } from 'drizzle-orm';
 import { generateId } from '@modelharbor/shared';
-import { type Db, adminSettings, contentLogs } from '../db/index.js';
+import type { Db } from '../db/index.js';
+import { adminSettings } from '../db/tables/settings.js';
+import { contentLogs } from '../db/tables/observability.js';
 import { redactValue } from './redaction.js';
 
 export interface ContentLogSettings {

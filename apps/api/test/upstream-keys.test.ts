@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { eq, and } from 'drizzle-orm';
-import { publicModelCandidates, publicModels, upstreamKeys } from '../src/modules/db/index.js';
+import { publicModelCandidates, publicModels } from '../src/modules/db/tables/models.js';
+import { upstreamKeys } from '../src/modules/db/tables/upstream.js';
 import { decryptUpstreamApiKeyForTest } from '../src/modules/admin/index.js';
 import { makeAdminRig, type AdminTestRig } from './helper.js';
 import { startFakeUpstream } from './fake-upstream.js';
@@ -348,6 +349,137 @@ describe('upstream keys admin', () => {
       endpointProviderType: 'anthropic_compatible',
       endpointBaseUrl: 'https://opencode.ai/zen/go',
     });
+  });
+
+  it('duplicates a PAT upstream key as failover and copies candidate endpoint overrides', async () => {
+    const create = await rig.app.inject({
+      method: 'POST',
+      url: '/api/admin/upstream-keys',
+      headers: { cookie: rig.cookie },
+      payload: {
+        name: 'opencode-source',
+        apiKey: 'sk-source',
+        providerPresetId: 'opencode-go',
+        extraHeaders: { 'x-custom': 'source' },
+        extraParams: { seed: 42 },
+        stickySessionTtlMs: 12345,
+        modelMappings: [
+          {
+            realName: 'qwen3.7-plus',
+            publicName: 'qwen3.7-plus',
+            enabled: true,
+            endpointProtocol: 'anthropic',
+            endpointProviderType: 'anthropic_compatible',
+            endpointBaseUrl: 'https://opencode.ai/zen/go',
+          },
+        ],
+      },
+    });
+    expect(create.statusCode).toBe(200);
+    const source = create.json() as { id: string };
+    await rig.db
+      .update(upstreamKeys)
+      .set({
+        frozen: true,
+        frozenReason: 'source frozen',
+        cooldownUntil: new Date(Date.now() + 60_000),
+        lastHealthStatus: 'unhealthy',
+        lastErrorCode: 'boom',
+        lastErrorMessage: 'source error',
+      })
+      .where(eq(upstreamKeys.id, source.id));
+
+    const duplicate = await rig.app.inject({
+      method: 'POST',
+      url: `/api/admin/upstream-keys/${source.id}/duplicate`,
+      headers: { cookie: rig.cookie },
+      payload: {
+        name: 'opencode-backup',
+        apiKey: 'sk-backup',
+      },
+    });
+    expect(duplicate.statusCode).toBe(200);
+    const body = duplicate.json() as {
+      id: string;
+      name: string;
+      frozen: boolean;
+      cooldownUntil: string | null;
+      extraHeaders: Record<string, string>;
+      extraParams: Record<string, unknown>;
+      stickySessionTtlMs: number;
+      candidateCount: number;
+      providerPresetId: string;
+    };
+    expect(body.name).toBe('opencode-backup');
+    expect(body.providerPresetId).toBe('opencode-go');
+    expect(body.frozen).toBe(false);
+    expect(body.cooldownUntil).toBeNull();
+    expect(body.extraHeaders).toEqual({ 'x-custom': 'source' });
+    expect(body.extraParams).toEqual({ seed: 42 });
+    expect(body.stickySessionTtlMs).toBe(12345);
+    expect(body.candidateCount).toBe(1);
+
+    const row = await rig.db.select().from(upstreamKeys).where(eq(upstreamKeys.id, body.id)).get();
+    expect(row).toBeTruthy();
+    expect(row!.lastHealthStatus).toBeNull();
+    expect(row!.lastErrorCode).toBeNull();
+    expect(decryptUpstreamApiKeyForTest(row!.apiKeyCiphertext, rig.secretKey)).toBe('sk-backup');
+
+    const candidates = await rig.db
+      .select()
+      .from(publicModelCandidates)
+      .where(eq(publicModelCandidates.upstreamKeyId, body.id))
+      .all();
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({
+      realModelName: 'qwen3.7-plus',
+      priority: 110,
+      weight: 1,
+      endpointProtocol: 'anthropic',
+      endpointProviderType: 'anthropic_compatible',
+      endpointBaseUrl: 'https://opencode.ai/zen/go',
+    });
+  });
+
+  it('duplicates a PAT upstream key as pool without changing candidate priority', async () => {
+    const create = await rig.app.inject({
+      method: 'POST',
+      url: '/api/admin/upstream-keys',
+      headers: { cookie: rig.cookie },
+      payload: {
+        name: 'pool-source',
+        apiKey: 'sk-source',
+        providerPresetId: 'openai',
+        modelMappings: [{ realName: 'gpt-4o', publicName: 'gpt-4o', enabled: true }],
+      },
+    });
+    expect(create.statusCode).toBe(200);
+    const source = create.json() as { id: string };
+    await rig.db
+      .update(publicModelCandidates)
+      .set({ priority: 25, weight: 7 })
+      .where(eq(publicModelCandidates.upstreamKeyId, source.id));
+
+    const duplicate = await rig.app.inject({
+      method: 'POST',
+      url: `/api/admin/upstream-keys/${source.id}/duplicate`,
+      headers: { cookie: rig.cookie },
+      payload: {
+        name: 'pool-copy',
+        apiKey: 'sk-copy',
+        routingMode: 'pool',
+      },
+    });
+    expect(duplicate.statusCode).toBe(200);
+    const body = duplicate.json() as { id: string };
+
+    const candidates = await rig.db
+      .select()
+      .from(publicModelCandidates)
+      .where(eq(publicModelCandidates.upstreamKeyId, body.id))
+      .all();
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({ realModelName: 'gpt-4o', priority: 25, weight: 7 });
   });
 
   it('stores and returns extra headers and parameters', async () => {

@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { type Db, upstreamKeys } from '../db/index.js';
+import type { Db } from '../db/index.js';
+import { upstreamKeys } from '../db/tables/upstream.js';
 import type { NormalizedProviderError } from '../providers/types.js';
 
 // Cooldown durations applied when the upstream reports the matching error

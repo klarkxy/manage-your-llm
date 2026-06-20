@@ -1,6 +1,7 @@
 import { eq, and, gt } from 'drizzle-orm';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { generateId } from '@modelharbor/shared';
+import type { Db } from '../db/index.js';
 import {
   adminSessions,
   adminUsers,
@@ -8,8 +9,7 @@ import {
   type AdminSessionRow,
   type AdminUserInsert,
   type AdminUserRow,
-  type Db,
-} from '../db/index.js';
+} from '../db/tables/auth-admin.js';
 import { hashPassword, verifyPassword } from './password.js';
 import { hashSessionId, issueSessionToken, verifySessionToken } from './session.js';
 import {

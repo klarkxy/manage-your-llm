@@ -1,6 +1,8 @@
 import { and, eq } from 'drizzle-orm';
 import { generateId, type ProviderType, type SourceProtocol } from '@modelharbor/shared';
-import { type Db, publicModelCandidates, publicModels, targetNames } from '../db/index.js';
+import type { Db } from '../db/index.js';
+import { publicModelCandidates, publicModels } from '../db/tables/models.js';
+import { targetNames } from '../db/tables/routing.js';
 import { getModelMappings, type ProviderPreset } from '../providers/presets.js';
 
 export interface OnboardingResult {

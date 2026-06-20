@@ -1,14 +1,16 @@
 import { eq, desc } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { generateId, ValidationError } from '@modelharbor/shared';
+import type { Db } from '../db/index.js';
 import {
-  type Db,
   type ModelGroupRow,
   modelGroups,
   modelGroupMembers,
   publicModels,
+} from '../db/tables/models.js';
+import {
   targetNames,
-} from '../db/index.js';
+} from '../db/tables/routing.js';
 import {
   assertTargetName,
   deleteTargetRow,

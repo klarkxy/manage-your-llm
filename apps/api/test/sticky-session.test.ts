@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { generateId } from '@modelharbor/shared';
-import { apps, consumerKeys, stickySessions, upstreamKeys } from '../src/modules/db/index.js';
+import { apps, consumerKeys } from '../src/modules/db/tables/apps.js';
+import { stickySessions } from '../src/modules/db/tables/routing.js';
+import { upstreamKeys } from '../src/modules/db/tables/upstream.js';
 import { encryptUpstreamApiKey } from '../src/modules/admin/index.js';
 import {
   DEFAULT_SESSION_STICKY_TTL_MS,

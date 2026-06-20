@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { oauthSessions, upstreamKeys } from '../src/modules/db/index.js';
+import { oauthSessions } from '../src/modules/db/tables/apps.js';
+import { upstreamKeys } from '../src/modules/db/tables/upstream.js';
 import { decryptSecret } from '../src/modules/auth/crypto.js';
 import { parseJsonRecord } from '../src/modules/admin/helpers.js';
 import { makeAdminRig, type AdminTestRig } from './helper.js';

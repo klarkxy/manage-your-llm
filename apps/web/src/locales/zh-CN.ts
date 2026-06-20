@@ -179,6 +179,7 @@ const messages: Messages = {
       delete: '删除',
       test: '测试',
       health: '健康',
+      duplicate: '复制',
     },
     confirm: {
       freeze: '冻结此密钥？',
@@ -188,6 +189,7 @@ const messages: Messages = {
     toast: {
       created: '上游密钥已创建',
       updated: '上游密钥已更新',
+      duplicated: '上游密钥已复制',
       frozen: '已冻结',
       unfrozen: '已解冻',
       deleted: '上游密钥已删除',
@@ -274,6 +276,20 @@ const messages: Messages = {
         clientId: 'app_EMoamEEZ73f0CkXaXp7hrann',
         tokenUrl: 'https://auth.openai.com/oauth/token',
         cozeClientId: '从 Coze OAuth 应用粘贴',
+      },
+    },
+    duplicate: {
+      title: '复制密钥：{name}',
+      name: '新密钥名称',
+      apiKey: '新 API 密钥',
+      hint: '复制会保留提供商、端点、Headers、参数、模型映射与 Sticky 设置；新账号的用量、健康状态、冻结和冷却状态会重新开始。',
+      placeholders: {
+        name: 'DeepSeek key 2',
+      },
+      routingMode: {
+        label: '路由模式',
+        failover: 'Failover：优先级后移',
+        pool: 'Pool：保持同优先级',
       },
     },
     ping: {
@@ -617,8 +633,7 @@ const messages: Messages = {
     },
     contentLogging: {
       title: '内容日志',
-      warning:
-        '启用后，提示词和响应内容会存入数据库。请确保这符合你的隐私政策。',
+      warning: '启用后，提示词和响应内容会存入数据库。请确保这符合你的隐私政策。',
       enabled: '启用内容日志',
       retentionDays: '保留天数',
       maxPayloadBytes: '每行最大负载字节数',

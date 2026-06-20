@@ -2,7 +2,8 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { eq, lte } from 'drizzle-orm';
 import { generateId, ValidationError } from '@modelharbor/shared';
 import type { AuthenticatedRequest } from '../auth/admin.js';
-import { oauthSessions, type Db } from '../db/index.js';
+import type { Db } from '../db/index.js';
+import { oauthSessions } from '../db/tables/apps.js';
 import {
   buildCodexAuthorizeUrl,
   DEFAULT_CLIENT_ID as CODEX_DEFAULT_CLIENT_ID,

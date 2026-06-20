@@ -1,10 +1,12 @@
 import { and, eq } from 'drizzle-orm';
+import type { Db } from '../db/index.js';
 import {
   type ConsumerKeyAccessRow,
-  type Db,
-  type TargetType,
   consumerKeyAccess,
-} from '../db/index.js';
+} from '../db/tables/apps.js';
+import {
+  type TargetType,
+} from '../db/tables/routing.js';
 import { PermissionError } from '@modelharbor/shared';
 
 // Throw PermissionError if the consumer key does not have an access grant

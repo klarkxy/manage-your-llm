@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { generateId } from '@modelharbor/shared';
-import { apps, consumerKeys, stickyBindings, upstreamKeys } from '../src/modules/db/index.js';
+import { apps, consumerKeys } from '../src/modules/db/tables/apps.js';
+import { stickyBindings } from '../src/modules/db/tables/routing.js';
+import { upstreamKeys } from '../src/modules/db/tables/upstream.js';
 import { encryptUpstreamApiKey } from '../src/modules/admin/index.js';
 import { pruneExpiredStickyBindings, upsertStickyBinding } from '../src/modules/sticky/index.js';
 import { makeAdminRig, type AdminTestRig } from './helper.js';

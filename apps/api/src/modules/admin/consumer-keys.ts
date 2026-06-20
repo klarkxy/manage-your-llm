@@ -1,13 +1,13 @@
 import { eq, desc } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { generateId, ValidationError } from '@modelharbor/shared';
+import type { Db } from '../db/index.js';
 import {
-  type Db,
   type ConsumerKeyRow,
   apps,
   consumerKeys,
   consumerKeyAccess,
-} from '../db/index.js';
+} from '../db/tables/apps.js';
 import { generateConsumerKeyRaw, resolveTarget, replaceRowsInTransaction } from './helpers.js';
 import { auditMetaFromRequest } from './upstream-keys.js';
 import { recordAuditEvent } from '../observability/index.js';
