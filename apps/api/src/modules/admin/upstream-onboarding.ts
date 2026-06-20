@@ -1,11 +1,6 @@
 import { and, eq } from 'drizzle-orm';
-import { generateId } from '@modelharbor/shared';
-import {
-  type Db,
-  publicModelCandidates,
-  publicModels,
-  targetNames,
-} from '../db/index.js';
+import { generateId, type ProviderType, type SourceProtocol } from '@modelharbor/shared';
+import { type Db, publicModelCandidates, publicModels, targetNames } from '../db/index.js';
 import { getModelMappings, type ProviderPreset } from '../providers/presets.js';
 
 export interface OnboardingResult {
@@ -16,6 +11,27 @@ export interface OnboardingMapping {
   publicName: string;
   realName: string;
   enabled: boolean;
+  endpointProtocol?: SourceProtocol;
+  endpointProviderType?: ProviderType;
+  endpointBaseUrl?: string;
+  endpointApiPath?: string;
+}
+
+function candidateEndpointFields(mapping: {
+  endpointProtocol?: SourceProtocol;
+  endpointProviderType?: ProviderType;
+  endpointBaseUrl?: string;
+  endpointApiPath?: string;
+}) {
+  if (!mapping.endpointProtocol || !mapping.endpointProviderType || !mapping.endpointBaseUrl) {
+    return {};
+  }
+  return {
+    endpointProtocol: mapping.endpointProtocol,
+    endpointProviderType: mapping.endpointProviderType,
+    endpointBaseUrl: mapping.endpointBaseUrl,
+    endpointApiPath: mapping.endpointApiPath,
+  };
 }
 
 // Create or reuse public models, candidates, and a model group for a newly
@@ -92,6 +108,7 @@ export async function onboardUpstreamKeyWithMappings(
           publicModelId: pmId,
           upstreamKeyId,
           realModelName: mapping.realName,
+          ...candidateEndpointFields(mapping),
           enabled: true,
           priority: 100,
           weight: 1,
@@ -109,6 +126,10 @@ export interface UpstreamKeyCandidateMapping {
   publicName: string;
   realName: string;
   enabled: boolean;
+  endpointProtocol?: SourceProtocol;
+  endpointProviderType?: ProviderType;
+  endpointBaseUrl?: string;
+  endpointApiPath?: string;
 }
 
 export interface UpstreamKeyCandidate {
@@ -119,6 +140,10 @@ export interface UpstreamKeyCandidate {
   enabled: boolean;
   priority: number;
   weight: number;
+  endpointProtocol: string | null;
+  endpointProviderType: string | null;
+  endpointBaseUrl: string | null;
+  endpointApiPath: string | null;
   lastPingAt: Date | null;
   lastPingOk: boolean | null;
   lastPingStatus: number | null;
@@ -147,6 +172,10 @@ export async function getUpstreamKeyCandidates(
     enabled: c.enabled,
     priority: c.priority,
     weight: c.weight,
+    endpointProtocol: c.endpointProtocol,
+    endpointProviderType: c.endpointProviderType,
+    endpointBaseUrl: c.endpointBaseUrl,
+    endpointApiPath: c.endpointApiPath,
     lastPingAt: c.lastPingAt,
     lastPingOk: c.lastPingOk,
     lastPingStatus: c.lastPingStatus,
@@ -218,7 +247,11 @@ export async function syncUpstreamKeyMappings(
       if (mapping) {
         await tx
           .update(publicModelCandidates)
-          .set({ enabled: mapping.enabled, updatedAt: now })
+          .set({
+            enabled: mapping.enabled,
+            ...candidateEndpointFields(mapping),
+            updatedAt: now,
+          })
           .where(eq(publicModelCandidates.id, c.id));
         result.push({
           id: c.id,
@@ -228,6 +261,10 @@ export async function syncUpstreamKeyMappings(
           enabled: mapping.enabled,
           priority: c.priority,
           weight: c.weight,
+          endpointProtocol: mapping.endpointProtocol ?? c.endpointProtocol,
+          endpointProviderType: mapping.endpointProviderType ?? c.endpointProviderType,
+          endpointBaseUrl: mapping.endpointBaseUrl ?? c.endpointBaseUrl,
+          endpointApiPath: mapping.endpointApiPath ?? c.endpointApiPath,
           lastPingAt: c.lastPingAt,
           lastPingOk: c.lastPingOk,
           lastPingStatus: c.lastPingStatus,
@@ -252,6 +289,7 @@ export async function syncUpstreamKeyMappings(
         publicModelId: pm.id,
         upstreamKeyId,
         realModelName: mapping.realName,
+        ...candidateEndpointFields(mapping),
         enabled: mapping.enabled,
         priority: 100,
         weight: 1,
@@ -266,6 +304,10 @@ export async function syncUpstreamKeyMappings(
         enabled: mapping.enabled,
         priority: 100,
         weight: 1,
+        endpointProtocol: mapping.endpointProtocol ?? null,
+        endpointProviderType: mapping.endpointProviderType ?? null,
+        endpointBaseUrl: mapping.endpointBaseUrl ?? null,
+        endpointApiPath: mapping.endpointApiPath ?? null,
         lastPingAt: null,
         lastPingOk: null,
         lastPingStatus: null,

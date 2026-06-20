@@ -822,6 +822,16 @@ describe('provider presets', () => {
         protocol: 'openai',
         expectedUrl: 'https://openrouter.ai/api/v1/chat/completions',
       },
+      {
+        presetId: 'opencode-go',
+        protocol: 'openai',
+        expectedUrl: 'https://opencode.ai/zen/go/v1/chat/completions',
+      },
+      {
+        presetId: 'opencode-go',
+        protocol: 'anthropic',
+        expectedUrl: 'https://opencode.ai/zen/go/v1/messages',
+      },
     ];
     for (const c of cases) {
       const preset = getProviderPreset(c.presetId)!;

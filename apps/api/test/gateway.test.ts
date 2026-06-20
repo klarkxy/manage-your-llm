@@ -854,6 +854,116 @@ describe('gateway multi-endpoint routing', () => {
     }
   });
 
+  it('routes a candidate endpoint override before expanding provider endpoints', async () => {
+    const rig = await makeGatewayRig({
+      providerType: 'openai_compatible',
+      realModelName: 'qwen3.7-plus',
+      supportedModels: ['qwen3.7-plus'],
+    });
+    try {
+      await rig.db
+        .update(upstreamKeys)
+        .set({
+          endpointsJson: JSON.stringify([
+            { protocol: 'openai', baseUrl: rig.fake.baseUrl, providerType: 'openai_compatible' },
+          ]),
+        })
+        .where(eq(upstreamKeys.id, rig.upstreamKeyId));
+      await rig.db
+        .update(publicModelCandidates)
+        .set({
+          endpointProtocol: 'anthropic',
+          endpointProviderType: 'anthropic_compatible',
+          endpointBaseUrl: rig.fake.baseUrl,
+        })
+        .where(eq(publicModelCandidates.upstreamKeyId, rig.upstreamKeyId));
+
+      rig.fake.setAnthropicResponse({
+        status: 200,
+        body: {
+          id: 'msg_candidate_override',
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'text', text: 'from candidate override endpoint' }],
+          model: 'qwen3.7-plus',
+          stop_reason: 'end_turn',
+          stop_sequence: null,
+          usage: { input_tokens: 3, output_tokens: 4 },
+        },
+      });
+      const res = await rig.app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: bearerHeader(rig.rawConsumerKey),
+        payload: OPENAI_BODY,
+      });
+      expect(res.statusCode).toBe(200);
+      expect(
+        (res.json() as { choices: Array<{ message: { content: string } }> }).choices[0]?.message
+          .content,
+      ).toBe('from candidate override endpoint');
+      expect(rig.fake.anthropicRequests).toHaveLength(1);
+      expect(rig.fake.openaiRequests).toHaveLength(0);
+      expect(rig.fake.anthropicRequests[0]!.body.model).toBe('qwen3.7-plus');
+    } finally {
+      await rig.close();
+    }
+  });
+
+  it('routes OpenCode Go Anthropic-backed models to the Anthropic endpoint', async () => {
+    const rig = await makeGatewayRig({
+      providerType: 'openai_compatible',
+      realModelName: 'qwen3.7-plus',
+      supportedModels: ['qwen3.7-plus'],
+    });
+    try {
+      await rig.db
+        .update(upstreamKeys)
+        .set({
+          providerPresetId: 'opencode-go',
+          endpointsJson: JSON.stringify([
+            { protocol: 'openai', baseUrl: rig.fake.baseUrl, providerType: 'openai_compatible' },
+            {
+              protocol: 'anthropic',
+              baseUrl: rig.fake.baseUrl,
+              providerType: 'anthropic_compatible',
+            },
+          ]),
+        })
+        .where(eq(upstreamKeys.id, rig.upstreamKeyId));
+
+      rig.fake.setAnthropicResponse({
+        status: 200,
+        body: {
+          id: 'msg_go_qwen',
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'text', text: 'from opencode go anthropic endpoint' }],
+          model: 'qwen3.7-plus',
+          stop_reason: 'end_turn',
+          stop_sequence: null,
+          usage: { input_tokens: 3, output_tokens: 4 },
+        },
+      });
+      const res = await rig.app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: bearerHeader(rig.rawConsumerKey),
+        payload: OPENAI_BODY,
+      });
+      expect(res.statusCode).toBe(200);
+      expect(
+        (res.json() as { choices: Array<{ message: { content: string } }> }).choices[0]?.message
+          .content,
+      ).toBe('from opencode go anthropic endpoint');
+      expect(rig.fake.anthropicRequests).toHaveLength(1);
+      expect(rig.fake.openaiRequests).toHaveLength(0);
+      expect(rig.fake.anthropicRequests[0]!.body.model).toBe('qwen3.7-plus');
+    } finally {
+      await rig.close();
+    }
+  });
+
   it('falls back to cross-protocol conversion when no same-protocol candidate exists', async () => {
     const rig = await makeGatewayRig({ providerType: 'openai_compatible' });
     try {

@@ -1,6 +1,11 @@
 import { eq, desc } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
-import { generateId, ValidationError } from '@modelharbor/shared';
+import {
+  generateId,
+  ValidationError,
+  type ProviderType,
+  type SourceProtocol,
+} from '@modelharbor/shared';
 import {
   type Db,
   type PublicModelRow,
@@ -11,6 +16,8 @@ import {
 } from '../db/index.js';
 import {
   assertTargetName,
+  assertProviderType,
+  assertSourceProtocol,
   deleteTargetRow,
   findPublicModelById,
   replaceRowsInTransaction,
@@ -28,6 +35,10 @@ interface CandidateInput {
   priority?: unknown;
   weight?: unknown;
   enabled?: unknown;
+  endpointProtocol?: unknown;
+  endpointProviderType?: unknown;
+  endpointBaseUrl?: unknown;
+  endpointApiPath?: unknown;
 }
 
 interface PresentCandidate {
@@ -37,6 +48,10 @@ interface PresentCandidate {
   priority: number;
   weight: number;
   enabled: boolean;
+  endpointProtocol: string | null;
+  endpointProviderType: string | null;
+  endpointBaseUrl: string | null;
+  endpointApiPath: string | null;
   upstreamKey: {
     id: string;
     name: string;
@@ -60,6 +75,10 @@ async function loadCandidates(db: Db, publicModelId: string): Promise<PresentCan
     priority: row.c.priority,
     weight: row.c.weight,
     enabled: row.c.enabled,
+    endpointProtocol: row.c.endpointProtocol,
+    endpointProviderType: row.c.endpointProviderType,
+    endpointBaseUrl: row.c.endpointBaseUrl,
+    endpointApiPath: row.c.endpointApiPath,
     upstreamKey: row.u
       ? {
           id: row.u.id,
@@ -82,6 +101,39 @@ function presentPublicModel(row: PublicModelRow, candidateCount: number) {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     candidateCount,
+  };
+}
+
+function normalizeCandidateEndpointFields(c: CandidateInput) {
+  const hasAny =
+    c.endpointProtocol !== undefined ||
+    c.endpointProviderType !== undefined ||
+    c.endpointBaseUrl !== undefined ||
+    c.endpointApiPath !== undefined;
+  if (!hasAny) return {};
+  if (
+    typeof c.endpointProtocol !== 'string' ||
+    typeof c.endpointProviderType !== 'string' ||
+    typeof c.endpointBaseUrl !== 'string'
+  ) {
+    throw new ValidationError(
+      'candidate endpoint override requires endpointProtocol, endpointProviderType, and endpointBaseUrl',
+    );
+  }
+  const endpointProtocol = c.endpointProtocol;
+  assertSourceProtocol(endpointProtocol);
+  const endpointProviderType = c.endpointProviderType;
+  assertProviderType(endpointProviderType);
+  const endpointBaseUrl = c.endpointBaseUrl.trim();
+  if (!endpointBaseUrl) throw new ValidationError('candidate endpointBaseUrl is required');
+  return {
+    endpointProtocol,
+    endpointProviderType,
+    endpointBaseUrl,
+    endpointApiPath:
+      typeof c.endpointApiPath === 'string' && c.endpointApiPath.trim()
+        ? c.endpointApiPath.trim()
+        : null,
   };
 }
 
@@ -140,6 +192,10 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
       priority: number;
       weight: number;
       enabled: boolean;
+      endpointProtocol?: SourceProtocol;
+      endpointProviderType?: ProviderType;
+      endpointBaseUrl?: string;
+      endpointApiPath?: string | null;
       createdAt: Date;
       updatedAt: Date;
     }> = [];
@@ -155,6 +211,7 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
         publicModelId: id,
         upstreamKeyId: c.upstreamKeyId,
         realModelName: c.realModelName,
+        ...normalizeCandidateEndpointFields(c),
         priority: typeof c.priority === 'number' ? c.priority : 100,
         weight: typeof c.weight === 'number' ? c.weight : 1,
         enabled: c.enabled === false ? false : true,
@@ -291,6 +348,7 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
         publicModelId: id,
         upstreamKeyId: c.upstreamKeyId,
         realModelName: c.realModelName,
+        ...normalizeCandidateEndpointFields(c),
         priority: typeof c.priority === 'number' ? c.priority : 100,
         weight: typeof c.weight === 'number' ? c.weight : 1,
         enabled: c.enabled === false ? false : true,

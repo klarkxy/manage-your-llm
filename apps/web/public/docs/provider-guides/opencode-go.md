@@ -2,7 +2,7 @@
 
 Use this guide to create an OpenCode Go API key for the **OpenCode Go** preset in ModelHarbor.
 
-> Preset id: `opencode-go` · Auth: PAT · Endpoint: `https://opencode.ai/zen/go/v1`
+> Preset id: `opencode-go` · Auth: PAT · Endpoints: `https://opencode.ai/zen/go/v1/chat/completions` and `https://opencode.ai/zen/go/v1/messages`
 
 ## 1. Create or sign in to your account
 
@@ -23,6 +23,11 @@ Use this guide to create an OpenCode Go API key for the **OpenCode Go** preset i
 3. **API key**: paste the `sk-...` value.
 4. Click **Fetch models**, then **Create**.
 
+ModelHarbor uses the official OpenCode Go model table to choose the upstream API:
+
+- GLM, Kimi, DeepSeek, and MiMo models use the OpenAI-compatible chat completions endpoint.
+- MiniMax and Qwen models use the Anthropic-compatible messages endpoint.
+
 ## Troubleshooting
 
 - **`401 unauthorized`**: the key was revoked.
@@ -33,3 +38,4 @@ Use this guide to create an OpenCode Go API key for the **OpenCode Go** preset i
 
 - OpenCode Zen: <https://opencode.ai>
 - Go plan: <https://opencode.ai/zen/go>
+- OpenCode Go docs: <https://opencode.ai/docs/zh-cn/go>

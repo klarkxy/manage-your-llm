@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_PROVIDER_TYPES, ALL_SOURCE_PROTOCOLS } from '../protocols.js';
-import {
-  getProviderDescriptor,
-  listProviderDescriptors,
-  PROVIDER_PRESETS,
-} from './presets.js';
+import { getProviderDescriptor, listProviderDescriptors, PROVIDER_PRESETS } from './presets.js';
+import { opencodeGoEndpointProtocolForModel } from './opencode-go.js';
 
 describe('provider registry presets', () => {
   it('has at least one preset', () => {
@@ -53,10 +50,9 @@ describe('provider registry presets', () => {
   it('capabilities protocols match endpoint protocols', () => {
     for (const d of PROVIDER_PRESETS) {
       const endpointProtocols = new Set(d.endpoints.map((e) => e.protocol));
-      expect(
-        new Set(d.capabilities.protocols),
-        `${d.id} capabilities.protocols`,
-      ).toEqual(endpointProtocols);
+      expect(new Set(d.capabilities.protocols), `${d.id} capabilities.protocols`).toEqual(
+        endpointProtocols,
+      );
     }
   });
 
@@ -76,5 +72,13 @@ describe('provider registry presets', () => {
       expect(getProviderDescriptor(d.id)).toBe(d);
     }
     expect(getProviderDescriptor('nonexistent')).toBeUndefined();
+  });
+
+  it('maps OpenCode Go models to their documented upstream protocols', () => {
+    expect(opencodeGoEndpointProtocolForModel('deepseek-v4-flash')).toBe('openai');
+    expect(opencodeGoEndpointProtocolForModel('opencode-go/kimi-k2.7-code')).toBe('openai');
+    expect(opencodeGoEndpointProtocolForModel('minimax-m3')).toBe('anthropic');
+    expect(opencodeGoEndpointProtocolForModel('qwen3.7-plus')).toBe('anthropic');
+    expect(opencodeGoEndpointProtocolForModel('future-model')).toBeNull();
   });
 });

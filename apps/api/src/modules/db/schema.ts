@@ -38,15 +38,31 @@ export const adminSessions = sqliteTable(
 // settings can be added as columns without redesigning the table.
 export const adminSettings = sqliteTable('admin_settings', {
   id: text('id').primaryKey(),
-  circuitBreakerEnabled: integer('circuit_breaker_enabled', { mode: 'boolean' }).notNull().default(true),
+  circuitBreakerEnabled: integer('circuit_breaker_enabled', { mode: 'boolean' })
+    .notNull()
+    .default(true),
   circuitBreakerFailureThreshold: integer('circuit_breaker_failure_threshold').notNull().default(5),
-  circuitBreakerBaseCooldownMs: integer('circuit_breaker_base_cooldown_ms').notNull().default(60_000),
-  circuitBreakerMaxCooldownMs: integer('circuit_breaker_max_cooldown_ms').notNull().default(600_000),
-  circuitBreakerHalfOpenSuccessCount: integer('circuit_breaker_half_open_success_count').notNull().default(2),
-  endpointHealthProbeEnabled: integer('endpoint_health_probe_enabled', { mode: 'boolean' }).notNull().default(true),
-  endpointHealthProbeIntervalMs: integer('endpoint_health_probe_interval_ms').notNull().default(3_600_000),
-  endpointHealthProbeTimeoutMs: integer('endpoint_health_probe_timeout_ms').notNull().default(10_000),
-  endpointHealthProbeDegradedLatencyMs: integer('endpoint_health_probe_degraded_latency_ms').notNull().default(5_000),
+  circuitBreakerBaseCooldownMs: integer('circuit_breaker_base_cooldown_ms')
+    .notNull()
+    .default(60_000),
+  circuitBreakerMaxCooldownMs: integer('circuit_breaker_max_cooldown_ms')
+    .notNull()
+    .default(600_000),
+  circuitBreakerHalfOpenSuccessCount: integer('circuit_breaker_half_open_success_count')
+    .notNull()
+    .default(2),
+  endpointHealthProbeEnabled: integer('endpoint_health_probe_enabled', { mode: 'boolean' })
+    .notNull()
+    .default(true),
+  endpointHealthProbeIntervalMs: integer('endpoint_health_probe_interval_ms')
+    .notNull()
+    .default(3_600_000),
+  endpointHealthProbeTimeoutMs: integer('endpoint_health_probe_timeout_ms')
+    .notNull()
+    .default(10_000),
+  endpointHealthProbeDegradedLatencyMs: integer('endpoint_health_probe_degraded_latency_ms')
+    .notNull()
+    .default(5_000),
   firstTokenTimeoutMs: integer('first_token_timeout_ms').notNull().default(15_000),
   contentLogEnabled: integer('content_log_enabled', { mode: 'boolean' }).notNull().default(false),
   contentLogRetentionDays: integer('content_log_retention_days').notNull().default(7),
@@ -148,7 +164,9 @@ export const upstreamKeys = sqliteTable('upstream_keys', {
   lastErrorCode: text('last_error_code'),
   lastErrorMessage: text('last_error_message'),
   lastUsedAt: integer('last_used_at', { mode: 'timestamp_ms' }),
-  stickySessionTtlMs: integer('sticky_session_ttl_ms').notNull().default(5 * 60 * 1000),
+  stickySessionTtlMs: integer('sticky_session_ttl_ms')
+    .notNull()
+    .default(5 * 60 * 1000),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
@@ -251,7 +269,9 @@ export const circuitBreakers = sqliteTable(
       .notNull()
       .references(() => upstreamKeys.id, { onDelete: 'cascade' }),
     realModelName: text('real_model_name').notNull(),
-    state: text('state', { enum: ['closed', 'open', 'half_open'] as const }).notNull().default('closed'),
+    state: text('state', { enum: ['closed', 'open', 'half_open'] as const })
+      .notNull()
+      .default('closed'),
     failureCount: integer('failure_count').notNull().default(0),
     successCount: integer('success_count').notNull().default(0),
     openCount: integer('open_count').notNull().default(0),
@@ -299,6 +319,10 @@ export const publicModelCandidates = sqliteTable(
       .notNull()
       .references(() => upstreamKeys.id, { onDelete: 'cascade' }),
     realModelName: text('real_model_name').notNull(),
+    endpointProtocol: text('endpoint_protocol'),
+    endpointProviderType: text('endpoint_provider_type', { enum: PROVIDER_TYPES }),
+    endpointBaseUrl: text('endpoint_base_url'),
+    endpointApiPath: text('endpoint_api_path'),
     enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
     priority: integer('priority').notNull().default(100),
     weight: integer('weight').notNull().default(1),

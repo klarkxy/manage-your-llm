@@ -197,6 +197,10 @@ const STATEMENTS: readonly string[] = [
   `ALTER TABLE public_model_candidates ADD COLUMN last_ping_status INTEGER`,
   `ALTER TABLE public_model_candidates ADD COLUMN last_ping_latency_ms INTEGER`,
   `ALTER TABLE public_model_candidates ADD COLUMN last_ping_error TEXT`,
+  `ALTER TABLE public_model_candidates ADD COLUMN endpoint_protocol TEXT`,
+  `ALTER TABLE public_model_candidates ADD COLUMN endpoint_provider_type TEXT`,
+  `ALTER TABLE public_model_candidates ADD COLUMN endpoint_base_url TEXT`,
+  `ALTER TABLE public_model_candidates ADD COLUMN endpoint_api_path TEXT`,
 
   // Model groups
   `CREATE TABLE IF NOT EXISTS model_groups (

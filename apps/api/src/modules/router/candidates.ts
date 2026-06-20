@@ -13,6 +13,7 @@ import {
 } from '../db/index.js';
 import {
   protocolFor,
+  opencodeGoEndpointProtocolForModel,
   type ProviderType,
   type SourceProtocol,
   type ProviderCapabilities,
@@ -61,6 +62,9 @@ export interface ResolvedCandidate {
   endpointBaseUrl: string;
   // Optional path override for this endpoint. Mirrors ProviderPresetEndpoint.apiPath.
   endpointApiPath?: string;
+  // Candidate-level endpoint override. When present, the candidate already
+  // knows which upstream endpoint should serve this real model.
+  candidateEndpointOverride: boolean;
   // Raw endpoints JSON from the upstream key, used to expand multi-endpoint keys.
   endpointsJson: string | null;
   // Preset id so the gateway can load provider-specific adapter / transforms.
@@ -140,14 +144,21 @@ async function expandModelGroupCandidates(db: Db, modelGroupId: string): Promise
 }
 
 function toResolvedCandidate(row: CandidateRow, memberWeight?: number): ResolvedCandidate {
+  const candidateEndpointOverride =
+    typeof row.candidate.endpointProtocol === 'string' &&
+    typeof row.candidate.endpointProviderType === 'string' &&
+    typeof row.candidate.endpointBaseUrl === 'string';
+  const providerType = candidateEndpointOverride
+    ? row.candidate.endpointProviderType!
+    : row.upstreamKey.providerType;
   const adapter = getProviderAdapter({
-    providerType: row.upstreamKey.providerType,
+    providerType,
     providerPresetId: row.upstreamKey.providerPresetId,
   });
   return {
     upstreamKeyId: row.upstreamKey.id,
     upstreamKeyName: row.upstreamKey.name,
-    providerType: row.upstreamKey.providerType,
+    providerType,
     baseUrl: row.upstreamKey.baseUrl,
     authType: row.upstreamKey.authType,
     authConfigCiphertext: row.upstreamKey.authConfigCiphertext,
@@ -162,8 +173,14 @@ function toResolvedCandidate(row: CandidateRow, memberWeight?: number): Resolved
     publicModelName: row.publicModel.name,
     candidateEnabled: row.candidate.enabled,
     publicModelEnabled: row.publicModel.enabled,
-    endpointProtocol: protocolFor(row.upstreamKey.providerType),
-    endpointBaseUrl: row.upstreamKey.baseUrl,
+    endpointProtocol: candidateEndpointOverride
+      ? (row.candidate.endpointProtocol! as SourceProtocol)
+      : protocolFor(row.upstreamKey.providerType),
+    endpointBaseUrl: candidateEndpointOverride
+      ? row.candidate.endpointBaseUrl!
+      : row.upstreamKey.baseUrl,
+    endpointApiPath: row.candidate.endpointApiPath ?? undefined,
+    candidateEndpointOverride,
     endpointsJson: row.upstreamKey.endpointsJson,
     providerPresetId: row.upstreamKey.providerPresetId,
     extraHeaders: parseExtraHeaders(
@@ -247,11 +264,25 @@ function parseEndpointsJson(json: string | null): UpstreamEndpointJson[] | null 
 // endpoint so the router can match by client protocol. Legacy single-endpoint
 // keys yield exactly one candidate with protocol inferred from providerType.
 function expandEndpoints(candidate: ResolvedCandidate): ResolvedCandidate[] {
+  if (
+    candidate.endpointProtocol &&
+    candidate.endpointBaseUrl &&
+    candidate.candidateEndpointOverride
+  ) {
+    return [candidate];
+  }
   const endpoints = parseEndpointsJson(candidate.endpointsJson);
   if (!endpoints) {
     return [candidate];
   }
-  return endpoints.map((ep) => ({
+  const targetProtocol =
+    candidate.providerPresetId === 'opencode-go'
+      ? opencodeGoEndpointProtocolForModel(candidate.realModelName)
+      : null;
+  const selectedEndpoints = targetProtocol
+    ? endpoints.filter((ep) => ep.protocol === targetProtocol)
+    : endpoints;
+  return selectedEndpoints.map((ep) => ({
     ...candidate,
     providerType: ep.providerType,
     endpointProtocol: ep.protocol,

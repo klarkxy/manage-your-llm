@@ -3,7 +3,9 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   generateId,
   ValidationError,
+  opencodeGoEndpointProtocolForModel,
   type ProviderType,
+  type SourceProtocol,
   type ChatRequestIR,
 } from '@modelharbor/shared';
 import {
@@ -249,9 +251,45 @@ function normalizeModelMappings(value: unknown): OnboardingMapping[] {
     const publicName = typeof publicNameRaw === 'string' ? publicNameRaw.trim() : '';
     const enabledRaw = (item as { enabled?: unknown }).enabled;
     const enabled = typeof enabledRaw === 'boolean' ? enabledRaw : true;
-    mappings.push({ publicName: publicName || realName, realName, enabled });
+    const endpointFields = normalizeMappingEndpointFields(item as Record<string, unknown>);
+    mappings.push({ publicName: publicName || realName, realName, enabled, ...endpointFields });
   }
   return mappings;
+}
+
+function normalizeMappingEndpointFields(
+  value: Record<string, unknown>,
+): Partial<OnboardingMapping> {
+  const hasAny =
+    value.endpointProtocol !== undefined ||
+    value.endpointProviderType !== undefined ||
+    value.endpointBaseUrl !== undefined ||
+    value.endpointApiPath !== undefined;
+  if (!hasAny) return {};
+  if (
+    typeof value.endpointProtocol !== 'string' ||
+    typeof value.endpointProviderType !== 'string' ||
+    typeof value.endpointBaseUrl !== 'string'
+  ) {
+    throw new ValidationError(
+      'modelMapping endpoint override requires endpointProtocol, endpointProviderType, and endpointBaseUrl',
+    );
+  }
+  const endpointProtocol = value.endpointProtocol;
+  assertSourceProtocol(endpointProtocol);
+  const endpointProviderType = value.endpointProviderType;
+  assertProviderType(endpointProviderType);
+  const endpointBaseUrl = value.endpointBaseUrl.trim();
+  if (!endpointBaseUrl) throw new ValidationError('modelMapping endpointBaseUrl is required');
+  return {
+    endpointProtocol,
+    endpointProviderType,
+    endpointBaseUrl,
+    endpointApiPath:
+      typeof value.endpointApiPath === 'string' && value.endpointApiPath.trim()
+        ? value.endpointApiPath.trim()
+        : undefined,
+  };
 }
 
 function parseEndpoints(json: string | null): ProviderPresetEndpoint[] {
@@ -387,12 +425,23 @@ export interface DiscoverModelsBody {
   authConfig?: unknown;
 }
 
+interface DiscoveredModel {
+  realName: string;
+  publicName: string;
+  endpointProtocol?: SourceProtocol;
+  endpointProviderType?: ProviderType;
+  endpointBaseUrl?: string;
+  endpointApiPath?: string;
+}
+
 interface PingUpstreamKeyBody {
   realModelName?: unknown;
 }
 
-function sourceProtocolFor(providerType: ProviderType): 'openai' | 'anthropic' {
-  return providerType === 'anthropic_compatible' ? 'anthropic' : 'openai';
+function sourceProtocolFor(providerType: ProviderType): SourceProtocol {
+  if (providerType === 'anthropic_compatible') return 'anthropic';
+  if (providerType === 'codex') return 'codex';
+  return 'openai';
 }
 
 function buildPingRequest(
@@ -446,7 +495,13 @@ async function pingUpstreamModel(
   error?: { type: string; message: string };
 }> {
   const endpoints = row.endpointsJson ? parseEndpoints(row.endpointsJson) : [];
-  const endpoint = endpoints[0];
+  const opencodeGoProtocol =
+    row.providerPresetId === 'opencode-go'
+      ? opencodeGoEndpointProtocolForModel(realModelName)
+      : null;
+  const endpoint =
+    (opencodeGoProtocol ? endpoints.find((ep) => ep.protocol === opencodeGoProtocol) : undefined) ??
+    endpoints[0];
   const providerType = endpoint?.providerType ?? row.providerType;
   const baseUrl = endpoint?.baseUrl ?? row.baseUrl;
   const apiPath = endpoint?.apiPath;
@@ -498,14 +553,23 @@ function resolveDiscoveryEndpoint(
   preset: ProviderPreset | undefined,
   fallbackBaseUrl: string,
   fallbackProviderType: ProviderType,
-): { baseUrl: string; providerType: ProviderType } {
+): { baseUrl: string; providerType: ProviderType; protocol: SourceProtocol; apiPath?: string } {
   if (!preset || preset.endpoints.length === 0) {
-    return { baseUrl: fallbackBaseUrl, providerType: fallbackProviderType };
+    return {
+      baseUrl: fallbackBaseUrl,
+      providerType: fallbackProviderType,
+      protocol: sourceProtocolFor(fallbackProviderType),
+    };
   }
   // Most providers expose /v1/models through their OpenAI-compatible endpoint.
   const openaiEndpoint = preset.endpoints.find((e) => e.providerType === 'openai_compatible');
   const endpoint = openaiEndpoint ?? preset.endpoints[0];
-  return { baseUrl: endpoint!.baseUrl, providerType: endpoint!.providerType };
+  return {
+    baseUrl: endpoint!.baseUrl,
+    providerType: endpoint!.providerType,
+    protocol: endpoint!.protocol,
+    apiPath: endpoint!.apiPath,
+  };
 }
 
 // Some providers (e.g. SiliconFlow) return model IDs with vendor prefixes such
@@ -521,15 +585,49 @@ function derivePublicName(presetId: string | undefined, realName: string): strin
   return realName;
 }
 
+interface ResolvedEndpoint {
+  baseUrl: string;
+  providerType: ProviderType;
+  protocol: SourceProtocol;
+  apiPath?: string;
+}
+
+function discoveryEndpointFields(endpoint: ResolvedEndpoint): Partial<DiscoveredModel> {
+  return {
+    endpointProtocol: endpoint.protocol,
+    endpointProviderType: endpoint.providerType,
+    endpointBaseUrl: endpoint.baseUrl,
+    endpointApiPath: endpoint.apiPath,
+  };
+}
+
+function resolveModelEndpoint(
+  preset: ProviderPreset | undefined,
+  discoveryEndpoint: ResolvedEndpoint,
+  realName: string,
+): ResolvedEndpoint {
+  if (preset?.id === 'opencode-go') {
+    const protocol = opencodeGoEndpointProtocolForModel(realName);
+    const endpoint = protocol ? preset.endpoints.find((ep) => ep.protocol === protocol) : undefined;
+    if (endpoint) {
+      return {
+        baseUrl: endpoint.baseUrl,
+        providerType: endpoint.providerType,
+        protocol: endpoint.protocol,
+        apiPath: endpoint.apiPath,
+      };
+    }
+  }
+  return discoveryEndpoint;
+}
+
 export interface DiscoverContext {
   body: DiscoverModelsBody;
   db: Db;
   secretKey: string;
 }
 
-export async function discoverUpstreamModels(
-  ctx: DiscoverContext,
-): Promise<Array<{ realName: string; publicName: string }>> {
+export async function discoverUpstreamModels(ctx: DiscoverContext): Promise<DiscoveredModel[]> {
   const { body, db, secretKey } = ctx;
   const fallbackBaseUrl = typeof body.baseUrl === 'string' ? body.baseUrl.trim() : '';
   const rawProviderType = typeof body.providerType === 'string' ? body.providerType : '';
@@ -539,11 +637,12 @@ export async function discoverUpstreamModels(
 
   const presetId = typeof body.providerPresetId === 'string' ? body.providerPresetId : '';
   const preset = presetId ? getProviderPreset(presetId) : undefined;
-  const { baseUrl, providerType } = resolveDiscoveryEndpoint(
+  const discoveryEndpoint = resolveDiscoveryEndpoint(
     preset,
     fallbackBaseUrl,
     rawProviderType as ProviderType,
   );
+  const { baseUrl, providerType } = discoveryEndpoint;
   if (!baseUrl) throw new ValidationError('baseUrl is required');
 
   let upstreamKey: UpstreamKeyRow | undefined;
@@ -634,10 +733,13 @@ export async function discoverUpstreamModels(
       return bots.map((bot) => ({
         realName: bot.id,
         publicName: realToPublic.get(bot.id) ?? bot.name,
+        ...discoveryEndpointFields(discoveryEndpoint),
       }));
     }
 
-    const modelsUrl = buildModelsUrl(baseUrl);
+    const modelsUrl = preset?.modelSyncUrl
+      ? new URL(preset.modelSyncUrl, baseUrl).toString()
+      : buildModelsUrl(baseUrl);
     const res = await fetch(modelsUrl, {
       method: 'GET',
       headers,
@@ -667,6 +769,7 @@ export async function discoverUpstreamModels(
     return ids.map((realName) => ({
       realName,
       publicName: realToPublic.get(realName) ?? derivePublicName(preset?.id, realName),
+      ...discoveryEndpointFields(resolveModelEndpoint(preset, discoveryEndpoint, realName)),
     }));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -1137,7 +1240,12 @@ export function registerUpstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKe
         throw new ValidationError('mapping realName is required');
       }
       const enabled = (raw as { enabled?: unknown }).enabled === false ? false : true;
-      mappings.push({ publicName: publicName || realName, realName, enabled });
+      mappings.push({
+        publicName: publicName || realName,
+        realName,
+        enabled,
+        ...normalizeMappingEndpointFields(raw as Record<string, unknown>),
+      });
     }
     const candidates = await syncUpstreamKeyMappings(db, id, mappings);
     await audit(db, auditMetaFromRequest(req), 'upstream_key.update', id, {

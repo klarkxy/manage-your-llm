@@ -9,7 +9,12 @@ import {
 } from '../db/index.js';
 import { decryptSecret, encryptSecret, randomBase64Url } from '../auth/crypto.js';
 import { hashSessionId } from '../auth/session.js';
-import { ValidationError, TargetNotFoundError, ALL_PROVIDER_TYPES } from '@modelharbor/shared';
+import {
+  ValidationError,
+  TargetNotFoundError,
+  ALL_PROVIDER_TYPES,
+  ALL_SOURCE_PROTOCOLS,
+} from '@modelharbor/shared';
 
 const TARGET_NAME_REGEX = /^[a-zA-Z0-9._-]+$/;
 
@@ -29,9 +34,11 @@ export function assertProviderType(
   }
 }
 
-export function assertSourceProtocol(value: string): asserts value is 'anthropic' | 'openai' {
-  if (value !== 'anthropic' && value !== 'openai') {
-    throw new ValidationError('protocol must be anthropic or openai');
+export function assertSourceProtocol(
+  value: string,
+): asserts value is (typeof ALL_SOURCE_PROTOCOLS)[number] {
+  if (!ALL_SOURCE_PROTOCOLS.includes(value as (typeof ALL_SOURCE_PROTOCOLS)[number])) {
+    throw new ValidationError(`protocol must be one of ${ALL_SOURCE_PROTOCOLS.join(', ')}`);
   }
 }
 

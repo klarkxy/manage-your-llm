@@ -312,6 +312,44 @@ describe('upstream keys admin', () => {
     expect(publicModel!.name).toBe('custom-public');
   });
 
+  it('stores endpoint overrides from custom model mappings', async () => {
+    const res = await rig.app.inject({
+      method: 'POST',
+      url: '/api/admin/upstream-keys',
+      headers: { cookie: rig.cookie },
+      payload: {
+        name: 'custom-mapping-endpoint-1',
+        apiKey: 'sk-custom',
+        providerPresetId: 'opencode-go',
+        modelMappings: [
+          {
+            realName: 'qwen3.7-plus',
+            publicName: 'qwen3.7-plus',
+            enabled: true,
+            endpointProtocol: 'anthropic',
+            endpointProviderType: 'anthropic_compatible',
+            endpointBaseUrl: 'https://opencode.ai/zen/go',
+          },
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { id: string };
+
+    const candidates = await rig.db
+      .select()
+      .from(publicModelCandidates)
+      .where(eq(publicModelCandidates.upstreamKeyId, body.id))
+      .all();
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({
+      realModelName: 'qwen3.7-plus',
+      endpointProtocol: 'anthropic',
+      endpointProviderType: 'anthropic_compatible',
+      endpointBaseUrl: 'https://opencode.ai/zen/go',
+    });
+  });
+
   it('stores and returns extra headers and parameters', async () => {
     const res = await rig.app.inject({
       method: 'POST',
@@ -622,8 +660,20 @@ describe('upstream keys admin', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json() as { items: Array<{ realName: string; publicName: string }> };
       expect(body.items).toHaveLength(2);
-      expect(body.items[0]).toEqual({ realName: 'model-a', publicName: 'model-a' });
-      expect(body.items[1]).toEqual({ realName: 'model-b', publicName: 'model-b' });
+      expect(body.items[0]).toMatchObject({
+        realName: 'model-a',
+        publicName: 'model-a',
+        endpointProtocol: 'openai',
+        endpointProviderType: 'openai_compatible',
+        endpointBaseUrl: 'https://api.example.com',
+      });
+      expect(body.items[1]).toMatchObject({
+        realName: 'model-b',
+        publicName: 'model-b',
+        endpointProtocol: 'openai',
+        endpointProviderType: 'openai_compatible',
+        endpointBaseUrl: 'https://api.example.com',
+      });
       const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls as unknown[][];
       expect(calls[0]?.[0]).toBe('https://api.example.com/v1/models');
       expect((calls[0]?.[1] as { headers: Record<string, string> }).headers.authorization).toBe(
@@ -664,6 +714,56 @@ describe('upstream keys admin', () => {
       );
     });
 
+    it('returns model-level endpoint overrides for OpenCode Go discovery', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            data: [{ id: 'deepseek-v4-flash' }, { id: 'qwen3.7-plus' }],
+          }),
+      }) as unknown as typeof global.fetch;
+
+      const res = await rig.app.inject({
+        method: 'POST',
+        url: '/api/admin/upstream-keys/discover-models',
+        headers: { cookie: rig.cookie },
+        payload: {
+          baseUrl: 'https://opencode.ai/zen/go',
+          apiKey: 'sk-test',
+          providerType: 'openai_compatible',
+          providerPresetId: 'opencode-go',
+        },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as {
+        items: Array<{
+          realName: string;
+          endpointProtocol: string;
+          endpointProviderType: string;
+          endpointBaseUrl: string;
+        }>;
+      };
+      expect(body.items).toEqual([
+        {
+          realName: 'deepseek-v4-flash',
+          publicName: 'deepseek-v4-flash',
+          endpointProtocol: 'openai',
+          endpointProviderType: 'openai_compatible',
+          endpointBaseUrl: 'https://opencode.ai/zen/go',
+        },
+        {
+          realName: 'qwen3.7-plus',
+          publicName: 'qwen3.7-plus',
+          endpointProtocol: 'anthropic',
+          endpointProviderType: 'anthropic_compatible',
+          endpointBaseUrl: 'https://opencode.ai/zen/go',
+        },
+      ]);
+      const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls as unknown[][];
+      expect(calls[0]?.[0]).toBe('https://opencode.ai/zen/go/v1/models');
+    });
+
     it('returns 502 when upstream fails', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
@@ -687,7 +787,6 @@ describe('upstream keys admin', () => {
     });
   });
 });
-
 
 describe('upstream key sticky session TTL', () => {
   let rig: AdminTestRig;
@@ -715,7 +814,11 @@ describe('upstream key sticky session TTL', () => {
     const body = res.json() as { stickySessionTtlMs: number };
     expect(body.stickySessionTtlMs).toBe(120_000);
 
-    const row = await rig.db.select().from(upstreamKeys).where(eq(upstreamKeys.name, 'sticky-ttl-create')).get();
+    const row = await rig.db
+      .select()
+      .from(upstreamKeys)
+      .where(eq(upstreamKeys.name, 'sticky-ttl-create'))
+      .get();
     expect(row).toBeTruthy();
     expect(row!.stickySessionTtlMs).toBe(120_000);
   });
