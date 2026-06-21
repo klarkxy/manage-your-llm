@@ -188,7 +188,9 @@ describe('PublicModels page', () => {
     const wrapper = mountPublicModels();
     await flushPromises();
 
-    const arrangeButton = wrapper.findAll('button').find((button) => button.text() === 'Arrange');
+    const arrangeButton = wrapper.findAll('button').find((button) =>
+      button.attributes('aria-label')?.includes('Arrange'),
+    );
     expect(arrangeButton).toBeTruthy();
     await arrangeButton!.trigger('click');
     await flushPromises();

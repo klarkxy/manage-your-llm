@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, onMounted, ref } from 'vue';
+import { computed, h, onMounted, ref, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   NButton,
@@ -10,6 +10,7 @@ import {
   NEmpty,
   NForm,
   NFormItem,
+  NIcon,
   NInput,
   NPopconfirm,
   NSelect,
@@ -17,9 +18,11 @@ import {
   NSwitch,
   NTag,
   NText,
+  NTooltip,
   useMessage,
   type DataTableColumns,
 } from 'naive-ui';
+import { ReorderFourOutline, TrashOutline } from '@vicons/ionicons5';
 import {
   publicModelsApi,
   upstreamKeysApi,
@@ -86,6 +89,18 @@ function resetForm() {
 
 function draftId() {
   return `candidate_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+function iconButton(icon: Component, title: string, props: Record<string, unknown> = {}) {
+  return h(NTooltip, null, {
+    trigger: () =>
+      h(
+        NButton,
+        { size: 'small', circle: true, 'aria-label': title, ...props },
+        { icon: () => h(NIcon, null, { default: () => h(icon) }) },
+      ),
+    default: () => title,
+  });
 }
 
 function toDraft(candidate: PublicModelCandidate, idx: number): CandidateDraft {
@@ -353,18 +368,20 @@ const columns = computed<DataTableColumns<PublicModel>>(() => [
   {
     title: t('publicModels.columns.actions'),
     key: 'actions',
-    width: 190,
+    width: 100,
     render: (row) =>
-      h(NSpace, { size: 8 }, () => [
-        h(NButton, { size: 'small', onClick: () => openArrangement(row) }, () =>
-          t('publicModels.actions.arrange'),
-        ),
+      h(NSpace, { size: 'small', align: 'center' }, () => [
+        iconButton(ReorderFourOutline, t('publicModels.actions.arrange'), {
+          onClick: () => openArrangement(row),
+        }),
         h(
           NPopconfirm,
           { onPositiveClick: () => remove(row) },
           {
             trigger: () =>
-              h(NButton, { size: 'small', type: 'error' }, () => t('publicModels.actions.delete')),
+              iconButton(TrashOutline, t('publicModels.actions.delete'), {
+                type: 'error',
+              }),
             default: () => t('publicModels.confirm', { name: row.name }),
           },
         ),

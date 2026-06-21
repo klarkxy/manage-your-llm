@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, onMounted, ref, watch } from 'vue';
+import { computed, h, onMounted, ref, watch, type Component } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -11,18 +11,20 @@ import {
   NEmpty,
   NForm,
   NFormItem,
+  NIcon,
   NInput,
   NInputNumber,
   NList,
   NListItem,
   NModal,
+  NPopconfirm,
   NSelect,
   NSpace,
   NSpin,
   NSwitch,
   NTag,
   NText,
-  NPopconfirm,
+  NTooltip,
   useMessage,
   type DataTableColumns,
   type SelectOption,
@@ -40,6 +42,13 @@ import {
   type UpstreamKeyCreatePayload,
   type UpstreamKeyPingResult,
 } from '../api/admin.js';
+import {
+  CopyOutline,
+  CreateOutline,
+  FlashOutline,
+  HeartCircleOutline,
+  TrashOutline,
+} from '@vicons/ionicons5';
 import ModelMappingEditor, { type ModelMappingItem } from '../components/ModelMappingEditor.vue';
 import KeyValueEditor, { type KeyValueItem } from '../components/KeyValueEditor.vue';
 
@@ -115,6 +124,18 @@ const duplicateForm = ref({
   apiKey: '',
   routingMode: 'failover' as 'failover' | 'pool',
 });
+
+function iconButton(icon: Component, title: string, props: Record<string, unknown> = {}) {
+  return h(NTooltip, null, {
+    trigger: () =>
+      h(
+        NButton,
+        { size: 'small', circle: true, 'aria-label': title, ...props },
+        { icon: () => h(NIcon, null, { default: () => h(icon) }) },
+      ),
+    default: () => title,
+  });
+}
 
 function resetForm() {
   form.value = {
@@ -999,29 +1020,30 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
   {
     title: t('upstreamKeys.columns.actions'),
     key: 'actions',
-    width: 320,
+    width: 180,
     render: (row) =>
       h(NSpace, { size: 'small', align: 'center' }, () => [
-        h(NButton, { size: 'small', onClick: () => openPing(row) }, () =>
-          t('upstreamKeys.actions.test'),
-        ),
-        h(NButton, { size: 'small', onClick: () => openHealth(row) }, () =>
-          t('upstreamKeys.actions.health'),
-        ),
-        h(NButton, { size: 'small', onClick: () => openEdit(row) }, () =>
-          t('upstreamKeys.actions.edit'),
-        ),
-        h(
-          NButton,
-          { size: 'small', disabled: row.authType !== 'pat', onClick: () => openDuplicate(row) },
-          () => t('upstreamKeys.actions.duplicate'),
-        ),
+        iconButton(FlashOutline, t('upstreamKeys.actions.test'), {
+          onClick: () => openPing(row),
+        }),
+        iconButton(HeartCircleOutline, t('upstreamKeys.actions.health'), {
+          onClick: () => openHealth(row),
+        }),
+        iconButton(CreateOutline, t('upstreamKeys.actions.edit'), {
+          onClick: () => openEdit(row),
+        }),
+        iconButton(CopyOutline, t('upstreamKeys.actions.duplicate'), {
+          disabled: row.authType !== 'pat',
+          onClick: () => openDuplicate(row),
+        }),
         h(
           NPopconfirm,
           { onPositiveClick: () => handleDelete(row) },
           {
             trigger: () =>
-              h(NButton, { size: 'small', type: 'error' }, () => t('upstreamKeys.actions.delete')),
+              iconButton(TrashOutline, t('upstreamKeys.actions.delete'), {
+                type: 'error',
+              }),
             default: () => t('upstreamKeys.confirm.delete'),
           },
         ),
