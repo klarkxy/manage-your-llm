@@ -12,7 +12,6 @@ import {
   NInput,
   NModal,
   NPopconfirm,
-  NSelect,
   NSpace,
   NTag,
   NText,
@@ -23,15 +22,10 @@ import {
   consumerKeysApi,
   type AppSummary,
   type ConsumerKey,
-  type ConsumerKeyAccessItem,
-  type ModelGroup,
-  type PublicModel,
 } from '../api/admin.js';
 
 const props = defineProps<{
   app: AppSummary;
-  publicModels: PublicModel[];
-  modelGroups: ModelGroup[];
 }>();
 
 const message = useMessage();
@@ -41,7 +35,7 @@ const items = ref<ConsumerKey[]>([]);
 const loading = ref(false);
 const createOpen = ref(false);
 const submitting = ref(false);
-const form = ref<{ name: string; access: string[] }>({ name: '', access: [] });
+const form = ref<{ name: string }>({ name: '' });
 const justCreated = ref<ConsumerKey | null>(null);
 
 async function refresh() {
@@ -59,7 +53,7 @@ async function refresh() {
 onMounted(refresh);
 
 function openCreate() {
-  form.value = { name: '', access: [] };
+  form.value = { name: '' };
   createOpen.value = true;
 }
 
@@ -70,20 +64,8 @@ async function onCreate() {
   }
   submitting.value = true;
   try {
-    const parsed: ConsumerKeyAccessItem[] = form.value.access
-      .map((token) => {
-        const idx = token.indexOf(':');
-        if (idx <= 0) return null;
-        const type = token.slice(0, idx);
-        const id = token.slice(idx + 1);
-        if (type === 'group') return { targetType: 'model_group' as const, targetId: id };
-        if (type === 'model') return { targetType: 'public_model' as const, targetId: id };
-        return null;
-      })
-      .filter((x): x is ConsumerKeyAccessItem => x !== null);
     const created = await consumerKeysApi.create(props.app.id, {
       name: form.value.name.trim(),
-      access: parsed.length > 0 ? parsed : undefined,
     });
     items.value = [created, ...items.value];
     createOpen.value = false;
@@ -117,24 +99,24 @@ async function rotate(row: ConsumerKey) {
   }
 }
 
-const accessOptions = computed(() => [
-  ...props.modelGroups.map((g) => ({
-    label: t('consumerKeys.modal.accessOptionGroup', { name: g.name }),
-    value: `group:${g.id}`,
-  })),
-  ...props.publicModels.map((m) => ({
-    label: t('consumerKeys.modal.accessOptionModel', { name: m.name }),
-    value: `model:${m.id}`,
-  })),
-]);
-
 const columns = computed<DataTableColumns<ConsumerKey>>(() => [
-  { title: t('consumerKeys.columns.name'), key: 'name', width: 160 },
-  { title: t('consumerKeys.columns.prefix'), key: 'keyPrefix', width: 160 },
+  { title: t('consumerKeys.columns.name'), key: 'name', width: 160, sorter: true },
+  { title: t('consumerKeys.columns.prefix'), key: 'keyPrefix', width: 160, sorter: true },
+  {
+    title: t('consumerKeys.columns.lastUsed'),
+    key: 'lastUsedAt',
+    width: 160,
+    sorter: true,
+    render: (row) =>
+      row.lastUsedAt
+        ? h(NText, { depth: 3, size: 'small' }, () => new Date(row.lastUsedAt!).toLocaleString())
+        : h(NText, { depth: 3, size: 'small' }, () => t('consumerKeys.neverUsed')),
+  },
   {
     title: t('consumerKeys.columns.status'),
     key: 'enabled',
     width: 110,
+    sorter: true,
     render: (row) =>
       !row.enabled
         ? h(NTag, { type: 'error', size: 'small' }, () => t('consumerKeys.status.revoked'))
@@ -203,14 +185,6 @@ function dismissJustCreated() {
           <NInput
             v-model:value="form.name"
             :placeholder="t('consumerKeys.modal.placeholder.name')"
-          />
-        </NFormItem>
-        <NFormItem :label="t('consumerKeys.modal.access')">
-          <NSelect
-            v-model:value="form.access"
-            :options="accessOptions"
-            multiple
-            :placeholder="t('consumerKeys.modal.placeholder.access')"
           />
         </NFormItem>
       </NForm>

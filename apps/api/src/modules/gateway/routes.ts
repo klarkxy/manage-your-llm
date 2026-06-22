@@ -230,11 +230,17 @@ export function registerGatewayRoutes(app: FastifyInstance, deps: GatewayRouteDe
     const groupIds = access.filter((a) => a.targetType === 'model_group').map((a) => a.targetId);
 
     const data: ListModelsEntry[] = [];
-    if (publicModelIds.length > 0) {
+    // Zero access entries = unrestricted (list everything).
+    const unrestricted = publicModelIds.length === 0 && groupIds.length === 0;
+    if (publicModelIds.length > 0 || unrestricted) {
       const rows = await db
         .select()
         .from(publicModels)
-        .where(and(inArray(publicModels.id, publicModelIds), eq(publicModels.enabled, true)))
+        .where(
+          unrestricted
+            ? eq(publicModels.enabled, true)
+            : and(inArray(publicModels.id, publicModelIds), eq(publicModels.enabled, true)),
+        )
         .all();
       for (const row of rows) {
         data.push({
@@ -245,11 +251,15 @@ export function registerGatewayRoutes(app: FastifyInstance, deps: GatewayRouteDe
         });
       }
     }
-    if (groupIds.length > 0) {
+    if (groupIds.length > 0 || unrestricted) {
       const rows = await db
         .select()
         .from(modelGroups)
-        .where(and(inArray(modelGroups.id, groupIds), eq(modelGroups.enabled, true)))
+        .where(
+          unrestricted
+            ? eq(modelGroups.enabled, true)
+            : and(inArray(modelGroups.id, groupIds), eq(modelGroups.enabled, true)),
+        )
         .all();
       for (const row of rows) {
         data.push({

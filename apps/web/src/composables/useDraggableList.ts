@@ -16,9 +16,16 @@ import { reactive, ref, type Ref } from 'vue';
  *   //     :class="{ 'drag-dragging': drag.draggingIndex === i, ... }">
  */
 export interface DragState {
-  draggingIndex: number | null;
-  dragOverIndex: number | null;
-  dragOverPosition: 'before' | 'after';
+  /**
+   * Refs instead of plain numbers so consumers can depend on them in
+   * render functions and reactive bindings (e.g. `<n-data-table
+   * :row-props>`). Vue auto-unwraps refs at the template boundary, so
+   * consumers can read `drag.draggingIndex === i` without `.value` in
+   * templates. Inside render functions and `setup()`, read `.value`.
+   */
+  draggingIndex: Ref<number | null>;
+  dragOverIndex: Ref<number | null>;
+  dragOverPosition: Ref<'before' | 'after'>;
   /**
    * True while a previously-triggered `onReorder` is still awaiting the
    * consumer's promise. Consumers may use this to render a disabled state
@@ -47,17 +54,15 @@ export function useDraggableList<T>(
   opts: { prefix?: string } = {},
 ): DragState {
   const prefix = opts.prefix ?? 'drag';
-  // reactive object so consumers can read `drag.draggingIndex` directly in
-  // templates without unwrapping `.value`.
-  const state = reactive<{
-    draggingIndex: number | null;
-    dragOverIndex: number | null;
-    dragOverPosition: 'before' | 'after';
-  }>({
-    draggingIndex: null,
-    dragOverIndex: null,
-    dragOverPosition: 'before',
-  });
+  // Use refs for the indices so the parent component's render function can
+  // depend on them directly (e.g. via `useDraggable().rowProps(idx)` that
+  // reads them inside a computed). A plain `reactive({...})` would not
+  // trigger re-renders because Vue's tracking only covers the values
+  // actually read during a render — the function's closure reads aren't
+  // tracked on their own.
+  const draggingIndex = ref<number | null>(null);
+  const dragOverIndex = ref<number | null>(null);
+  const dragOverPosition = ref<'before' | 'after'>('before');
 
   /**
    * Guard against stacking reorder requests. Instead of dropping subsequent
@@ -73,13 +78,13 @@ export function useDraggableList<T>(
   let pendingCommit: { copy: T[]; previous: T[] } | null = null;
 
   function clear(): void {
-    state.draggingIndex = null;
-    state.dragOverIndex = null;
-    state.dragOverPosition = 'before';
+    draggingIndex.value = null;
+    dragOverIndex.value = null;
+    dragOverPosition.value = 'before';
   }
 
   function startDrag(idx: number): void {
-    state.draggingIndex = idx;
+    draggingIndex.value = idx;
   }
 
   function dispatchCommit(): void {
@@ -134,8 +139,8 @@ export function useDraggableList<T>(
 
   function rowProps(idx: number): Record<string, unknown> {
     const classes: string[] = [];
-    if (state.draggingIndex === idx) classes.push(`${prefix}-dragging`);
-    if (state.dragOverIndex === idx) classes.push(`${prefix}-drop-${state.dragOverPosition}`);
+    if (draggingIndex.value === idx) classes.push(`${prefix}-dragging`);
+    if (dragOverIndex.value === idx) classes.push(`${prefix}-drop-${dragOverPosition.value}`);
     return {
       // Note: we intentionally do NOT set `draggable: true` on the row itself —
       // a dedicated handle element (see <DragHandle />) owns the dragstart.
@@ -143,12 +148,12 @@ export function useDraggableList<T>(
       // commit the reorder.
       class: classes,
       onDragover: (e: DragEvent) => {
-        if (state.draggingIndex === null) return;
+        if (draggingIndex.value === null) return;
         // Skip the source row itself — drawing the drop indicator over the
         // row the user is dragging from makes the target ambiguous and
         // creates the illusion of the row being pushed by the indicator.
-        if (state.draggingIndex === idx) {
-          state.dragOverIndex = null;
+        if (draggingIndex.value === idx) {
+          dragOverIndex.value = null;
           return;
         }
         e.preventDefault();
@@ -156,21 +161,26 @@ export function useDraggableList<T>(
         const target = e.currentTarget as HTMLElement | null;
         if (!target) return;
         const rect = target.getBoundingClientRect();
-        state.dragOverIndex = idx;
-        state.dragOverPosition =
+        dragOverIndex.value = idx;
+        dragOverPosition.value =
           e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
       },
       onDrop: (e: DragEvent) => {
         e.preventDefault();
-        if (state.draggingIndex === null) return;
-        commit(state.draggingIndex, idx, state.dragOverPosition);
+        if (draggingIndex.value === null) return;
+        commit(draggingIndex.value, idx, dragOverPosition.value);
       },
       onDragend: clear,
     };
   }
 
   return {
-    ...state,
+    // Spread the refs as-is. Vue auto-unwraps refs at the template boundary,
+    // so consumers can keep using `drag.draggingIndex === i` without `.value`
+    // in templates. Inside `setup()`/render functions, read `.value`.
+    draggingIndex,
+    dragOverIndex,
+    dragOverPosition,
     inFlight,
     startDrag,
     rowProps,

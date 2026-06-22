@@ -565,6 +565,7 @@ const messages = {
     columns: {
       name: 'Name',
       prefix: 'Prefix',
+      lastUsed: 'Last used',
       status: 'Status',
       actions: 'Actions',
     },
@@ -572,6 +573,7 @@ const messages = {
       active: 'Active',
       revoked: 'Revoked',
     },
+    neverUsed: 'Never used',
     actions: {
       rotate: 'Rotate',
       revoke: 'Revoke',

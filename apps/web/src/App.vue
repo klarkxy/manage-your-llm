@@ -121,30 +121,25 @@ kbd,
  * and a hover background so the source stays visible while the user
  * hunts for a target. */
 .drag-dragging td {
-  opacity: 0.4;
   background: var(--n-color-hover) !important;
 }
-.drag-drop-before > td,
-.drag-drop-after > td {
-  position: relative;
+.drag-drop-before td {
+  background-image: linear-gradient(
+    to bottom,
+    var(--n-primary-color) 0,
+    var(--n-primary-color) 4px,
+    transparent 4px,
+    transparent 100%
+  ) !important;
 }
-.drag-drop-before > td::before,
-.drag-drop-after > td::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: var(--n-primary-color);
-  box-shadow: 0 0 6px var(--n-primary-color);
-  pointer-events: none;
-  z-index: 2;
-}
-.drag-drop-before > td::before {
-  top: 0;
-}
-.drag-drop-after > td::after {
-  bottom: 0;
+.drag-drop-after td {
+  background-image: linear-gradient(
+    to top,
+    var(--n-primary-color) 0,
+    var(--n-primary-color) 4px,
+    transparent 4px,
+    transparent 100%
+  ) !important;
 }
 .order-handle {
   display: inline-flex;

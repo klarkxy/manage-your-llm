@@ -564,6 +564,7 @@ const messages: Messages = {
     columns: {
       name: '名称',
       prefix: '前缀',
+      lastUsed: '上次使用',
       status: '状态',
       actions: '操作',
     },
@@ -571,6 +572,7 @@ const messages: Messages = {
       active: '活跃',
       revoked: '已吊销',
     },
+    neverUsed: '未使用',
     actions: {
       rotate: '轮换',
       revoke: '吊销',

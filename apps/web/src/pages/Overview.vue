@@ -89,15 +89,15 @@ const sparkOption = computed<EChartsOption>(() => ({
 }));
 
 const modelColumns = computed<DataTableColumns<PublicModel>>(() => [
-  { title: t('overview.modelsCard'), key: 'name' },
-  { title: t('common.displayName'), key: 'displayName' },
-  { title: t('common.candidates'), key: 'candidateCount', width: 110 },
+  { title: t('overview.modelsCard'), key: 'name', sorter: true },
+  { title: t('common.displayName'), key: 'displayName', sorter: true },
+  { title: t('common.candidates'), key: 'candidateCount', width: 110, sorter: true },
 ]);
 
 const groupColumns = computed<DataTableColumns<ModelGroup>>(() => [
-  { title: t('overview.groupsCard'), key: 'name' },
-  { title: t('common.displayName'), key: 'displayName' },
-  { title: t('common.members'), key: 'memberCount', width: 110 },
+  { title: t('overview.groupsCard'), key: 'name', sorter: true },
+  { title: t('common.displayName'), key: 'displayName', sorter: true },
+  { title: t('common.members'), key: 'memberCount', width: 110, sorter: true },
 ]);
 </script>
 

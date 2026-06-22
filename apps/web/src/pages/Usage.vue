@@ -97,7 +97,7 @@ const stickyHitRatePct = computed(() =>
 );
 
 const breakdownColumns = computed<DataTableColumns<UsageBreakdownEntry>>(() => [
-  { title: t('usage.columns.name'), key: 'name', ellipsis: { tooltip: true } },
+  { title: t('usage.columns.name'), key: 'name', ellipsis: { tooltip: true }, sorter: true },
   {
     title: t('usage.columns.requests'),
     key: 'totalRequests',
@@ -108,11 +108,13 @@ const breakdownColumns = computed<DataTableColumns<UsageBreakdownEntry>>(() => [
   {
     title: t('usage.columns.success'),
     key: 'successfulRequests',
+    sorter: (a, b) => a.successfulRequests - b.successfulRequests,
     render: (row) => row.successfulRequests.toLocaleString(),
   },
   {
     title: t('usage.columns.errors'),
     key: 'failedRequests',
+    sorter: (a, b) => a.failedRequests - b.failedRequests,
     render: (row) =>
       h(NTag, { size: 'small', type: row.failedRequests > 0 ? 'error' : 'default' }, () =>
         row.failedRequests.toLocaleString(),
@@ -126,11 +128,12 @@ const breakdownColumns = computed<DataTableColumns<UsageBreakdownEntry>>(() => [
 ]);
 
 const targetColumns = computed<DataTableColumns<UsageTargetBreakdownEntry>>(() => [
-  { title: t('usage.columns.name'), key: 'name', ellipsis: { tooltip: true } },
+  { title: t('usage.columns.name'), key: 'name', ellipsis: { tooltip: true }, sorter: true },
   {
     title: t('usage.columns.type'),
     key: 'targetType',
     width: 120,
+    sorter: true,
     render: (row) =>
       h(
         NTag,
@@ -151,6 +154,7 @@ const targetColumns = computed<DataTableColumns<UsageTargetBreakdownEntry>>(() =
   {
     title: t('usage.columns.errors'),
     key: 'failedRequests',
+    sorter: (a, b) => a.failedRequests - b.failedRequests,
     render: (row) => row.failedRequests.toLocaleString(),
   },
   {
@@ -165,25 +169,29 @@ const recentColumns = computed<DataTableColumns<UsageRecentRow>>(() => [
     title: t('usage.columns.time'),
     key: 'createdAt',
     width: 200,
+    sorter: true,
     render: (row) => new Date(row.createdAt).toLocaleString(),
   },
-  { title: t('usage.columns.app'), key: 'appId', width: 140, ellipsis: { tooltip: true } },
+  { title: t('usage.columns.app'), key: 'appId', width: 140, ellipsis: { tooltip: true }, sorter: true },
   {
     title: t('usage.columns.target'),
     key: 'requestedTargetName',
     width: 200,
     ellipsis: { tooltip: true },
+    sorter: true,
   },
   {
     title: t('usage.columns.upstream'),
     key: 'realModelName',
     width: 200,
     ellipsis: { tooltip: true },
+    sorter: true,
   },
   {
     title: t('usage.columns.status'),
     key: 'status',
     width: 110,
+    sorter: true,
     render: (row) =>
       h(
         NTag,
@@ -195,6 +203,7 @@ const recentColumns = computed<DataTableColumns<UsageRecentRow>>(() => [
     title: t('usage.columns.latency'),
     key: 'latencyMs',
     width: 110,
+    sorter: (a, b) => a.latencyMs - b.latencyMs,
     render: (row) => `${row.latencyMs} ms`,
   },
   {
@@ -219,6 +228,7 @@ const recentColumns = computed<DataTableColumns<UsageRecentRow>>(() => [
     title: t('usage.columns.error'),
     key: 'errorCode',
     width: 160,
+    sorter: true,
     render: (row) => (row.errorCode ? row.errorCode : '—'),
   },
 ]);
@@ -247,22 +257,26 @@ const traceColumns = computed<DataTableColumns<TraceSummary>>(() => [
     key: 'requestTraceId',
     width: 240,
     ellipsis: { tooltip: true },
+    sorter: true,
   },
   {
     title: t('usage.columns.target'),
     key: 'requestedTargetName',
     width: 180,
     ellipsis: { tooltip: true },
+    sorter: true,
   },
   {
     title: t('usage.columns.sourceProtocol'),
     key: 'sourceProtocol',
     width: 120,
+    sorter: true,
   },
   {
     title: t('usage.columns.outcome'),
     key: 'finalOutcome',
     width: 110,
+    sorter: true,
     render: (row) =>
       h(
         NTag,
@@ -274,6 +288,7 @@ const traceColumns = computed<DataTableColumns<TraceSummary>>(() => [
     title: t('usage.columns.time'),
     key: 'createdAt',
     width: 200,
+    sorter: true,
     render: (row) => new Date(row.createdAt).toLocaleString(),
   },
 ]);
@@ -283,17 +298,20 @@ const traceStepColumns = computed<DataTableColumns<TraceTimeline['steps'][number
     title: t('usage.columns.stepIndex'),
     key: 'stepIndex',
     width: 60,
+    sorter: true,
   },
   {
     title: t('usage.columns.step'),
     key: 'step',
     width: 160,
+    sorter: true,
   },
   {
     title: t('usage.columns.target'),
     key: 'requestedTargetName',
     width: 160,
     ellipsis: { tooltip: true },
+    sorter: true,
     render: (row) => row.requestedTargetName ?? '—',
   },
   {
@@ -301,6 +319,7 @@ const traceStepColumns = computed<DataTableColumns<TraceTimeline['steps'][number
     key: 'upstreamKeyName',
     width: 160,
     ellipsis: { tooltip: true },
+    sorter: true,
     render: (row) => row.upstreamKeyName ?? '—',
   },
   {
@@ -308,12 +327,14 @@ const traceStepColumns = computed<DataTableColumns<TraceTimeline['steps'][number
     key: 'realModelName',
     width: 160,
     ellipsis: { tooltip: true },
+    sorter: true,
     render: (row) => row.realModelName ?? '—',
   },
   {
     title: t('usage.columns.latency'),
     key: 'latencyMs',
     width: 110,
+    sorter: (a, b) => (a.latencyMs ?? 0) - (b.latencyMs ?? 0),
     render: (row) => (row.latencyMs === null ? '—' : `${row.latencyMs} ms`),
   },
   {
@@ -321,6 +342,7 @@ const traceStepColumns = computed<DataTableColumns<TraceTimeline['steps'][number
     key: 'errorMessage',
     width: 200,
     ellipsis: { tooltip: true },
+    sorter: true,
     render: (row) =>
       row.errorMessage
         ? h(NText, { type: 'error' }, () => row.errorMessage)
@@ -335,10 +357,12 @@ const consumptionColumns = computed<DataTableColumns<DailyConsumptionSummary>>((
     title: t('usage.columns.dayDate'),
     key: 'dayDate',
     width: 140,
+    sorter: true,
   },
   {
     title: t('usage.columns.requests'),
     key: 'totalRequests',
+    sorter: (a, b) => a.totalRequests - b.totalRequests,
     render: (row) => row.totalRequests.toLocaleString(),
   },
   {

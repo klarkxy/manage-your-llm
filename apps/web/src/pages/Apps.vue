@@ -19,11 +19,7 @@ import {
 } from 'naive-ui';
 import {
   appsApi,
-  modelGroupsApi,
-  publicModelsApi,
   type AppSummary,
-  type ModelGroup,
-  type PublicModel,
 } from '../api/admin.js';
 import AppConsumerKeys from '../components/AppConsumerKeys.vue';
 
@@ -31,8 +27,8 @@ const message = useMessage();
 const { t } = useI18n();
 
 const items = ref<AppSummary[]>([]);
-const publicModels = ref<PublicModel[]>([]);
-const modelGroups = ref<ModelGroup[]>([]);
+const selectedAppId = ref<string | null>(null);
+const selectedApp = computed(() => items.value.find((a) => a.id === selectedAppId.value) ?? null);
 const loading = ref(false);
 const drawerOpen = ref(false);
 const submitting = ref(false);
@@ -41,14 +37,8 @@ const form = ref<{ name: string; description: string }>({ name: '', description:
 async function refresh() {
   loading.value = true;
   try {
-    const [appsRes, pmRes, mgRes] = await Promise.all([
-      appsApi.list(),
-      publicModelsApi.list(),
-      modelGroupsApi.list(),
-    ]);
+    const appsRes = await appsApi.list();
     items.value = appsRes.items;
-    publicModels.value = pmRes.items;
-    modelGroups.value = mgRes.items;
   } catch (err) {
     message.error((err as Error).message);
   } finally {
@@ -84,19 +74,28 @@ async function onSubmit() {
   }
 }
 
+const rowProps = (row: AppSummary) => ({
+  style: 'cursor: pointer;',
+  class: row.id === selectedAppId.value ? 'app-row--selected' : '',
+  onClick: () => {
+    selectedAppId.value = row.id;
+  },
+});
+
 const columns = computed<DataTableColumns<AppSummary>>(() => [
-  { title: t('apps.columns.name'), key: 'name', width: 220 },
-  { title: t('apps.columns.description'), key: 'description', ellipsis: { tooltip: true } },
+  { title: t('apps.columns.name'), key: 'name', width: 220, sorter: true },
+  { title: t('apps.columns.description'), key: 'description', ellipsis: { tooltip: true }, sorter: true },
   {
     title: t('apps.columns.status'),
     key: 'enabled',
     width: 100,
+    sorter: true,
     render: (row) =>
       row.enabled
         ? h(NTag, { type: 'success', size: 'small' }, () => t('apps.status.enabled'))
         : h(NTag, { type: 'default', size: 'small' }, () => t('apps.status.disabled')),
   },
-  { title: t('apps.columns.created'), key: 'createdAt', width: 200 },
+  { title: t('apps.columns.created'), key: 'createdAt', width: 200, sorter: true },
 ]);
 </script>
 
@@ -114,17 +113,13 @@ const columns = computed<DataTableColumns<AppSummary>>(() => [
         :bordered="false"
         :single-line="false"
         :row-key="(row) => row.id"
+        :row-props="rowProps"
         :empty="h(NEmpty, { description: t('apps.empty') })"
       />
     </NCard>
 
-    <NCard
-      v-for="app in items"
-      :key="app.id"
-      :title="t('apps.consumerKeysTitle', { name: app.name })"
-      style="margin-top: 16px"
-    >
-      <AppConsumerKeys :app="app" :public-models="publicModels" :model-groups="modelGroups" />
+    <NCard v-if="selectedApp" :title="t('apps.consumerKeysTitle', { name: selectedApp.name })" style="margin-top: 16px">
+      <AppConsumerKeys :app="selectedApp" />
     </NCard>
 
     <NDrawer v-model:show="drawerOpen" :width="420">
@@ -154,5 +149,8 @@ const columns = computed<DataTableColumns<AppSummary>>(() => [
 .page {
   max-width: 1200px;
   margin: 0 auto;
+}
+:deep(.app-row--selected td) {
+  background: var(--n-color-target) !important;
 }
 </style>

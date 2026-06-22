@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed, h, onMounted, ref, watch } from 'vue';
+import { computed, h, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   NButton,
   NCard,
   NDataTable,
   NEmpty,
-  NGrid,
-  NGi,
   NInput,
   NSelect,
   NSpace,
@@ -16,13 +14,11 @@ import {
   useMessage,
   type DataTableColumns,
 } from 'naive-ui';
-import type { EChartsOption } from 'echarts';
 import {
   modelReferenceApi,
   type ModelReferenceEntry,
   type ModelReferenceSyncStatus,
 } from '../api/admin.js';
-import EChart from '../components/EChart.vue';
 
 type SortOrder = 'ascend' | 'descend' | false;
 type SortState = { columnKey: string | number; order: SortOrder } | null;
@@ -34,8 +30,6 @@ const refreshing = ref(false);
 const items = ref<ModelReferenceEntry[]>([]);
 const sync = ref<ModelReferenceSyncStatus[]>([]);
 const sortState = ref<SortState>(null);
-const page = ref(1);
-const pageSize = ref(20);
 const query = ref('');
 const selectedMetric = ref('all');
 const selectedProvider = ref('all');
@@ -145,7 +139,6 @@ async function refreshList(): Promise<void> {
     const res = await modelReferenceApi.list();
     items.value = res.items;
     sync.value = res.sync;
-    page.value = 1;
   } catch (err) {
     message.error((err as Error).message);
   } finally {
@@ -159,7 +152,6 @@ async function refreshRemote(): Promise<void> {
     const res = await modelReferenceApi.refresh(true);
     items.value = res.items.items;
     sync.value = res.items.sync;
-    page.value = 1;
     message.success(t('modelReference.refreshed'));
   } catch (err) {
     message.error((err as Error).message);
@@ -183,7 +175,6 @@ function onSorterUpdate(next: unknown): void {
     (candidate.order === 'ascend' || candidate.order === 'descend')
       ? { columnKey: candidate.columnKey, order: candidate.order }
       : null;
-  page.value = 1;
 }
 
 const sortedItems = computed(() => {
@@ -202,24 +193,9 @@ const sortedItems = computed(() => {
   );
 });
 
-const pagedItems = computed(() => {
-  const start = (page.value - 1) * pageSize.value;
-  return sortedItems.value.slice(start, start + pageSize.value);
-});
-
 const pagination = computed(() => ({
-  page: page.value,
-  pageSize: pageSize.value,
-  itemCount: sortedItems.value.length,
   showSizePicker: true,
   pageSizes: [20, 50, 100],
-  onUpdatePage: (nextPage: number) => {
-    page.value = nextPage;
-  },
-  onUpdatePageSize: (nextPageSize: number) => {
-    pageSize.value = nextPageSize;
-    page.value = 1;
-  },
 }));
 
 const tableScrollX = computed(() => Math.max(760, 470 + visibleScoreKeys.value.length * 104));
@@ -268,128 +244,7 @@ function resetFilters(): void {
   selectedMetric.value = 'all';
   selectedProvider.value = 'all';
   sortState.value = null;
-  page.value = 1;
 }
-
-// ---------- Compare chart state ----------
-
-const compareSelection = ref<string[]>([]);
-const compareOptions = computed(() =>
-  items.value.map((item) => ({
-    label: item.displayName || item.normalizedModelName,
-    value: item.id,
-  })),
-);
-const compareModels = computed<ModelReferenceEntry[]>(() =>
-  compareSelection.value
-    .map((id) => items.value.find((item) => item.id === id))
-    .filter((item): item is ModelReferenceEntry => item !== undefined),
-);
-watch(items, () => {
-  compareSelection.value = [];
-});
-
-const compareScoreKeys = computed(() => {
-  const set = new Set<string>();
-  for (const m of compareModels.value) {
-    for (const k of Object.keys(m.scores)) {
-      const v = m.scores[k];
-      if (typeof v === 'number' && Number.isFinite(v)) set.add(k);
-    }
-  }
-  return preferredScoreKeys.filter((k) => set.has(k));
-});
-
-const radarOption = computed<EChartsOption>(() => {
-  if (compareModels.value.length === 0) {
-    return {
-      title: {
-        text: t('modelReference.compare.selectPlaceholder'),
-        left: 'center',
-        top: 'middle',
-        textStyle: { fontSize: 13, fontWeight: 'normal' },
-      },
-      radar: { indicator: [] },
-    };
-  }
-  const indicators = compareScoreKeys.value.map((k) => ({
-    name: t(`modelReference.columns.${k}`),
-    max: Math.max(
-      10,
-      ...compareModels.value.map((m) => {
-        const v = m.scores[k];
-        return typeof v === 'number' && Number.isFinite(v) ? v : 0;
-      }),
-    ),
-  }));
-  return {
-    tooltip: {},
-    legend: { data: compareModels.value.map((m) => m.displayName || m.normalizedModelName), top: 0 },
-    radar: { indicator: indicators, radius: '65%' },
-    series: [
-      {
-        type: 'radar',
-        data: compareModels.value.map((m) => ({
-          name: m.displayName || m.normalizedModelName,
-          value: compareScoreKeys.value.map((k) => {
-            const v = m.scores[k];
-            return typeof v === 'number' && Number.isFinite(v) ? v : 0;
-          }),
-        })),
-      },
-    ],
-  };
-});
-
-const metricCompareKey = computed(() => {
-  if (selectedMetric.value !== 'all' && scoreKeys.value.includes(selectedMetric.value)) return selectedMetric.value;
-  return scoreKeys.value.includes('intelligence') ? 'intelligence' : scoreKeys.value[0] ?? '';
-});
-
-const metricCompareOption = computed<EChartsOption>(() => {
-  const key = metricCompareKey.value;
-  const data = key
-    ? compareModels.value
-        .map((m) => ({
-          name: m.displayName || m.normalizedModelName,
-          value: scoreValue(m, key),
-        }))
-        .filter((d): d is { name: string; value: number } => d.value !== null)
-    : [];
-  if (data.length === 0) {
-    return {
-      title: {
-        text: t('modelReference.compare.metric'),
-        left: 'center',
-        top: 'middle',
-        textStyle: { fontSize: 13, fontWeight: 'normal' },
-      },
-      xAxis: { type: 'category', data: [] },
-      yAxis: { type: 'value' },
-    };
-  }
-  const avg = data.reduce((s, d) => s + d.value, 0) / data.length;
-  return {
-    tooltip: { trigger: 'axis' },
-    grid: { left: 60, right: 16, top: 24, bottom: 40 },
-    xAxis: {
-      type: 'category',
-      data: data.map((d) => d.name),
-      axisLabel: { rotate: 20, interval: 0 },
-    },
-    yAxis: { type: 'value', name: t(`modelReference.columns.${key}`) },
-    series: [
-      {
-        type: 'bar',
-        data: data.map((d) => d.value),
-        itemStyle: { borderRadius: [4, 4, 0, 0] },
-        markLine: {
-          data: [{ type: 'average', name: t('modelReference.compare.average') }],
-        },
-      },
-    ],
-  };
-});
 </script>
 
 <template>
@@ -403,32 +258,19 @@ const metricCompareOption = computed<EChartsOption>(() => {
             clearable
             :placeholder="t('modelReference.searchPlaceholder')"
             style="width: 260px"
-            @update:value="page = 1"
           />
           <NSelect
             v-model:value="selectedMetric"
             :options="metricOptions"
             style="width: 180px"
-            @update:value="page = 1"
           />
           <NSelect
             v-model:value="selectedProvider"
             :options="providerOptions"
             filterable
             style="width: 190px"
-            @update:value="page = 1"
           />
           <NText depth="3">{{ t('modelReference.resultCount', { count: filteredItems.length }) }}</NText>
-          <NSelect
-            v-model:value="compareSelection"
-            multiple
-            filterable
-            clearable
-            :options="compareOptions"
-            :placeholder="t('modelReference.compare.selectPlaceholder')"
-            :max-tag-count="1"
-            style="width: 280px"
-          />
         </NSpace>
         <NSpace>
           <NButton secondary @click="resetFilters">{{ t('modelReference.reset') }}</NButton>
@@ -446,10 +288,9 @@ const metricCompareOption = computed<EChartsOption>(() => {
 
       <NDataTable
         :columns="columns"
-        :data="pagedItems"
+        :data="sortedItems"
         :loading="loading"
         :bordered="false"
-        remote
         :single-line="false"
         :row-key="(row) => row.id"
         :scroll-x="tableScrollX"
@@ -457,24 +298,6 @@ const metricCompareOption = computed<EChartsOption>(() => {
         :empty="h(NEmpty, { description: t('modelReference.empty') })"
         @update:sorter="onSorterUpdate"
       />
-
-      <NCard v-if="compareModels.length > 0" size="small" style="margin-top: 16px">
-        <NText strong style="display: block; margin-bottom: 8px">{{ t('modelReference.compare.title') }}</NText>
-        <NGrid :cols="2" :x-gap="16" :y-gap="16" responsive="screen">
-          <NGi :span="1">
-            <NText depth="3" style="display: block; margin-bottom: 4px">
-              {{ t('modelReference.compare.radar') }}
-            </NText>
-            <EChart :option="radarOption" :height="280" />
-          </NGi>
-          <NGi :span="1">
-            <NText depth="3" style="display: block; margin-bottom: 4px">
-              {{ t('modelReference.compare.metric') }}
-            </NText>
-            <EChart :option="metricCompareOption" :height="280" />
-          </NGi>
-        </NGrid>
-      </NCard>
     </NCard>
   </div>
 </template>

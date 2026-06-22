@@ -311,13 +311,14 @@ async function remove(row: PublicModel) {
 }
 
 const columns = computed<DataTableColumns<PublicModel>>(() => [
-  { title: t('publicModels.columns.name'), key: 'name', width: 220 },
-  { title: t('publicModels.columns.displayName'), key: 'displayName', width: 200 },
-  { title: t('publicModels.columns.candidates'), key: 'candidateCount', width: 100 },
+  { title: t('publicModels.columns.name'), key: 'name', width: 220, sorter: true },
+  { title: t('publicModels.columns.displayName'), key: 'displayName', width: 200, sorter: true },
+  { title: t('publicModels.columns.candidates'), key: 'candidateCount', width: 100, sorter: true },
   {
     title: t('publicModels.columns.status'),
     key: 'enabled',
     width: 100,
+    sorter: true,
     render: (row) =>
       row.enabled
         ? h(NTag, { type: 'success', size: 'small' }, () => t('publicModels.status.enabled'))

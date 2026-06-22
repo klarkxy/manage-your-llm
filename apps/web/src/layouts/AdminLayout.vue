@@ -47,13 +47,14 @@ const menuOptions = computed<MenuOption[]>(() => [
   { key: 'upstream-keys', label: t('layout.menu.upstreamKeys'), icon: menuIcons['upstream-keys'] },
   { key: 'public-models', label: t('layout.menu.publicModels'), icon: menuIcons['public-models'] },
   { key: 'model-groups', label: t('layout.menu.modelGroups'), icon: menuIcons['model-groups'] },
+  { key: 'apps', label: t('layout.menu.apps'), icon: menuIcons['apps'] },
+  { key: 'usage', label: t('layout.menu.usage'), icon: menuIcons['usage'] },
+  { type: 'divider' },
   {
     key: 'model-reference',
     label: t('layout.menu.modelReference'),
     icon: menuIcons['model-reference'],
   },
-  { key: 'apps', label: t('layout.menu.apps'), icon: menuIcons['apps'] },
-  { key: 'usage', label: t('layout.menu.usage'), icon: menuIcons['usage'] },
   { key: 'settings', label: t('layout.menu.settings'), icon: menuIcons['settings'] },
 ]);
 

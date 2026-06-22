@@ -119,6 +119,30 @@ const upstreamDrag = useDraggableList<UpstreamKey>(
   { prefix: 'drag' },
 );
 
+// Force a re-render of the data table whenever the drag state changes so the
+// rowProps callback is re-evaluated and the per-row class updates land on the
+// DOM. Naive UI's render only depends on the body data ref, not on values
+// the consumer reads inside `rowProps`, so without this bridge the drop
+// indicator never paints.
+const upstreamDragState = computed(() => ({
+  draggingIndex: upstreamDrag.draggingIndex.value,
+  dragOverIndex: upstreamDrag.dragOverIndex.value,
+  dragOverPosition: upstreamDrag.dragOverPosition.value,
+  inFlight: upstreamDrag.inFlight.value,
+}));
+
+// Wrapper around `upstreamDrag.rowProps` that closes over the drag state so
+// Naive UI sees a fresh function reference on every drag move and re-evaluates
+// the per-row `class` for each row. Without this the data table body only
+// re-renders on data changes, not on drag state changes, and the drop
+// indicator never lands.
+const rowPropsWithState = computed(() => {
+  // Touch every drag ref so this computed re-evaluates on every drag move.
+  // The returned function captures the snapshot at computation time.
+  const _ = upstreamDragState.value;
+  return (_row: UpstreamKey, idx: number) => upstreamDrag.rowProps(idx);
+});
+
 const pingOpen = ref(false);
 const pingKey = ref<UpstreamKey | null>(null);
 const pingCandidates = ref<UpstreamKeyCandidate[]>([]);
@@ -679,11 +703,12 @@ async function openHealth(row: UpstreamKey) {
 const pingHealthRows = computed(() => (pingKey.value ? healthRowsForKey(pingKey.value.id) : []));
 
 const healthColumns = computed<DataTableColumns<UpstreamEndpointHealth>>(() => [
-  { title: t('upstreamKeys.health.endpoint'), key: 'endpointBaseUrl', ellipsis: { tooltip: true } },
+  { title: t('upstreamKeys.health.endpoint'), key: 'endpointBaseUrl', ellipsis: { tooltip: true }, sorter: true },
   {
     title: t('upstreamKeys.health.latency'),
     key: 'delayMs',
     width: 110,
+    sorter: (a, b) => (a.delayMs ?? Infinity) - (b.delayMs ?? Infinity),
     render: (row) => {
       if (row.delayMs === null) return h(NText, { depth: 3, size: 'small' }, () => '—');
       return h(
@@ -697,6 +722,7 @@ const healthColumns = computed<DataTableColumns<UpstreamEndpointHealth>>(() => [
     title: t('upstreamKeys.health.status'),
     key: 'degraded',
     width: 110,
+    sorter: true,
     render: (row) =>
       h(NTag, { type: row.degraded ? 'error' : 'success', size: 'small' }, () =>
         row.degraded
@@ -708,6 +734,12 @@ const healthColumns = computed<DataTableColumns<UpstreamEndpointHealth>>(() => [
     title: t('upstreamKeys.health.lastChecked'),
     key: 'lastCheckedAt',
     width: 160,
+    sorter: (a, b) => {
+      if (!a.lastCheckedAt && !b.lastCheckedAt) return 0;
+      if (!a.lastCheckedAt) return 1;
+      if (!b.lastCheckedAt) return -1;
+      return new Date(a.lastCheckedAt).getTime() - new Date(b.lastCheckedAt).getTime();
+    },
     render: (row) =>
       h(NText, { depth: 3, size: 'small' }, () =>
         row.lastCheckedAt ? new Date(row.lastCheckedAt).toLocaleString() : '—',
@@ -1128,7 +1160,7 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
         :bordered="false"
         :single-line="false"
         :row-key="(row) => row.id"
-        :row-props="(_row, idx) => upstreamDrag.rowProps(idx)"
+        :row-props="rowPropsWithState"
         :empty="h(NEmpty, { description: t('upstreamKeys.empty') })"
       />
     </NCard>

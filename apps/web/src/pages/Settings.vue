@@ -259,23 +259,26 @@ const auditColumns = computed<DataTableColumns<AuditEvent>>(() => [
     title: t('settings.audit.columns.time'),
     key: 'createdAt',
     width: 200,
+    sorter: true,
     render: (row) => new Date(row.createdAt).toLocaleString(),
   },
-  { title: t('settings.audit.columns.actor'), key: 'actorUsername', width: 140 },
+  { title: t('settings.audit.columns.actor'), key: 'actorUsername', width: 140, sorter: true },
   {
     title: t('settings.audit.columns.action'),
     key: 'action',
     width: 220,
     ellipsis: { tooltip: true },
+    sorter: true,
   },
-  { title: t('settings.audit.columns.resourceType'), key: 'resourceType', width: 140 },
+  { title: t('settings.audit.columns.resourceType'), key: 'resourceType', width: 140, sorter: true },
   {
     title: t('settings.audit.columns.resourceId'),
     key: 'resourceId',
     width: 200,
     ellipsis: { tooltip: true },
+    sorter: true,
   },
-  { title: t('settings.audit.columns.ip'), key: 'ip', width: 140 },
+  { title: t('settings.audit.columns.ip'), key: 'ip', width: 140, sorter: true },
 ]);
 
 const breakerColumns = computed<DataTableColumns<CircuitBreakerItem>>(() => [
@@ -283,6 +286,7 @@ const breakerColumns = computed<DataTableColumns<CircuitBreakerItem>>(() => [
     title: t('settings.circuitBreaker.columns.state'),
     key: 'state',
     width: 120,
+    sorter: true,
     render: (row) =>
       h(
         NTag,
@@ -293,14 +297,15 @@ const breakerColumns = computed<DataTableColumns<CircuitBreakerItem>>(() => [
         () => row.state,
       ),
   },
-  { title: t('settings.circuitBreaker.columns.upstreamKey'), key: 'upstreamKeyName', width: 200, ellipsis: { tooltip: true } },
-  { title: t('settings.circuitBreaker.columns.model'), key: 'realModelName', width: 200, ellipsis: { tooltip: true } },
-  { title: t('settings.circuitBreaker.columns.failures'), key: 'failureCount', width: 90 },
-  { title: t('settings.circuitBreaker.columns.successes'), key: 'successCount', width: 90 },
+  { title: t('settings.circuitBreaker.columns.upstreamKey'), key: 'upstreamKeyName', width: 200, ellipsis: { tooltip: true }, sorter: true },
+  { title: t('settings.circuitBreaker.columns.model'), key: 'realModelName', width: 200, ellipsis: { tooltip: true }, sorter: true },
+  { title: t('settings.circuitBreaker.columns.failures'), key: 'failureCount', width: 90, sorter: true },
+  { title: t('settings.circuitBreaker.columns.successes'), key: 'successCount', width: 90, sorter: true },
   {
     title: t('settings.circuitBreaker.columns.cooldownUntil'),
     key: 'cooldownUntil',
     width: 180,
+    sorter: true,
     render: (row) => (row.cooldownUntil ? new Date(row.cooldownUntil).toLocaleString() : '—'),
   },
   {
@@ -308,6 +313,7 @@ const breakerColumns = computed<DataTableColumns<CircuitBreakerItem>>(() => [
     key: 'lastErrorMessage',
     width: 240,
     ellipsis: { tooltip: true },
+    sorter: true,
     render: (row) => row.lastErrorMessage ?? '—',
   },
   {

@@ -201,12 +201,13 @@ async function remove(row: ModelGroup) {
 }
 
 const columns = computed<DataTableColumns<ModelGroup>>(() => [
-  { title: t('modelGroups.columns.name'), key: 'name', width: 220 },
-  { title: t('modelGroups.columns.displayName'), key: 'displayName', width: 200 },
+  { title: t('modelGroups.columns.name'), key: 'name', width: 220, sorter: true },
+  { title: t('modelGroups.columns.displayName'), key: 'displayName', width: 200, sorter: true },
   {
     title: t('modelGroups.columns.mode'),
     key: 'mode',
     width: 110,
+    sorter: true,
     render: (row) =>
       h(NTag, { size: 'small', type: row.mode === 'auto_snapshot' ? 'info' : 'default' }, () =>
         row.mode === 'auto_snapshot'
@@ -214,11 +215,12 @@ const columns = computed<DataTableColumns<ModelGroup>>(() => [
           : t('modelGroups.status.manual'),
       ),
   },
-  { title: t('modelGroups.columns.members'), key: 'memberCount', width: 100 },
+  { title: t('modelGroups.columns.members'), key: 'memberCount', width: 100, sorter: true },
   {
     title: t('modelGroups.columns.status'),
     key: 'enabled',
     width: 100,
+    sorter: true,
     render: (row) =>
       row.enabled
         ? h(NTag, { type: 'success', size: 'small' }, () => t('modelGroups.status.enabled'))
@@ -355,8 +357,8 @@ const previewColumns = computed<DataTableColumns<AutoGroupRecommendation>>(() =>
                 :key="idx"
                 class="member-row"
                 :class="{
-                  'drag-dragging': memberDrag.draggingIndex === idx,
-                  [`drag-drop-${memberDrag.dragOverPosition}`]: memberDrag.dragOverIndex === idx,
+                  'drag-dragging': memberDrag.draggingIndex.value === idx,
+                  [`drag-drop-${memberDrag.dragOverPosition.value}`]: memberDrag.dragOverIndex.value === idx,
                 }"
                 v-bind="memberDrag.rowProps(idx)"
               >
