@@ -936,7 +936,7 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
               event.preventDefault();
               return;
             }
-            upstreamDrag.draggingIndex = idx;
+            upstreamDrag.startDrag(idx);
             event.dataTransfer?.setData('text/plain', String(idx));
             if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
           },

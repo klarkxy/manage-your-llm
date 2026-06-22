@@ -199,13 +199,17 @@ describe('PublicModels page', () => {
       document.body.querySelectorAll<HTMLElement>('[data-testid="candidate-order-handle"]'),
     );
     expect(handles).toHaveLength(2);
-    const targetRow = handles[1]!.closest('tr') as HTMLTableRowElement;
+    // Drag row index 1 (real-backup) onto row index 0 (real-primary) and drop
+    // in the upper half of the target row. The composable treats clientY
+    // above the row midpoint as 'before', producing insertAt=0, splice(0,0,moved)
+    // which moves the dragged row to index 0 (real-backup first).
+    const targetRow = handles[0]!.closest('tr') as HTMLTableRowElement;
     Object.defineProperty(targetRow, 'getBoundingClientRect', {
       value: () => ({ top: 0, bottom: 20, height: 20, left: 0, right: 100, width: 100 }),
     });
-    handles[0]!.dispatchEvent(dragEvent('dragstart'));
-    targetRow.dispatchEvent(dragEvent('dragover', { clientY: 19 }));
-    targetRow.dispatchEvent(dragEvent('drop', { clientY: 19 }));
+    handles[1]!.dispatchEvent(dragEvent('dragstart'));
+    targetRow.dispatchEvent(dragEvent('dragover', { clientY: 5 }));
+    targetRow.dispatchEvent(dragEvent('drop', { clientY: 5 }));
     await flushPromises();
 
     const saveButton = Array.from(document.body.querySelectorAll('button')).find(

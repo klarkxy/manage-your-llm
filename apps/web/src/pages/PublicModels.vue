@@ -362,7 +362,7 @@ const arrangedColumns = computed<DataTableColumns<CandidateDraft>>(() => [
           title: t('publicModels.arrange.dragHandle'),
           'data-testid': 'candidate-order-handle',
           onDragstart: (event: DragEvent) => {
-            arrangedDrag.draggingIndex = idx;
+            arrangedDrag.startDrag(idx);
             event.dataTransfer?.setData('text/plain', String(idx));
             if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
           },

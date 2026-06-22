@@ -365,7 +365,7 @@ const previewColumns = computed<DataTableColumns<AutoGroupRecommendation>>(() =>
                   draggable="true"
                   :title="t('modelGroups.drawer.dragHandle')"
                   @dragstart="(event: DragEvent) => {
-                    memberDrag.draggingIndex = idx;
+                    memberDrag.startDrag(idx);
                     event.dataTransfer?.setData('text/plain', String(idx));
                     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
                   }"

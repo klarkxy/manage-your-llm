@@ -29,6 +29,14 @@ export interface DragState {
    * read `drag.inFlight.value` to observe changes.
    */
   inFlight: Ref<boolean>;
+  /**
+   * Mark the given row as the drag source. Call this from the drag handle's
+   * `onDragstart` handler. Mutating the returned object's `draggingIndex`
+   * property directly does NOT work, because `...state` in the return shape
+   * spreads a plain-object snapshot that loses the reactive link to the
+   * composable's internal `state` proxy. Always go through this method.
+   */
+  startDrag: (idx: number) => void;
   rowProps: (idx: number) => Record<string, unknown>;
   clear: () => void;
 }
@@ -64,6 +72,10 @@ export function useDraggableList<T>(
     state.draggingIndex = null;
     state.dragOverIndex = null;
     state.dragOverPosition = 'before';
+  }
+
+  function startDrag(idx: number): void {
+    state.draggingIndex = idx;
   }
 
   function commit(from: number, to: number, pos: 'before' | 'after'): void {
@@ -140,6 +152,7 @@ export function useDraggableList<T>(
   return {
     ...state,
     inFlight,
+    startDrag,
     rowProps,
     clear,
   };
