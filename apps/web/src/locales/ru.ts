@@ -73,6 +73,11 @@ const messages = {
     user: {
       signOut: 'Выйти',
     },
+    theme: {
+      toggle: 'Toggle theme',
+      toLight: 'Switch to light',
+      toDark: 'Switch to dark',
+    },
   },
   login: {
     title: 'ModelHarbor · Вход',
@@ -129,6 +134,7 @@ const messages = {
     },
     actions: {
       drag: 'Drag to reorder defaults',
+      dragBusy: 'Сохранение порядка…',
       freeze: 'Заморозить',
       unfreeze: 'Разморозить',
     },
@@ -287,6 +293,15 @@ const messages = {
       required: 'Имя обязательно',
     },
   },
+  modelReference: {
+    compare: {
+      title: 'Сравнить модели',
+      selectPlaceholder: 'Выберите до 3 моделей для сравнения',
+      radar: 'Радар оценок',
+      price: 'Цена (за 1M токенов)',
+      average: 'Среднее',
+    },
+  },
   apps: {
     title: 'Приложения',
     new: 'Новое приложение',
@@ -383,6 +398,14 @@ const messages = {
     byUpstreamKey: 'По upstream-ключам',
     byTarget: 'По целям',
     recentRequests: 'Недавние запросы',
+    charts: {
+      consumption: 'Ежедневное потребление (30 дней)',
+      byApp: 'Запросы по приложениям (топ 8)',
+      latencyDist: 'Распределение задержки',
+      requests: 'Запросы',
+      errors: 'Ошибки',
+      tokens: 'Токены',
+    },
     empty: {
       app: 'Нет трафика приложений за этот период',
       consumerKey: 'Нет трафика consumer-ключей за этот период',

@@ -32,6 +32,7 @@ import {
   type ModelGroupCreatePayload,
   type PublicModel,
 } from '../api/admin.js';
+import { useDraggableList } from '../composables/useDraggableList.js';
 
 const message = useMessage();
 const { t } = useI18n();
@@ -46,9 +47,6 @@ const autoPreview = ref<AutoGroupRecommendation[]>([]);
 const defaultAutoPreset = ref('balanced');
 const defaultAutoTopN = ref(5);
 const defaultAutoWeights = ref<Record<string, number>>({});
-const draggingIndex = ref<number | null>(null);
-const dragOverIndex = ref<number | null>(null);
-const dragOverPosition = ref<'before' | 'after'>('before');
 
 const form = ref<ModelGroupCreatePayload>({
   name: '',
@@ -61,6 +59,13 @@ const form = ref<ModelGroupCreatePayload>({
   autoWeights: {},
 });
 const memberRows = ref<Array<{ publicModelId: string; priority: number; weight: number }>>([]);
+
+// Drag-and-drop for the "members" list inside the drawer. Reorder is local —
+// the per-group Save button persists the new order along with the rest of the
+// payload.
+const memberDrag = useDraggableList<
+  { publicModelId: string; priority: number; weight: number }
+>(memberRows, () => undefined, { prefix: 'drag' });
 
 function resetForm() {
   form.value = {
@@ -118,49 +123,6 @@ function addMember() {
 
 function removeMember(idx: number) {
   memberRows.value.splice(idx, 1);
-}
-
-function clearMemberDragState() {
-  draggingIndex.value = null;
-  dragOverIndex.value = null;
-  dragOverPosition.value = 'before';
-}
-
-function reorderMember(fromIndex: number, targetIndex: number, position: 'before' | 'after') {
-  if (fromIndex === targetIndex) return;
-  const copy = [...memberRows.value];
-  const [moved] = copy.splice(fromIndex, 1);
-  if (!moved) return;
-  let insertIndex = targetIndex + (position === 'after' ? 1 : 0);
-  if (fromIndex < insertIndex) insertIndex -= 1;
-  insertIndex = Math.max(0, Math.min(copy.length, insertIndex));
-  copy.splice(insertIndex, 0, moved);
-  memberRows.value = copy;
-}
-
-function memberRowProps(_row: unknown, idx: number) {
-  const classes: string[] = [];
-  if (draggingIndex.value === idx) classes.push('member-dragging');
-  if (dragOverIndex.value === idx) classes.push(`member-drop-${dragOverPosition.value}`);
-  return {
-    class: classes.join(' '),
-    onDragover: (event: DragEvent) => {
-      if (draggingIndex.value === null) return;
-      event.preventDefault();
-      const target = event.currentTarget as HTMLElement;
-      const rect = target.getBoundingClientRect();
-      dragOverIndex.value = idx;
-      dragOverPosition.value = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
-    },
-    onDrop: (event: DragEvent) => {
-      event.preventDefault();
-      if (draggingIndex.value !== null) {
-        reorderMember(draggingIndex.value, idx, dragOverPosition.value);
-      }
-      clearMemberDragState();
-    },
-    onDragend: clearMemberDragState,
-  };
 }
 
 async function onSubmit() {
@@ -393,21 +355,21 @@ const previewColumns = computed<DataTableColumns<AutoGroupRecommendation>>(() =>
                 :key="idx"
                 class="member-row"
                 :class="{
-                  'member-dragging': draggingIndex === idx,
-                  [`member-drop-${dragOverPosition}`]: dragOverIndex === idx,
+                  'drag-dragging': memberDrag.draggingIndex === idx,
+                  [`drag-drop-${memberDrag.dragOverPosition}`]: memberDrag.dragOverIndex === idx,
                 }"
-                v-bind="memberRowProps(m, idx)"
+                v-bind="memberDrag.rowProps(idx)"
               >
                 <div
                   class="order-handle"
                   draggable="true"
                   :title="t('modelGroups.drawer.dragHandle')"
                   @dragstart="(event: DragEvent) => {
-                    draggingIndex = idx;
+                    memberDrag.draggingIndex = idx;
                     event.dataTransfer?.setData('text/plain', String(idx));
                     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
                   }"
-                  @dragend="clearMemberDragState"
+                  @dragend="memberDrag.clear"
                 >
                   <span class="order-grip" aria-hidden="true" />
                 </div>
@@ -448,17 +410,5 @@ const previewColumns = computed<DataTableColumns<AutoGroupRecommendation>>(() =>
   display: flex;
   gap: 8px;
   align-items: center;
-}
-
-.member-dragging {
-  opacity: 0.55;
-}
-
-.member-drop-before {
-  box-shadow: inset 0 2px 0 #2f7cf6;
-}
-
-.member-drop-after {
-  box-shadow: inset 0 -2px 0 #2f7cf6;
 }
 </style>

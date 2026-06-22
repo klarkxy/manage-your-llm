@@ -11,11 +11,12 @@ import {
   NGi,
   NGrid,
   NSpace,
-  NStatistic,
   NTag,
   NText,
   type DataTableColumns,
 } from 'naive-ui';
+import { PulseOutline, CheckmarkDone, SwapHorizontal, BarChartOutline } from '@vicons/ionicons5';
+import type { EChartsOption } from 'echarts';
 import {
   usageApi,
   traceApi,
@@ -29,6 +30,8 @@ import {
   type TraceTimeline,
   type DailyConsumptionSummary,
 } from '../api/admin.js';
+import StatCard from '../components/StatCard.vue';
+import EChart from '../components/EChart.vue';
 
 const { t } = useI18n();
 
@@ -351,6 +354,103 @@ const consumptionColumns = computed<DataTableColumns<DailyConsumptionSummary>>((
       `${row.totalCacheReadTokens.toLocaleString()} / ${row.totalCacheWriteTokens.toLocaleString()}`,
   },
 ]);
+
+// ---------- Chart options ----------
+
+/** 30-day daily consumption: requests (area) + tokens (secondary axis). */
+const consumptionOption = computed<EChartsOption>(() => {
+  const days = consumption.value.map((d) => d.dayDate);
+  const requests = consumption.value.map((d) => d.totalRequests);
+  const tokens = consumption.value.map((d) => d.totalInputTokens + d.totalOutputTokens);
+  const hasData = requests.some((v) => v > 0);
+  if (!hasData) {
+    return {
+      title: {
+        text: t('usage.empty.consumption'),
+        left: 'center',
+        top: 'middle',
+        textStyle: { fontSize: 13, fontWeight: 'normal' },
+      },
+      xAxis: { type: 'category', data: days, show: false },
+      yAxis: { type: 'value', show: false },
+    };
+  }
+  return {
+    legend: { data: [t('usage.charts.requests'), t('usage.charts.tokens')], top: 0 },
+    tooltip: { trigger: 'axis' },
+    xAxis: { type: 'category', data: days, boundaryGap: false },
+    yAxis: [
+      { type: 'value', name: t('usage.charts.requests') },
+      { type: 'value', name: t('usage.charts.tokens') },
+    ],
+    dataZoom: [{ type: 'inside' }, { type: 'slider', height: 16, bottom: 4 }],
+    series: [
+      {
+        name: t('usage.charts.requests'),
+        type: 'line',
+        smooth: true,
+        areaStyle: { opacity: 0.18 },
+        data: requests,
+      },
+      {
+        name: t('usage.charts.tokens'),
+        type: 'line',
+        yAxisIndex: 1,
+        smooth: true,
+        lineStyle: { opacity: 0.7 },
+        data: tokens,
+      },
+    ],
+  };
+});
+
+/** Top 8 apps by request count, horizontal bar. */
+const byAppOption = computed<EChartsOption>(() => {
+  const top = apps.value.slice().sort((a, b) => b.totalRequests - a.totalRequests).slice(0, 8);
+  const names = top.map((a) => a.name);
+  const reqs = top.map((a) => a.totalRequests);
+  const errs = top.map((a) => a.failedRequests);
+  return {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: 80, right: 16, top: 8, bottom: 24, containLabel: true },
+    xAxis: { type: 'value' },
+    yAxis: { type: 'category', data: names.reverse() },
+    series: [
+      { name: t('usage.charts.requests'), type: 'bar', data: reqs.reverse(), stack: 'total' },
+      { name: t('usage.charts.errors'), type: 'bar', data: errs.reverse() },
+    ],
+  };
+});
+
+/** Latency distribution: bucket recent rows into ranges. */
+const latencyBuckets = computed(() => {
+  const buckets = [
+    { label: '<200ms', min: 0, max: 200, count: 0 },
+    { label: '200-500ms', min: 200, max: 500, count: 0 },
+    { label: '500-1s', min: 500, max: 1000, count: 0 },
+    { label: '1-3s', min: 1000, max: 3000, count: 0 },
+    { label: '>3s', min: 3000, max: Number.POSITIVE_INFINITY, count: 0 },
+  ];
+  for (const row of recent.value) {
+    const b = buckets.find((x) => row.latencyMs >= x.min && row.latencyMs < x.max);
+    if (b) b.count++;
+  }
+  return buckets;
+});
+
+const latencyOption = computed<EChartsOption>(() => ({
+  tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+  grid: { left: 60, right: 16, top: 8, bottom: 24 },
+  xAxis: { type: 'category', data: latencyBuckets.value.map((b) => b.label) },
+  yAxis: { type: 'value' },
+  series: [
+    {
+      type: 'bar',
+      data: latencyBuckets.value.map((b) => b.count),
+      itemStyle: { borderRadius: [4, 4, 0, 0] },
+    },
+  ],
+}));
 </script>
 
 <template>
@@ -376,30 +476,57 @@ const consumptionColumns = computed<DataTableColumns<DailyConsumptionSummary>>((
         </NSpace>
         <NGrid :cols="4" :x-gap="16" :y-gap="16" responsive="screen">
           <NGi :span="1">
-            <NCard>
-              <NStatistic :label="t('usage.stats.requests')" :value="totals?.totalRequests ?? 0" />
-            </NCard>
+            <StatCard
+              :label="t('usage.stats.requests')"
+              :value="(totals?.totalRequests ?? 0).toLocaleString()"
+              :icon="PulseOutline"
+              icon-color="var(--n-primary-color)"
+            />
           </NGi>
           <NGi :span="1">
-            <NCard>
-              <NStatistic :label="t('usage.stats.successRate')" :value="successRatePct" />
-            </NCard>
+            <StatCard
+              :label="t('usage.stats.successRate')"
+              :value="successRatePct"
+              :icon="CheckmarkDone"
+              icon-color="var(--n-success-color)"
+            />
           </NGi>
           <NGi :span="1">
-            <NCard>
-              <NStatistic :label="t('usage.stats.stickyHitRate')" :value="stickyHitRatePct" />
-            </NCard>
+            <StatCard
+              :label="t('usage.stats.stickyHitRate')"
+              :value="stickyHitRatePct"
+              :icon="SwapHorizontal"
+              icon-color="var(--n-info-color)"
+            />
           </NGi>
           <NGi :span="1">
-            <NCard>
-              <NStatistic
-                :label="t('usage.stats.tokens')"
-                :value="`${(totals?.inputTokens ?? 0).toLocaleString()} / ${(totals?.outputTokens ?? 0).toLocaleString()}`"
-              />
-            </NCard>
+            <StatCard
+              :label="t('usage.stats.tokens')"
+              :value="`${(totals?.inputTokens ?? 0).toLocaleString()} / ${(totals?.outputTokens ?? 0).toLocaleString()}`"
+              :icon="BarChartOutline"
+              icon-color="var(--n-warning-color)"
+            />
           </NGi>
         </NGrid>
       </NCard>
+
+      <NGrid :cols="2" :x-gap="16" :y-gap="16" responsive="screen">
+        <NGi :span="2">
+          <NCard :title="t('usage.charts.consumption')">
+            <EChart :option="consumptionOption" :height="240" />
+          </NCard>
+        </NGi>
+        <NGi :span="1">
+          <NCard :title="t('usage.charts.byApp')">
+            <EChart :option="byAppOption" :height="240" />
+          </NCard>
+        </NGi>
+        <NGi :span="1">
+          <NCard :title="t('usage.charts.latencyDist')">
+            <EChart :option="latencyOption" :height="240" />
+          </NCard>
+        </NGi>
+      </NGrid>
 
       <NCard :title="t('usage.byApp')">
         <NDataTable

@@ -73,6 +73,11 @@ const messages = {
     user: {
       signOut: '登出',
     },
+    theme: {
+      toggle: 'Toggle theme',
+      toLight: 'Switch to light',
+      toDark: 'Switch to dark',
+    },
   },
   login: {
     title: 'ModelHarbor · 登入',
@@ -128,6 +133,7 @@ const messages = {
     },
     actions: {
       drag: '拖動調整預設順序',
+      dragBusy: '正在儲存順序…',
       freeze: '凍結',
       unfreeze: '解凍',
     },
@@ -286,6 +292,15 @@ const messages = {
       required: '名稱為必填',
     },
   },
+  modelReference: {
+    compare: {
+      title: '模型對比',
+      selectPlaceholder: '最多選擇 3 個模型對比',
+      radar: '評分雷達圖',
+      price: '價格對比（每百萬 token）',
+      average: '均價',
+    },
+  },
   apps: {
     title: '應用程式',
     new: '建立應用程式',
@@ -382,6 +397,14 @@ const messages = {
     byUpstreamKey: '按上游金鑰',
     byTarget: '按目標',
     recentRequests: '最近請求',
+    charts: {
+      consumption: '每日消耗（30 天）',
+      byApp: '按應用程式請求數（前 8）',
+      latencyDist: '延遲分佈',
+      requests: '請求數',
+      errors: '失敗數',
+      tokens: 'Token 數',
+    },
     empty: {
       app: '此時間範圍內沒有應用程式流量',
       consumerKey: '此時間範圍內沒有消費金鑰流量',

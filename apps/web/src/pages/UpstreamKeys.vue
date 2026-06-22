@@ -51,6 +51,7 @@ import {
 } from '@vicons/ionicons5';
 import ModelMappingEditor, { type ModelMappingItem } from '../components/ModelMappingEditor.vue';
 import KeyValueEditor, { type KeyValueItem } from '../components/KeyValueEditor.vue';
+import { useDraggableList } from '../composables/useDraggableList.js';
 
 const router = useRouter();
 const message = useMessage();
@@ -100,9 +101,23 @@ const extraParams = ref<KeyValueItem[]>([]);
 const fetchingModels = ref(false);
 const togglingIds = ref<Set<string>>(new Set());
 const endpointHealthRows = ref<UpstreamEndpointHealth[]>([]);
-const draggingIndex = ref<number | null>(null);
-const dragOverIndex = ref<number | null>(null);
-const dragOverPosition = ref<'before' | 'after'>('before');
+
+// Drag-and-drop reorder is delegated to useDraggableList; the visual feedback
+// classes (.drag-dragging / .drag-drop-before / .drag-drop-after) are styled
+// in App.vue so light/dark follow the theme tokens automatically.
+const upstreamDrag = useDraggableList<UpstreamKey>(
+  items,
+  async (_next, previous) => {
+    try {
+      await upstreamKeysApi.setOrder(items.value.map((item) => item.id));
+      message.success(t('upstreamKeys.toast.orderSaved'));
+    } catch (err) {
+      items.value = previous;
+      message.error((err as Error).message);
+    }
+  },
+  { prefix: 'drag' },
+);
 
 const pingOpen = ref(false);
 const pingKey = ref<UpstreamKey | null>(null);
@@ -900,62 +915,6 @@ async function handleFetchModels() {
   }
 }
 
-function clearOrderDragState() {
-  draggingIndex.value = null;
-  dragOverIndex.value = null;
-  dragOverPosition.value = 'before';
-}
-
-function reorderUpstreamKey(fromIndex: number, targetIndex: number, position: 'before' | 'after') {
-  if (fromIndex === targetIndex) return false;
-  const copy = [...items.value];
-  const [moved] = copy.splice(fromIndex, 1);
-  if (!moved) return false;
-  let insertIndex = targetIndex + (position === 'after' ? 1 : 0);
-  if (fromIndex < insertIndex) insertIndex -= 1;
-  insertIndex = Math.max(0, Math.min(copy.length, insertIndex));
-  copy.splice(insertIndex, 0, moved);
-  items.value = copy;
-  return true;
-}
-
-async function saveUpstreamOrder(previous: UpstreamKey[]) {
-  try {
-    await upstreamKeysApi.setOrder(items.value.map((item) => item.id));
-    message.success(t('upstreamKeys.toast.orderSaved'));
-  } catch (err) {
-    items.value = previous;
-    message.error((err as Error).message);
-  }
-}
-
-function upstreamRowProps(_row: UpstreamKey, idx: number) {
-  const classes: string[] = [];
-  if (draggingIndex.value === idx) classes.push('upstream-dragging');
-  if (dragOverIndex.value === idx) classes.push(`upstream-drop-${dragOverPosition.value}`);
-  return {
-    class: classes.join(' '),
-    onDragover: (event: DragEvent) => {
-      if (draggingIndex.value === null) return;
-      event.preventDefault();
-      const target = event.currentTarget as HTMLElement;
-      const rect = target.getBoundingClientRect();
-      dragOverIndex.value = idx;
-      dragOverPosition.value = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
-    },
-    onDrop: async (event: DragEvent) => {
-      event.preventDefault();
-      const previous = [...items.value];
-      const changed =
-        draggingIndex.value !== null &&
-        reorderUpstreamKey(draggingIndex.value, idx, dragOverPosition.value);
-      clearOrderDragState();
-      if (changed) await saveUpstreamOrder(previous);
-    },
-    onDragend: clearOrderDragState,
-  };
-}
-
 const columns = computed<DataTableColumns<UpstreamKey>>(() => [
   {
     title: t('upstreamKeys.columns.order'),
@@ -966,16 +925,22 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
       h(
         'div',
         {
-          class: 'order-handle',
-          draggable: true,
-          title: t('upstreamKeys.actions.drag'),
+          class: ['order-handle', { 'order-handle--disabled': upstreamDrag.inFlight }],
+          draggable: !upstreamDrag.inFlight,
+          title: upstreamDrag.inFlight
+            ? t('upstreamKeys.actions.dragBusy')
+            : t('upstreamKeys.actions.drag'),
           'data-testid': 'upstream-order-handle',
           onDragstart: (event: DragEvent) => {
-            draggingIndex.value = idx;
+            if (upstreamDrag.inFlight) {
+              event.preventDefault();
+              return;
+            }
+            upstreamDrag.draggingIndex = idx;
             event.dataTransfer?.setData('text/plain', String(idx));
             if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
           },
-          onDragend: clearOrderDragState,
+          onDragend: upstreamDrag.clear,
         },
         [h('span', { class: 'order-grip', 'aria-hidden': 'true' })],
       ),
@@ -1067,7 +1032,7 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
         :bordered="false"
         :single-line="false"
         :row-key="(row) => row.id"
-        :row-props="upstreamRowProps"
+        :row-props="(_row, idx) => upstreamDrag.rowProps(idx)"
         :empty="h(NEmpty, { description: t('upstreamKeys.empty') })"
       />
     </NCard>
@@ -1515,53 +1480,5 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
 .page {
   max-width: 1200px;
   margin: 0 auto;
-}
-
-:deep(.upstream-dragging td) {
-  opacity: 0.55;
-}
-
-:deep(.upstream-drop-before td) {
-  box-shadow: inset 0 2px 0 #2f7cf6;
-}
-
-:deep(.upstream-drop-after td) {
-  box-shadow: inset 0 -2px 0 #2f7cf6;
-}
-</style>
-
-<style>
-.order-handle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  color: #667085;
-  cursor: grab;
-  user-select: none;
-}
-
-.order-handle:hover {
-  border-color: #d0d5dd;
-  background: #f8fafc;
-  color: #344054;
-}
-
-.order-handle:active {
-  cursor: grabbing;
-  background: #eef4ff;
-  border-color: #84adff;
-}
-
-.order-grip {
-  display: block;
-  width: 14px;
-  height: 20px;
-  background-image: radial-gradient(currentColor 1.4px, transparent 1.6px);
-  background-size: 7px 7px;
-  background-position: 0 1px;
 }
 </style>

@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import {
   NConfigProvider,
   NMessageProvider,
   NDialogProvider,
   NNotificationProvider,
-  lightTheme,
   enUS,
   dateEnUS,
   zhCN,
@@ -27,23 +26,19 @@ import {
   ruRU,
   dateRuRU,
 } from 'naive-ui';
-import type { GlobalThemeOverrides } from 'naive-ui';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import AdminLayout from './layouts/AdminLayout.vue';
+import { useThemeStore, applySystemEffects } from './theme/index.js';
 
 const route = useRoute();
 const { locale } = useI18n();
+const theme = useThemeStore();
 
-const themeOverrides: GlobalThemeOverrides = {
-  common: {
-    primaryColor: '#2563eb',
-    primaryColorHover: '#3b82f6',
-    primaryColorPressed: '#1d4ed8',
-    primaryColorSuppl: '#3b82f6',
-    borderRadius: '6px',
-  },
-};
+// Sync <html data-theme> with the persisted mode once mounted. The store reads
+// localStorage during setup but defers DOM stamping to here (SSR-safe + avoids
+// touching document before the app is mounted).
+onMounted(() => applySystemEffects(theme.mode));
 
 const isStandalone = computed(() => route.meta['standalone'] === true);
 
@@ -66,8 +61,8 @@ const naiveDateLocale = computed(() => localeMap[locale.value]?.dateLocale ?? da
 
 <template>
   <NConfigProvider
-    :theme="lightTheme"
-    :theme-overrides="themeOverrides"
+    :theme="theme.naiveTheme"
+    :theme-overrides="theme.overrides"
     :locale="naiveLocale"
     :date-locale="naiveDateLocale"
   >
@@ -81,3 +76,96 @@ const naiveDateLocale = computed(() => localeMap[locale.value]?.dateLocale ?? da
     </NMessageProvider>
   </NConfigProvider>
 </template>
+
+<!--
+  Global (non-scoped) styles shared across pages. Kept here rather than in a
+  separate .css file to match the project's "scoped CSS only" convention while
+  still providing a single home for cross-cutting rules: font fallbacks,
+  tabular numerals, drag-and-drop visual feedback (previously duplicated with
+  hardcoded greys in UpstreamKeys/PublicModels/ModelGroups) and button
+  transitions. All colours reference Naive UI CSS variables so dark mode
+  follows the theme tokens automatically.
+-->
+<style>
+html,
+body,
+#app {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code,
+pre,
+kbd,
+.mono {
+  font-family: "Fira Code", "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Align numeric columns (statistic values, table counts) for a dashboard feel. */
+.tabular-nums,
+.n-statistic .n-statistic-value,
+.n-data-table .num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Drag-and-drop row feedback (shared by UpstreamKeys/PublicModels/ModelGroups). */
+.drag-dragging td {
+  opacity: 0.55;
+}
+.drag-drop-before td {
+  box-shadow: inset 0 2px 0 var(--n-primary-color);
+}
+.drag-drop-after td {
+  box-shadow: inset 0 -2px 0 var(--n-primary-color);
+}
+.order-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--n-icon-color);
+  cursor: grab;
+  user-select: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.order-handle:hover {
+  border-color: var(--n-border-color);
+  background: var(--n-color-target);
+  color: var(--n-text-color-2);
+}
+.order-handle:active {
+  cursor: grabbing;
+  background: rgba(37, 99, 235, 0.08);
+  border-color: var(--n-primary-color);
+}
+.order-handle--disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background: transparent;
+  border-color: transparent;
+}
+.order-handle--disabled:hover {
+  border-color: transparent;
+  background: transparent;
+  color: var(--n-icon-color);
+}
+.order-grip {
+  display: block;
+  width: 14px;
+  height: 20px;
+  background-image: radial-gradient(currentColor 1.4px, transparent 1.6px);
+  background-size: 7px 7px;
+  background-position: 0 1px;
+}
+
+/* Soft button transitions on hover/focus (Naive UI ships no transition by default). */
+.n-btn {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+</style>

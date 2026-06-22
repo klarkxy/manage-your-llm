@@ -31,6 +31,7 @@ import {
   type PublicModelCreatePayload,
   type UpstreamKey,
 } from '../api/admin.js';
+import { useDraggableList } from '../composables/useDraggableList.js';
 
 const message = useMessage();
 const { t } = useI18n();
@@ -58,9 +59,6 @@ const savingArrangement = ref(false);
 const resettingArrangement = ref(false);
 const arrangementLoading = ref(false);
 const selectedModel = ref<PublicModel | null>(null);
-const draggingIndex = ref<number | null>(null);
-const dragOverIndex = ref<number | null>(null);
-const dragOverPosition = ref<'before' | 'after'>('before');
 
 const form = ref<PublicModelCreatePayload>({
   name: '',
@@ -73,6 +71,13 @@ const candidateRows = ref<
   Array<{ upstreamKeyId: string; realModelName: string }>
 >([]);
 const arrangedRows = ref<CandidateDraft[]>([]);
+
+// Drag-and-drop for the "arranged candidates" list. Saving the new order is
+// already handled by the per-model "Save" button in the existing flow, so the
+// composable just mutates the local list; the consumer decides when to persist.
+const arrangedDrag = useDraggableList<CandidateDraft>(arrangedRows, () => undefined, {
+  prefix: 'drag',
+});
 
 const upstreamKeyById = computed(
   () => new Map(upstreamKeyOptions.value.map((key) => [key.id, key] as const)),
@@ -188,53 +193,6 @@ function removeCandidate(idx: number) {
 
 function removeArrangedCandidate(idx: number) {
   arrangedRows.value.splice(idx, 1);
-}
-
-function clearDragState() {
-  draggingIndex.value = null;
-  dragOverIndex.value = null;
-  dragOverPosition.value = 'before';
-}
-
-function reorderArrangedCandidate(
-  fromIndex: number,
-  targetIndex: number,
-  position: 'before' | 'after',
-) {
-  if (fromIndex === targetIndex) return;
-  const copy = [...arrangedRows.value];
-  const [moved] = copy.splice(fromIndex, 1);
-  if (!moved) return;
-  let insertIndex = targetIndex + (position === 'after' ? 1 : 0);
-  if (fromIndex < insertIndex) insertIndex -= 1;
-  insertIndex = Math.max(0, Math.min(copy.length, insertIndex));
-  copy.splice(insertIndex, 0, moved);
-  arrangedRows.value = copy;
-}
-
-function arrangedRowProps(_row: CandidateDraft, idx: number) {
-  const classes: string[] = [];
-  if (draggingIndex.value === idx) classes.push('candidate-dragging');
-  if (dragOverIndex.value === idx) classes.push(`candidate-drop-${dragOverPosition.value}`);
-  return {
-    class: classes.join(' '),
-    onDragover: (event: DragEvent) => {
-      if (draggingIndex.value === null) return;
-      event.preventDefault();
-      const target = event.currentTarget as HTMLElement;
-      const rect = target.getBoundingClientRect();
-      dragOverIndex.value = idx;
-      dragOverPosition.value = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
-    },
-    onDrop: (event: DragEvent) => {
-      event.preventDefault();
-      if (draggingIndex.value !== null) {
-        reorderArrangedCandidate(draggingIndex.value, idx, dragOverPosition.value);
-      }
-      clearDragState();
-    },
-    onDragend: clearDragState,
-  };
 }
 
 function keyStatus(row: CandidateDraft) {
@@ -404,11 +362,11 @@ const arrangedColumns = computed<DataTableColumns<CandidateDraft>>(() => [
           title: t('publicModels.arrange.dragHandle'),
           'data-testid': 'candidate-order-handle',
           onDragstart: (event: DragEvent) => {
-            draggingIndex.value = idx;
+            arrangedDrag.draggingIndex = idx;
             event.dataTransfer?.setData('text/plain', String(idx));
             if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
           },
-          onDragend: clearDragState,
+          onDragend: arrangedDrag.clear,
         },
         [h('span', { class: 'order-grip', 'aria-hidden': 'true' })],
       ),
@@ -575,7 +533,7 @@ const arrangedColumns = computed<DataTableColumns<CandidateDraft>>(() => [
             :bordered="false"
             :single-line="false"
             :row-key="(row) => row.localId"
-            :row-props="arrangedRowProps"
+            :row-props="(_row, idx) => arrangedDrag.rowProps(idx)"
             :empty="h(NEmpty, { description: t('publicModels.arrange.emptyCandidates') })"
           />
 
@@ -627,53 +585,5 @@ const arrangedColumns = computed<DataTableColumns<CandidateDraft>>(() => [
 .field-key,
 .field-model {
   flex: 1 1 190px;
-}
-
-:deep(.candidate-dragging td) {
-  opacity: 0.55;
-}
-
-:deep(.candidate-drop-before td) {
-  box-shadow: inset 0 2px 0 #2f7cf6;
-}
-
-:deep(.candidate-drop-after td) {
-  box-shadow: inset 0 -2px 0 #2f7cf6;
-}
-</style>
-
-<style>
-.order-handle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  color: #667085;
-  cursor: grab;
-  user-select: none;
-}
-
-.order-handle:hover {
-  border-color: #d0d5dd;
-  background: #f8fafc;
-  color: #344054;
-}
-
-.order-handle:active {
-  cursor: grabbing;
-  background: #eef4ff;
-  border-color: #84adff;
-}
-
-.order-grip {
-  display: block;
-  width: 14px;
-  height: 20px;
-  background-image: radial-gradient(currentColor 1.4px, transparent 1.6px);
-  background-size: 7px 7px;
-  background-position: 0 1px;
 }
 </style>

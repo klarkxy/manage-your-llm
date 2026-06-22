@@ -109,6 +109,11 @@ const messages: Messages = {
     user: {
       signOut: '退出登录',
     },
+    theme: {
+      toggle: '切换主题',
+      toLight: '切换到浅色',
+      toDark: '切换到深色',
+    },
   },
   login: {
     title: 'ModelHarbor · 登录',
@@ -183,6 +188,7 @@ const messages: Messages = {
       health: '健康',
       duplicate: '复制',
       drag: '拖动调整默认顺序',
+      dragBusy: '正在保存顺序…',
     },
     confirm: {
       freeze: '冻结此密钥？',
@@ -508,6 +514,13 @@ const messages: Messages = {
       context: '上下文',
       updated: '更新时间',
     },
+    compare: {
+      title: '模型对比',
+      selectPlaceholder: '最多选择 3 个模型对比',
+      radar: '评分雷达图',
+      price: '价格对比（每百万 token）',
+      average: '均价',
+    },
   },
   apps: {
     title: '应用',
@@ -608,6 +621,14 @@ const messages: Messages = {
     traces: '链路追踪',
     traceDetail: '追踪详情',
     consumption: '每日消耗',
+    charts: {
+      consumption: '每日消耗（30 天）',
+      byApp: '按应用请求数（前 8）',
+      latencyDist: '延迟分布',
+      requests: '请求数',
+      errors: '失败数',
+      tokens: 'Token 数',
+    },
     empty: {
       app: '该时间窗口内没有应用流量',
       consumerKey: '该时间窗口内没有消费密钥流量',

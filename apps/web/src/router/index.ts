@@ -12,11 +12,13 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     name: 'overview',
     component: () => import('../pages/Overview.vue'),
+    meta: { titleKey: 'layout.menu.overview' },
   },
   {
     path: '/upstream-keys',
     name: 'upstream-keys',
     component: () => import('../pages/UpstreamKeys.vue'),
+    meta: { titleKey: 'layout.menu.upstreamKeys' },
   },
   {
     path: '/oauth/callback',
@@ -34,31 +36,37 @@ const routes: RouteRecordRaw[] = [
     path: '/public-models',
     name: 'public-models',
     component: () => import('../pages/PublicModels.vue'),
+    meta: { titleKey: 'layout.menu.publicModels' },
   },
   {
     path: '/model-groups',
     name: 'model-groups',
     component: () => import('../pages/ModelGroups.vue'),
+    meta: { titleKey: 'layout.menu.modelGroups' },
   },
   {
     path: '/model-reference',
     name: 'model-reference',
     component: () => import('../pages/ModelReference.vue'),
+    meta: { titleKey: 'layout.menu.modelReference' },
   },
   {
     path: '/apps',
     name: 'apps',
     component: () => import('../pages/Apps.vue'),
+    meta: { titleKey: 'layout.menu.apps' },
   },
   {
     path: '/usage',
     name: 'usage',
     component: () => import('../pages/Usage.vue'),
+    meta: { titleKey: 'layout.menu.usage' },
   },
   {
     path: '/settings',
     name: 'settings',
     component: () => import('../pages/Settings.vue'),
+    meta: { titleKey: 'layout.menu.settings' },
   },
 ];
 

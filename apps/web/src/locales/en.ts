@@ -107,6 +107,11 @@ const messages = {
     user: {
       signOut: 'Sign out',
     },
+    theme: {
+      toggle: 'Toggle theme',
+      toLight: 'Switch to light',
+      toDark: 'Switch to dark',
+    },
   },
   login: {
     title: 'ModelHarbor · Sign in',
@@ -182,6 +187,7 @@ const messages = {
       health: 'Health',
       duplicate: 'Duplicate',
       drag: 'Drag to reorder defaults',
+      dragBusy: 'Saving order…',
     },
     confirm: {
       freeze: 'Freeze this key?',
@@ -509,6 +515,13 @@ const messages = {
       context: 'Context',
       updated: 'Updated',
     },
+    compare: {
+      title: 'Compare models',
+      selectPlaceholder: 'Select up to 3 models to compare',
+      radar: 'Score radar',
+      price: 'Price (per 1M tokens)',
+      average: 'Average',
+    },
   },
   apps: {
     title: 'Apps',
@@ -609,6 +622,14 @@ const messages = {
     traces: 'Trace logs',
     traceDetail: 'Trace detail',
     consumption: 'Daily consumption',
+    charts: {
+      consumption: 'Daily consumption (30 days)',
+      byApp: 'Requests by app (top 8)',
+      latencyDist: 'Latency distribution',
+      requests: 'Requests',
+      errors: 'Errors',
+      tokens: 'Tokens',
+    },
     empty: {
       app: 'No app traffic in this window',
       consumerKey: 'No consumer key traffic in this window',

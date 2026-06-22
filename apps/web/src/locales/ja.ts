@@ -73,6 +73,11 @@ const messages = {
     user: {
       signOut: 'サインアウト',
     },
+    theme: {
+      toggle: 'Toggle theme',
+      toLight: 'Switch to light',
+      toDark: 'Switch to dark',
+    },
   },
   login: {
     title: 'ModelHarbor · サインイン',
@@ -129,6 +134,7 @@ const messages = {
     },
     actions: {
       drag: 'Drag to reorder defaults',
+      dragBusy: '順序を保存中…',
       freeze: '凍結',
       unfreeze: '凍結解除',
     },
@@ -287,6 +293,15 @@ const messages = {
       required: '名前は必須です',
     },
   },
+  modelReference: {
+    compare: {
+      title: 'モデルを比較',
+      selectPlaceholder: '比較するモデルを最大 3 つ選択',
+      radar: 'スコアレーダー',
+      price: '価格（100 万トークンあたり）',
+      average: '平均',
+    },
+  },
   apps: {
     title: 'アプリ',
     new: '新規アプリ',
@@ -383,6 +398,14 @@ const messages = {
     byUpstreamKey: 'アップストリームキー別',
     byTarget: 'ターゲット別',
     recentRequests: '最近のリクエスト',
+    charts: {
+      consumption: '日次消費（30 日）',
+      byApp: 'アプリ別リクエスト数（上位 8）',
+      latencyDist: 'レイテンシ分布',
+      requests: 'リクエスト',
+      errors: 'エラー',
+      tokens: 'トークン',
+    },
     empty: {
       app: 'この期間にアプリのトラフィックはありません',
       consumerKey: 'この期間にコンシューマーキーのトラフィックはありません',

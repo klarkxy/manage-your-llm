@@ -73,6 +73,11 @@ const messages = {
     user: {
       signOut: '로그아웃',
     },
+    theme: {
+      toggle: 'Toggle theme',
+      toLight: 'Switch to light',
+      toDark: 'Switch to dark',
+    },
   },
   login: {
     title: 'ModelHarbor · 로그인',
@@ -129,6 +134,7 @@ const messages = {
     },
     actions: {
       drag: 'Drag to reorder defaults',
+      dragBusy: '순서 저장 중…',
       freeze: '동결',
       unfreeze: '동결 해제',
     },
@@ -287,6 +293,15 @@ const messages = {
       required: '이름은 필수입니다',
     },
   },
+  modelReference: {
+    compare: {
+      title: '모델 비교',
+      selectPlaceholder: '비교할 모델을 최대 3개까지 선택',
+      radar: '점수 레이더',
+      price: '가격 (100만 토큰당)',
+      average: '평균',
+    },
+  },
   apps: {
     title: '앱',
     new: '새 앱',
@@ -383,6 +398,14 @@ const messages = {
     byUpstreamKey: '업스트림 키별',
     byTarget: '대상별',
     recentRequests: '최근 요청',
+    charts: {
+      consumption: '일일 소비량 (30일)',
+      byApp: '앱별 요청 수 (상위 8개)',
+      latencyDist: '지연 시간 분포',
+      requests: '요청',
+      errors: '오류',
+      tokens: '토큰',
+    },
     empty: {
       app: '이 기간에 앱 트래픽이 없습니다',
       consumerKey: '이 기간에 소비자 키 트래픽이 없습니다',

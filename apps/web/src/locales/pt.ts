@@ -73,6 +73,11 @@ const messages = {
     user: {
       signOut: 'Sair',
     },
+    theme: {
+      toggle: 'Toggle theme',
+      toLight: 'Switch to light',
+      toDark: 'Switch to dark',
+    },
   },
   login: {
     title: 'ModelHarbor · Entrar',
@@ -129,6 +134,7 @@ const messages = {
     },
     actions: {
       drag: 'Drag to reorder defaults',
+      dragBusy: 'Salvando ordem…',
       freeze: 'Congelar',
       unfreeze: 'Descongelar',
     },
@@ -287,6 +293,15 @@ const messages = {
       required: 'O nome é obrigatório',
     },
   },
+  modelReference: {
+    compare: {
+      title: 'Comparar modelos',
+      selectPlaceholder: 'Selecione até 3 modelos para comparar',
+      radar: 'Radar de pontuações',
+      price: 'Preço (por 1M tokens)',
+      average: 'Média',
+    },
+  },
   apps: {
     title: 'Aplicativos',
     new: 'Novo aplicativo',
@@ -383,6 +398,14 @@ const messages = {
     byUpstreamKey: 'Por chave upstream',
     byTarget: 'Por destino',
     recentRequests: 'Requisições recentes',
+    charts: {
+      consumption: 'Consumo diário (30 dias)',
+      byApp: 'Solicitações por aplicativo (top 8)',
+      latencyDist: 'Distribuição de latência',
+      requests: 'Solicitações',
+      errors: 'Erros',
+      tokens: 'Tokens',
+    },
     empty: {
       app: 'Nenhum tráfego de aplicativo nesta janela',
       consumerKey: 'Nenhum tráfego de chave de consumidor nesta janela',

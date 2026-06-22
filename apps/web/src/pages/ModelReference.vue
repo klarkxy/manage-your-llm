@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, h, onMounted, ref } from 'vue';
+import { computed, h, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   NButton,
   NCard,
   NDataTable,
   NEmpty,
+  NGrid,
+  NGi,
   NInput,
   NSelect,
   NSpace,
@@ -14,11 +16,13 @@ import {
   useMessage,
   type DataTableColumns,
 } from 'naive-ui';
+import type { EChartsOption } from 'echarts';
 import {
   modelReferenceApi,
   type ModelReferenceEntry,
   type ModelReferenceSyncStatus,
 } from '../api/admin.js';
+import EChart from '../components/EChart.vue';
 
 type SortOrder = 'ascend' | 'descend' | false;
 type SortState = { columnKey: string | number; order: SortOrder } | null;
@@ -79,6 +83,23 @@ function compareSortValue(
     return (left - right) * direction;
   }
   return String(left).localeCompare(String(right)) * direction;
+}
+
+/**
+ * Numeric price per 1M tokens for chart comparison. Prefers blended
+ * (input+output avg) and falls back to a single-side rate. Mirrors the
+ * display logic in `fmtPrice` so the chart and table stay consistent.
+ */
+function priceValue(entry: ModelReferenceEntry): number | null {
+  const price = entry.price;
+  const blended = price.blendedUsdPerMTok ?? price.blendedCnyPerMTok;
+  if (typeof blended === 'number' && Number.isFinite(blended)) return blended;
+  const input = price.inputUsdPerMTok ?? price.inputCnyPerMTok;
+  const output = price.outputUsdPerMTok ?? price.outputCnyPerMTok;
+  if (typeof input === 'number' && typeof output === 'number') return (input + output) / 2;
+  if (typeof input === 'number') return input;
+  if (typeof output === 'number') return output;
+  return null;
 }
 
 function scoreColumn(key: string, width: number) {
@@ -248,6 +269,118 @@ function resetFilters(): void {
   sortState.value = null;
   page.value = 1;
 }
+
+// ---------- Compare chart state ----------
+
+const compareSelection = ref<string[]>([]);
+const compareOptions = computed(() =>
+  items.value.map((item) => ({
+    label: item.displayName || item.normalizedModelName,
+    value: item.id,
+  })),
+);
+const compareModels = computed<ModelReferenceEntry[]>(() =>
+  compareSelection.value
+    .map((id) => items.value.find((item) => item.id === id))
+    .filter((item): item is ModelReferenceEntry => item !== undefined),
+);
+watch(items, () => {
+  compareSelection.value = [];
+});
+
+const compareScoreKeys = computed(() => {
+  const set = new Set<string>();
+  for (const m of compareModels.value) {
+    for (const k of Object.keys(m.scores)) {
+      const v = m.scores[k];
+      if (typeof v === 'number' && Number.isFinite(v)) set.add(k);
+    }
+  }
+  return preferredScoreKeys.filter((k) => set.has(k));
+});
+
+const radarOption = computed<EChartsOption>(() => {
+  if (compareModels.value.length === 0) {
+    return {
+      title: {
+        text: t('modelReference.compare.selectPlaceholder'),
+        left: 'center',
+        top: 'middle',
+        textStyle: { fontSize: 13, fontWeight: 'normal' },
+      },
+      radar: { indicator: [] },
+    };
+  }
+  const indicators = compareScoreKeys.value.map((k) => ({
+    name: t(`modelReference.columns.${k}`),
+    max: Math.max(
+      10,
+      ...compareModels.value.map((m) => {
+        const v = m.scores[k];
+        return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+      }),
+    ),
+  }));
+  return {
+    tooltip: {},
+    legend: { data: compareModels.value.map((m) => m.displayName || m.normalizedModelName), top: 0 },
+    radar: { indicator: indicators, radius: '65%' },
+    series: [
+      {
+        type: 'radar',
+        data: compareModels.value.map((m) => ({
+          name: m.displayName || m.normalizedModelName,
+          value: compareScoreKeys.value.map((k) => {
+            const v = m.scores[k];
+            return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+          }),
+        })),
+      },
+    ],
+  };
+});
+
+const priceCompareOption = computed<EChartsOption>(() => {
+  const data = compareModels.value
+    .map((m) => ({
+      name: m.displayName || m.normalizedModelName,
+      value: priceValue(m),
+    }))
+    .filter((d): d is { name: string; value: number } => d.value !== null);
+  if (data.length === 0) {
+    return {
+      title: {
+        text: t('modelReference.compare.price'),
+        left: 'center',
+        top: 'middle',
+        textStyle: { fontSize: 13, fontWeight: 'normal' },
+      },
+      xAxis: { type: 'category', data: [] },
+      yAxis: { type: 'value' },
+    };
+  }
+  const avg = data.reduce((s, d) => s + d.value, 0) / data.length;
+  return {
+    tooltip: { trigger: 'axis' },
+    grid: { left: 60, right: 16, top: 24, bottom: 40 },
+    xAxis: {
+      type: 'category',
+      data: data.map((d) => d.name),
+      axisLabel: { rotate: 20, interval: 0 },
+    },
+    yAxis: { type: 'value', name: t('modelReference.compare.price') },
+    series: [
+      {
+        type: 'bar',
+        data: data.map((d) => d.value),
+        itemStyle: { borderRadius: [4, 4, 0, 0] },
+        markLine: {
+          data: [{ type: 'average', name: t('modelReference.compare.average') }],
+        },
+      },
+    ],
+  };
+});
 </script>
 
 <template>
@@ -284,6 +417,36 @@ function resetFilters(): void {
           {{ syncLabel(row) }}
         </NTag>
       </NSpace>
+
+      <NCard size="small" style="margin-bottom: 16px">
+        <NSpace align="center" justify="space-between" style="margin-bottom: 8px">
+          <NText strong>{{ t('modelReference.compare.title') }}</NText>
+          <NSelect
+            v-model:value="compareSelection"
+            multiple
+            filterable
+            clearable
+            :options="compareOptions"
+            :placeholder="t('modelReference.compare.selectPlaceholder')"
+            :max-tag-count="3"
+            style="min-width: 320px; max-width: 520px"
+          />
+        </NSpace>
+        <NGrid :cols="2" :x-gap="16" :y-gap="16" responsive="screen">
+          <NGi :span="1">
+            <NText depth="3" style="display: block; margin-bottom: 4px">
+              {{ t('modelReference.compare.radar') }}
+            </NText>
+            <EChart :option="radarOption" :height="280" />
+          </NGi>
+          <NGi :span="1">
+            <NText depth="3" style="display: block; margin-bottom: 4px">
+              {{ t('modelReference.compare.price') }}
+            </NText>
+            <EChart :option="priceCompareOption" :height="280" />
+          </NGi>
+        </NGrid>
+      </NCard>
 
       <NDataTable
         :columns="columns"
