@@ -65,6 +65,7 @@ const messages = {
       upstreamKeys: '업스트림 키',
       publicModels: '공개 모델',
       modelGroups: '모델 그룹',
+      modelReference: 'Model Reference',
       apps: '앱',
       usage: '사용량',
       settings: '설정',

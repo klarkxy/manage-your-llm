@@ -329,6 +329,12 @@ export interface ModelGroup {
   description: string | null;
   enabled: boolean;
   routingPolicy: string;
+  mode: 'manual' | 'auto_snapshot';
+  autoPreset: string | null;
+  autoReferenceRegion: 'international' | 'domestic' | null;
+  autoWeights: Record<string, number> | null;
+  autoTopN: number | null;
+  autoLastRefreshedAt: string | null;
   memberCount: number;
   createdAt: string;
   updatedAt: string;
@@ -340,6 +346,11 @@ export interface ModelGroupCreatePayload {
   displayName?: string;
   description?: string;
   routingPolicy?: string;
+  mode?: 'manual' | 'auto_snapshot';
+  autoPreset?: string;
+  autoReferenceRegion?: 'international' | 'domestic';
+  autoWeights?: Record<string, number>;
+  autoTopN?: number;
   members?: Array<{
     publicModelId: string;
     priority?: number;
@@ -359,8 +370,87 @@ export const modelGroupsApi = {
     api.put<{ members: ModelGroupMember[] }>(`/api/admin/model-groups/${id}/members`, {
       members: members ?? [],
     }),
+  autoPreview: (payload: {
+    region: 'international' | 'domestic';
+    preset: string;
+    weights?: Record<string, number>;
+    topN?: number;
+  }) =>
+    api.post<{ items: AutoGroupRecommendation[]; publicModels: PublicModel[] }>(
+      '/api/admin/model-groups/auto-preview',
+      payload,
+    ),
+  refreshAuto: (id: string) =>
+    api.post<ModelGroup & { recommendations: AutoGroupRecommendation[] }>(
+      `/api/admin/model-groups/${id}/refresh-auto`,
+      {},
+    ),
   remove: (id: string) =>
     api.delete<{ id: string; deleted: boolean }>(`/api/admin/model-groups/${id}`),
+};
+
+export interface ModelReferenceEntry {
+  id: string;
+  region: 'international' | 'domestic';
+  source: string;
+  normalizedModelName: string;
+  sourceModelId: string;
+  displayName: string;
+  provider: string | null;
+  scores: Record<string, number>;
+  price: Record<string, unknown>;
+  contextWindow: number | null;
+  outputSpeed: number | null;
+  latencyMs: number | null;
+  sourceUrl: string;
+  rawUnit: string | null;
+  fetchedAt: string;
+  updatedAt: string;
+}
+
+export interface ModelReferenceSyncStatus {
+  region: 'international' | 'domestic';
+  source: string;
+  status: 'idle' | 'refreshing' | 'success' | 'error';
+  lastRefreshAt: string | null;
+  nextRefreshAfter: string | null;
+  lastError: string | null;
+  ttlMs: number;
+  updatedAt: string;
+}
+
+export interface ModelReferenceResponse {
+  items: ModelReferenceEntry[];
+  sync: ModelReferenceSyncStatus[];
+}
+
+export interface AutoGroupRecommendation {
+  publicModelId: string;
+  publicModelName: string;
+  displayName: string | null;
+  score: number;
+  reference: {
+    source: string;
+    displayName: string;
+    provider: string | null;
+    scores: Record<string, number>;
+    price: Record<string, unknown>;
+    contextWindow: number | null;
+    outputSpeed: number | null;
+    latencyMs: number | null;
+    sourceUrl: string;
+    fetchedAt: string;
+  };
+}
+
+export const modelReferenceApi = {
+  list: (region: 'international' | 'domestic') =>
+    api.get<ModelReferenceResponse>(`/api/admin/model-reference?region=${region}`),
+  refresh: (region: 'international' | 'domestic', force = true) =>
+    api.post<{ refreshed: boolean; source: string; items: ModelReferenceResponse }>(
+      '/api/admin/model-reference/refresh',
+      { region, force },
+    ),
 };
 
 // Apps
@@ -651,6 +741,12 @@ export interface SettingsResponse {
   endpointHealth: EndpointHealthSettings;
   streaming: StreamingSettings;
   contentLogging: ContentLogSettings;
+  modelReference: {
+    defaultRegion: 'international' | 'domestic';
+    autoPreset: string;
+    autoWeights: Record<string, number>;
+    autoTopN: number;
+  };
 }
 
 export interface CircuitBreakerItem {
@@ -676,6 +772,12 @@ export const settingsApi = {
     endpointHealth?: Partial<EndpointHealthSettings>;
     streaming?: Partial<StreamingSettings>;
     contentLogging?: Partial<ContentLogSettings>;
+    modelReference?: {
+      defaultRegion?: 'international' | 'domestic';
+      autoPreset?: string;
+      autoWeights?: Record<string, number>;
+      autoTopN?: number;
+    };
   }) => api.put<SettingsResponse>('/api/admin/settings', payload),
 };
 

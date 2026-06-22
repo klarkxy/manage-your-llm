@@ -14,6 +14,12 @@ import {
   getContentLogSettings,
   type ContentLogSettings,
 } from '../observability/content-logs.js';
+import {
+  isAutoGroupPreset,
+  isReferenceRegion,
+  normalizeAutoWeights,
+  type AutoGroupWeights,
+} from './model-reference.js';
 
 export interface SettingsRouteDeps {
   db: Db;
@@ -26,6 +32,7 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
     await ensureDefaultCircuitBreakerSettings(db);
     const settings = await getCircuitBreakerSettings(db);
     const contentLog = await getContentLogSettings(db);
+    const row = await db.select().from(adminSettings).where(eq(adminSettings.id, 'default')).get();
     return {
       circuitBreaker: {
         enabled: settings.circuitBreakerEnabled,
@@ -47,6 +54,14 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
         enabled: contentLog.enabled,
         retentionDays: contentLog.retentionDays,
         maxPayloadBytes: contentLog.maxPayloadBytes,
+      },
+      modelReference: {
+        defaultRegion: row?.modelReferenceDefaultRegion ?? 'international',
+        autoPreset: row?.modelReferenceAutoPreset ?? 'balanced',
+        autoWeights: row?.modelReferenceAutoWeightsJson
+          ? JSON.parse(row.modelReferenceAutoWeightsJson) as AutoGroupWeights
+          : normalizeAutoWeights('balanced', undefined),
+        autoTopN: row?.modelReferenceAutoTopN ?? 5,
       },
     };
   });
@@ -70,11 +85,18 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
         firstTokenTimeoutMs?: number;
       };
       contentLogging?: Partial<ContentLogSettings>;
+      modelReference?: {
+        defaultRegion?: unknown;
+        autoPreset?: unknown;
+        autoWeights?: unknown;
+        autoTopN?: unknown;
+      };
     };
     const cbInput = body.circuitBreaker ?? {};
     const ehInput = body.endpointHealth ?? {};
     const streamInput = body.streaming ?? {};
     const clInput = body.contentLogging ?? {};
+    const mrInput = body.modelReference ?? {};
 
     const values: Partial<typeof adminSettings.$inferInsert> = {};
     if (typeof cbInput.enabled === 'boolean') values.circuitBreakerEnabled = cbInput.enabled;
@@ -110,12 +132,30 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
     if (typeof clInput.maxPayloadBytes === 'number') {
       values.contentLogMaxPayloadBytes = Math.max(0, Math.round(clInput.maxPayloadBytes));
     }
+    if (isReferenceRegion(mrInput.defaultRegion)) {
+      values.modelReferenceDefaultRegion = mrInput.defaultRegion;
+    }
+    if (isAutoGroupPreset(mrInput.autoPreset)) {
+      values.modelReferenceAutoPreset = mrInput.autoPreset;
+    }
+    if (mrInput.autoWeights && typeof mrInput.autoWeights === 'object' && !Array.isArray(mrInput.autoWeights)) {
+      const preset = isAutoGroupPreset(mrInput.autoPreset)
+        ? mrInput.autoPreset
+        : isAutoGroupPreset(values.modelReferenceAutoPreset)
+          ? values.modelReferenceAutoPreset
+          : 'balanced';
+      values.modelReferenceAutoWeightsJson = JSON.stringify(normalizeAutoWeights(preset, mrInput.autoWeights));
+    }
+    if (typeof mrInput.autoTopN === 'number') {
+      values.modelReferenceAutoTopN = Math.max(1, Math.min(20, Math.round(mrInput.autoTopN)));
+    }
 
     await ensureDefaultCircuitBreakerSettings(db);
     await db.update(adminSettings).set({ ...values, updatedAt: new Date() }).where(eq(adminSettings.id, 'default'));
 
     const updated = await getCircuitBreakerSettings(db);
     const contentLog = await getContentLogSettings(db);
+    const row = await db.select().from(adminSettings).where(eq(adminSettings.id, 'default')).get();
     return {
       circuitBreaker: {
         enabled: updated.circuitBreakerEnabled,
@@ -137,6 +177,14 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
         enabled: contentLog.enabled,
         retentionDays: contentLog.retentionDays,
         maxPayloadBytes: contentLog.maxPayloadBytes,
+      },
+      modelReference: {
+        defaultRegion: row?.modelReferenceDefaultRegion ?? 'international',
+        autoPreset: row?.modelReferenceAutoPreset ?? 'balanced',
+        autoWeights: row?.modelReferenceAutoWeightsJson
+          ? JSON.parse(row.modelReferenceAutoWeightsJson) as AutoGroupWeights
+          : normalizeAutoWeights('balanced', undefined),
+        autoTopN: row?.modelReferenceAutoTopN ?? 5,
       },
     };
   });

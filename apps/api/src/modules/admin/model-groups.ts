@@ -1,4 +1,4 @@
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { generateId, ValidationError } from '@modelharbor/shared';
 import type { Db } from '../db/index.js';
@@ -8,6 +8,7 @@ import {
   modelGroupMembers,
   publicModels,
 } from '../db/tables/models.js';
+import { adminSettings } from '../db/tables/settings.js';
 import {
   targetNames,
 } from '../db/tables/routing.js';
@@ -20,6 +21,12 @@ import {
 import { auditMetaFromRequest } from './upstream-keys.js';
 import { recordAuditEvent } from '../observability/index.js';
 import { isGroupBalanceMode } from '../router/group-balancer.js';
+import {
+  applyAutoGroupSnapshot,
+  isAutoGroupPreset,
+  isReferenceRegion,
+  previewAutoGroupMembers,
+} from './model-reference.js';
 
 export interface ModelGroupRouteDeps {
   db: Db;
@@ -66,6 +73,12 @@ function presentGroup(row: ModelGroupRow, memberCount: number) {
     description: row.description,
     enabled: row.enabled,
     routingPolicy: row.routingPolicy,
+    mode: row.mode,
+    autoPreset: row.autoPreset,
+    autoReferenceRegion: row.autoReferenceRegion,
+    autoWeights: row.autoWeightsJson ? JSON.parse(row.autoWeightsJson) : null,
+    autoTopN: row.autoTopN,
+    autoLastRefreshedAt: row.autoLastRefreshedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     memberCount,
@@ -109,6 +122,11 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
       description?: unknown;
       routingPolicy?: unknown;
       members?: unknown;
+      mode?: unknown;
+      autoPreset?: unknown;
+      autoReferenceRegion?: unknown;
+      autoWeights?: unknown;
+      autoTopN?: unknown;
     };
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     assertTargetName(name);
@@ -117,9 +135,61 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
     const id = generateId('modelGroup');
     const now = new Date();
 
+    const mode = body.mode === 'auto_snapshot' ? 'auto_snapshot' : 'manual';
+    const settingRow =
+      mode === 'auto_snapshot'
+        ? await db.select().from(adminSettings).where(eq(adminSettings.id, 'default')).get()
+        : null;
+    const autoPreset = isAutoGroupPreset(body.autoPreset)
+      ? body.autoPreset
+      : isAutoGroupPreset(settingRow?.modelReferenceAutoPreset)
+        ? settingRow.modelReferenceAutoPreset
+        : 'balanced';
+    const autoReferenceRegion = isReferenceRegion(body.autoReferenceRegion)
+      ? body.autoReferenceRegion
+      : isReferenceRegion(settingRow?.modelReferenceDefaultRegion)
+        ? settingRow.modelReferenceDefaultRegion
+        : 'international';
+    const autoTopN =
+      typeof body.autoTopN === 'number'
+        ? Math.max(1, Math.min(20, Math.round(body.autoTopN)))
+        : settingRow?.modelReferenceAutoTopN ?? 5;
+    const autoWeights =
+      body.autoWeights && typeof body.autoWeights === 'object' && !Array.isArray(body.autoWeights)
+        ? body.autoWeights
+        : settingRow?.modelReferenceAutoWeightsJson
+          ? JSON.parse(settingRow.modelReferenceAutoWeightsJson)
+          : { preset: autoPreset };
+    const autoWeightsJson =
+      autoWeights && typeof autoWeights === 'object' && !Array.isArray(autoWeights)
+        ? JSON.stringify(autoWeights)
+        : JSON.stringify({ preset: autoPreset });
+
     // Validate and normalize the full members batch up front so a bad row never
     // partially applies. Each entry needs an existing public model id.
-    const memberInputs = Array.isArray(body.members) ? body.members : [];
+    const autoRecommendations =
+      mode === 'auto_snapshot'
+        ? await previewAutoGroupMembers(db, {
+            region: autoReferenceRegion,
+            preset: autoPreset,
+            weights: autoWeights,
+            topN: autoTopN,
+          })
+        : [];
+    if (mode === 'auto_snapshot' && autoRecommendations.length === 0) {
+      throw new ValidationError('no matching public models for auto group');
+    }
+    const memberInputs =
+      mode === 'auto_snapshot'
+        ? autoRecommendations.map((item, idx) => ({
+            publicModelId: item.publicModelId,
+            priority: (idx + 1) * 10,
+            weight: Math.max(1, Math.round(item.score)),
+            enabled: true,
+          }))
+        : Array.isArray(body.members)
+          ? body.members
+          : [];
     const normalizedMembers: Array<{
       id: string;
       modelGroupId: string;
@@ -164,7 +234,7 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
       const existingName = await tx
         .select({ id: targetNames.id })
         .from(targetNames)
-        .where(eq(targetNames.name, name))
+        .where(sql`lower(${targetNames.name}) = lower(${name})`)
         .get();
       if (existingName) {
         throw new ValidationError(`name already in use: ${name}`);
@@ -179,6 +249,12 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
           typeof body.routingPolicy === 'string' && isGroupBalanceMode(body.routingPolicy)
             ? body.routingPolicy
             : 'priority',
+        mode,
+        autoPreset: mode === 'auto_snapshot' ? autoPreset : null,
+        autoReferenceRegion: mode === 'auto_snapshot' ? autoReferenceRegion : null,
+        autoWeightsJson: mode === 'auto_snapshot' ? autoWeightsJson : null,
+        autoTopN: mode === 'auto_snapshot' ? autoTopN : null,
+        autoLastRefreshedAt: mode === 'auto_snapshot' ? now : null,
         createdAt: now,
         updatedAt: now,
       });
@@ -202,7 +278,7 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
       action: 'model_group.create',
       resourceType: 'model_group',
       resourceId: row.id,
-      details: { name: row.name, members: members.length },
+      details: { name: row.name, members: members.length, mode: row.mode },
     });
     return { ...presentGroup(row, members.length), members };
   });
@@ -299,6 +375,18 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
         return normalized;
       },
     });
+    await db
+      .update(modelGroups)
+      .set({
+        mode: 'manual',
+        autoPreset: null,
+        autoReferenceRegion: null,
+        autoWeightsJson: null,
+        autoTopN: null,
+        autoLastRefreshedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(modelGroups.id, id));
     await recordAuditEvent(db, {
       ...auditMetaFromRequest(req),
       action: 'model_group.update',
@@ -308,6 +396,53 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
     });
     const members = await loadMembers(db, id);
     return { members };
+  });
+
+  app.post('/api/admin/model-groups/:id/refresh-auto', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const existing = await findModelGroupById(db, id);
+    if (!existing) {
+      reply.code(404).send({
+        error: {
+          message: 'model group not found',
+          type: 'target_not_found',
+          code: 'target_not_found',
+        },
+      });
+      return;
+    }
+    if (existing.mode !== 'auto_snapshot') {
+      throw new ValidationError('model group is not an auto snapshot group');
+    }
+    const preset = isAutoGroupPreset(existing.autoPreset) ? existing.autoPreset : 'balanced';
+    const region = isReferenceRegion(existing.autoReferenceRegion)
+      ? existing.autoReferenceRegion
+      : 'international';
+    const weights = existing.autoWeightsJson ? JSON.parse(existing.autoWeightsJson) : undefined;
+    const topN = existing.autoTopN ?? 5;
+    const result = await applyAutoGroupSnapshot(db, {
+      modelGroupId: id,
+      region,
+      preset,
+      weights,
+      topN,
+    });
+    const now = new Date();
+    await db
+      .update(modelGroups)
+      .set({ autoLastRefreshedAt: now, updatedAt: now })
+      .where(eq(modelGroups.id, id));
+    const row = await findModelGroupById(db, id);
+    if (!row) throw new Error('not found');
+    const members = await loadMembers(db, id);
+    await recordAuditEvent(db, {
+      ...auditMetaFromRequest(req),
+      action: 'model_group.update',
+      resourceType: 'model_group',
+      resourceId: id,
+      details: { refreshedAutoSnapshot: true, membersCount: members.length },
+    });
+    return { ...presentGroup(row, members.length), members, recommendations: result.recommendations };
   });
 
   app.delete('/api/admin/model-groups/:id', async (req, reply) => {

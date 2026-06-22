@@ -10,6 +10,7 @@ import {
   NFormItem,
   NInput,
   NInputNumber,
+  NSelect,
   NSpace,
   NSpin,
   NSwitch,
@@ -42,6 +43,7 @@ const savingCircuitBreaker = ref(false);
 const savingEndpointHealth = ref(false);
 const savingStreaming = ref(false);
 const savingContentLogging = ref(false);
+const savingModelReference = ref(false);
 
 const profile = ref<AdminSummary | null>(null);
 const displayName = ref<string>('');
@@ -57,6 +59,12 @@ const circuitBreakerSettings = ref<CircuitBreakerSettings | null>(null);
 const endpointHealthSettings = ref<EndpointHealthSettings | null>(null);
 const streamingSettings = ref<StreamingSettings | null>(null);
 const contentLogSettings = ref<ContentLogSettings | null>(null);
+const modelReferenceSettings = ref<{
+  defaultRegion: 'international' | 'domestic';
+  autoPreset: string;
+  autoWeights: Record<string, number>;
+  autoTopN: number;
+} | null>(null);
 const circuitBreakers = ref<CircuitBreakerItem[]>([]);
 const circuitBreakersLoading = ref(false);
 
@@ -89,6 +97,7 @@ async function refreshCircuitBreakerSettings(): Promise<void> {
     endpointHealthSettings.value = res.endpointHealth;
     streamingSettings.value = res.streaming;
     contentLogSettings.value = res.contentLogging;
+    modelReferenceSettings.value = res.modelReference;
   } catch (err) {
     error.value = (err as Error).message;
   }
@@ -159,6 +168,22 @@ async function saveContentLogSettings(): Promise<void> {
     error.value = err instanceof ApiClientError ? err.message : (err as Error).message;
   } finally {
     savingContentLogging.value = false;
+  }
+}
+
+async function saveModelReferenceSettings(): Promise<void> {
+  if (!modelReferenceSettings.value) return;
+  savingModelReference.value = true;
+  error.value = null;
+  message.value = null;
+  try {
+    const res = await settingsApi.update({ modelReference: modelReferenceSettings.value });
+    modelReferenceSettings.value = res.modelReference;
+    message.value = t('settings.modelReference.saved');
+  } catch (err) {
+    error.value = err instanceof ApiClientError ? err.message : (err as Error).message;
+  } finally {
+    savingModelReference.value = false;
   }
 }
 
@@ -300,6 +325,31 @@ const breakerColumns = computed<DataTableColumns<CircuitBreakerItem>>(() => [
 ]);
 
 const username = computed(() => profile.value?.username ?? '');
+
+const referenceRegionOptions = computed(() => [
+  { label: t('modelGroups.drawer.regions.international'), value: 'international' },
+  { label: t('modelGroups.drawer.regions.domestic'), value: 'domestic' },
+]);
+
+const autoPresetOptions = computed(() => [
+  { label: t('modelGroups.drawer.presets.balanced'), value: 'balanced' },
+  { label: t('modelGroups.drawer.presets.chat'), value: 'chat' },
+  { label: t('modelGroups.drawer.presets.code'), value: 'code' },
+  { label: t('modelGroups.drawer.presets.plan'), value: 'plan' },
+  { label: t('modelGroups.drawer.presets.cheap'), value: 'cheap' },
+]);
+
+const autoWeightKeys = [
+  'intelligence',
+  'reasoning',
+  'coding',
+  'agentic',
+  'math',
+  'creative',
+  'instruction',
+  'price',
+  'context',
+] as const;
 </script>
 
 <template>
@@ -451,6 +501,57 @@ const username = computed(() => profile.value?.username ?? '');
           <NSpace>
             <NButton type="primary" :loading="savingContentLogging" @click="saveContentLogSettings">
               {{ t('settings.contentLogging.save') }}
+            </NButton>
+          </NSpace>
+        </NForm>
+      </NCard>
+
+      <NCard :title="t('settings.modelReference.title')">
+        <NSpin v-if="!modelReferenceSettings" />
+        <NForm v-else label-placement="top" style="max-width: 640px">
+          <NFormItem :label="t('settings.modelReference.defaultRegion')">
+            <NSelect
+              v-model:value="modelReferenceSettings.defaultRegion"
+              :options="referenceRegionOptions"
+              style="width: 220px"
+            />
+          </NFormItem>
+          <NFormItem :label="t('settings.modelReference.autoPreset')">
+            <NSelect
+              v-model:value="modelReferenceSettings.autoPreset"
+              :options="autoPresetOptions"
+              style="width: 220px"
+            />
+          </NFormItem>
+          <NFormItem :label="t('settings.modelReference.autoTopN')">
+            <NInputNumber
+              v-model:value="modelReferenceSettings.autoTopN"
+              :min="1"
+              :max="20"
+              style="width: 160px"
+            />
+          </NFormItem>
+          <NFormItem :label="t('settings.modelReference.autoWeights')">
+            <NSpace>
+              <NFormItem
+                v-for="key in autoWeightKeys"
+                :key="key"
+                :label="t(`modelReference.columns.${key}`)"
+                label-placement="top"
+                style="width: 118px"
+              >
+                <NInputNumber
+                  v-model:value="modelReferenceSettings.autoWeights[key]"
+                  :min="0"
+                  :step="0.05"
+                  style="width: 118px"
+                />
+              </NFormItem>
+            </NSpace>
+          </NFormItem>
+          <NSpace>
+            <NButton type="primary" :loading="savingModelReference" @click="saveModelReferenceSettings">
+              {{ t('settings.modelReference.save') }}
             </NButton>
           </NSpace>
         </NForm>

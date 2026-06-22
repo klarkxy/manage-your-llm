@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import type { Db } from '../db/index.js';
 import { type TargetNameRow, type TargetType, targetNames } from '../db/tables/routing.js';
 import { TargetNotFoundError } from '@modelharbor/shared';
@@ -22,7 +22,7 @@ export async function resolveTargetByName(db: Db, name: string): Promise<Resolve
   const row: TargetNameRow | undefined = await db
     .select()
     .from(targetNames)
-    .where(eq(targetNames.name, trimmed))
+    .where(sql`lower(${targetNames.name}) = lower(${trimmed})`)
     .get();
   if (!row) throw new TargetNotFoundError(`model not found: ${trimmed}`);
   return { name: row.name, targetType: row.targetType, targetId: row.targetId };

@@ -28,6 +28,7 @@ const menuOptions = computed<MenuOption[]>(() => [
   { key: 'upstream-keys', label: t('layout.menu.upstreamKeys') },
   { key: 'public-models', label: t('layout.menu.publicModels') },
   { key: 'model-groups', label: t('layout.menu.modelGroups') },
+  { key: 'model-reference', label: t('layout.menu.modelReference') },
   { key: 'apps', label: t('layout.menu.apps') },
   { key: 'usage', label: t('layout.menu.usage') },
   { key: 'settings', label: t('layout.menu.settings') },

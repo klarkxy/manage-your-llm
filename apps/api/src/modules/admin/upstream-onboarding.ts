@@ -20,6 +20,18 @@ export interface OnboardingMapping {
   endpointApiPath?: string;
 }
 
+function normalizePublicName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+async function findPublicModelByName(tx: Db, name: string) {
+  return tx
+    .select({ id: publicModels.id, name: publicModels.name })
+    .from(publicModels)
+    .where(sql`lower(${publicModels.name}) = lower(${name})`)
+    .get();
+}
+
 function candidateEndpointFields(mapping: {
   endpointProtocol?: SourceProtocol;
   endpointProviderType?: ProviderType;
@@ -117,20 +129,18 @@ export async function onboardUpstreamKeyWithMappings(
     for (const mapping of mappings) {
       if (!mapping.enabled) continue;
 
+      const publicName = normalizePublicName(mapping.publicName);
+      const realName = mapping.realName.trim();
       let pmId: string;
-      const existingPm = await tx
-        .select({ id: publicModels.id })
-        .from(publicModels)
-        .where(eq(publicModels.name, mapping.publicName))
-        .get();
+      const existingPm = await findPublicModelByName(tx as unknown as Db, publicName);
       if (existingPm) {
         pmId = existingPm.id;
       } else {
         pmId = generateId('publicModel');
         await tx.insert(publicModels).values({
           id: pmId,
-          name: mapping.publicName,
-          displayName: mapping.publicName,
+          name: publicName,
+          displayName: publicName,
           description: null,
           enabled: true,
           createdAt: now,
@@ -138,7 +148,7 @@ export async function onboardUpstreamKeyWithMappings(
         });
         await tx.insert(targetNames).values({
           id: `tn_${generateId('publicModel').slice(-8)}`,
-          name: mapping.publicName,
+          name: publicName,
           targetType: 'public_model',
           targetId: pmId,
           createdAt: now,
@@ -153,7 +163,7 @@ export async function onboardUpstreamKeyWithMappings(
           and(
             eq(publicModelCandidates.publicModelId, pmId),
             eq(publicModelCandidates.upstreamKeyId, upstreamKeyId),
-            eq(publicModelCandidates.realModelName, mapping.realName),
+            eq(publicModelCandidates.realModelName, realName),
           ),
         )
         .get();
@@ -163,7 +173,7 @@ export async function onboardUpstreamKeyWithMappings(
           id: generateId('publicModel') + '_c',
           publicModelId: pmId,
           upstreamKeyId,
-          realModelName: mapping.realName,
+          realModelName: realName,
           ...candidateEndpointFields(mapping),
           enabled: true,
           priority,
@@ -252,17 +262,13 @@ export async function syncUpstreamKeyMappings(
     // 1. Ensure public models exist for every active mapping and collect IDs.
     const desired = new Map<string, UpstreamKeyCandidateMapping>();
     for (const mapping of activeMappings) {
-      const publicName = mapping.publicName.trim() || mapping.realName.trim();
+      const publicName = normalizePublicName(mapping.publicName) || mapping.realName.trim().toLowerCase();
       const realName = mapping.realName.trim();
       const key = `${publicName}\0${realName}`;
       desired.set(key, { ...mapping, publicName, realName });
 
       let pmId: string;
-      const existingPm = await tx
-        .select({ id: publicModels.id })
-        .from(publicModels)
-        .where(eq(publicModels.name, publicName))
-        .get();
+      const existingPm = await findPublicModelByName(tx as unknown as Db, publicName);
       if (existingPm) {
         pmId = existingPm.id;
       } else {
@@ -333,11 +339,7 @@ export async function syncUpstreamKeyMappings(
 
     for (const [key, mapping] of desired) {
       if (handled.has(key)) continue;
-      const pm = await tx
-        .select({ id: publicModels.id })
-        .from(publicModels)
-        .where(eq(publicModels.name, mapping.publicName))
-        .get();
+      const pm = await findPublicModelByName(tx as unknown as Db, mapping.publicName);
       if (!pm) continue; // Should not happen since we created above.
       const id = generateId('publicModel') + '_c';
       const priority = await nextCandidatePriority(tx as unknown as Db, pm.id, upstreamKeyId);

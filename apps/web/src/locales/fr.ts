@@ -65,6 +65,7 @@ const messages = {
       upstreamKeys: 'Clés upstream',
       publicModels: 'Modèles publics',
       modelGroups: 'Groupes de modèles',
+      modelReference: 'Model Reference',
       apps: 'Applications',
       usage: 'Utilisation',
       settings: 'Paramètres',

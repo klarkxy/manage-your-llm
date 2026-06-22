@@ -65,6 +65,7 @@ const messages = {
       upstreamKeys: '上游金鑰',
       publicModels: '公共模型',
       modelGroups: '模型群組',
+      modelReference: '模型參考',
       apps: '應用程式',
       usage: '用量',
       settings: '設定',

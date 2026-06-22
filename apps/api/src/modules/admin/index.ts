@@ -4,6 +4,7 @@ export * from './upstream-keys.js';
 export * from './upstream-oauth.js';
 export * from './public-models.js';
 export * from './model-groups.js';
+export * from './model-reference.js';
 export * from './apps.js';
 export * from './consumer-keys.js';
 export * from './observability.js';

@@ -67,6 +67,14 @@ export const adminSettings = sqliteTable('admin_settings', {
   contentLogEnabled: integer('content_log_enabled', { mode: 'boolean' }).notNull().default(false),
   contentLogRetentionDays: integer('content_log_retention_days').notNull().default(7),
   contentLogMaxPayloadBytes: integer('content_log_max_payload_bytes').notNull().default(100_000),
+  modelReferenceDefaultRegion: text('model_reference_default_region', {
+    enum: ['international', 'domestic'] as const,
+  })
+    .notNull()
+    .default('international'),
+  modelReferenceAutoPreset: text('model_reference_auto_preset').notNull().default('balanced'),
+  modelReferenceAutoWeightsJson: text('model_reference_auto_weights_json'),
+  modelReferenceAutoTopN: integer('model_reference_auto_top_n').notNull().default(5),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
@@ -356,6 +364,14 @@ export const modelGroups = sqliteTable('model_groups', {
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
   routingPolicy: text('routing_policy').notNull().default('priority'),
   roundRobinCounter: integer('round_robin_counter').notNull().default(0),
+  mode: text('mode', { enum: ['manual', 'auto_snapshot'] as const }).notNull().default('manual'),
+  autoPreset: text('auto_preset'),
+  autoReferenceRegion: text('auto_reference_region', {
+    enum: ['international', 'domestic'] as const,
+  }),
+  autoWeightsJson: text('auto_weights_json'),
+  autoTopN: integer('auto_top_n'),
+  autoLastRefreshedAt: integer('auto_last_refreshed_at', { mode: 'timestamp_ms' }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
@@ -377,6 +393,71 @@ export const modelGroupMembers = sqliteTable(
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   },
   (t) => [uniqueIndex('model_group_member_unique').on(t.modelGroupId, t.publicModelId)],
+);
+
+// --- Model reference data ---
+
+export const MODEL_REFERENCE_REGIONS = ['international', 'domestic'] as const;
+export type ModelReferenceRegion = (typeof MODEL_REFERENCE_REGIONS)[number];
+
+export const MODEL_REFERENCE_SOURCES = [
+  'openrouter',
+  'artificial_analysis',
+  'arena',
+  'aider',
+  'opencompass',
+  'superclue',
+  'manual',
+] as const;
+export type ModelReferenceSource = (typeof MODEL_REFERENCE_SOURCES)[number];
+
+export const modelReferenceEntries = sqliteTable(
+  'model_reference_entries',
+  {
+    id: text('id').primaryKey(),
+    region: text('region', { enum: MODEL_REFERENCE_REGIONS }).notNull(),
+    source: text('source', { enum: MODEL_REFERENCE_SOURCES }).notNull(),
+    normalizedModelName: text('normalized_model_name').notNull(),
+    sourceModelId: text('source_model_id').notNull(),
+    displayName: text('display_name').notNull(),
+    provider: text('provider'),
+    scoresJson: text('scores_json').notNull().default('{}'),
+    priceJson: text('price_json').notNull().default('{}'),
+    contextWindow: integer('context_window'),
+    outputSpeed: integer('output_speed'),
+    latencyMs: integer('latency_ms'),
+    sourceUrl: text('source_url').notNull(),
+    rawUnit: text('raw_unit'),
+    rawPayloadJson: text('raw_payload_json'),
+    fetchedAt: integer('fetched_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('model_reference_entry_unique').on(t.region, t.source, t.normalizedModelName),
+    index('model_reference_entry_region_idx').on(t.region, t.source),
+  ],
+);
+
+export const modelReferenceSyncStatus = sqliteTable(
+  'model_reference_sync_status',
+  {
+    id: text('id').primaryKey(),
+    region: text('region', { enum: MODEL_REFERENCE_REGIONS }).notNull(),
+    source: text('source', { enum: MODEL_REFERENCE_SOURCES }).notNull(),
+    status: text('status', { enum: ['idle', 'refreshing', 'success', 'error'] as const })
+      .notNull()
+      .default('idle'),
+    lastRefreshAt: integer('last_refresh_at', { mode: 'timestamp_ms' }),
+    nextRefreshAfter: integer('next_refresh_after', { mode: 'timestamp_ms' }),
+    lastError: text('last_error'),
+    ttlMs: integer('ttl_ms').notNull().default(86_400_000),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('model_reference_sync_unique').on(t.region, t.source),
+    index('model_reference_sync_region_idx').on(t.region),
+  ],
 );
 
 // --- Usage records (M5+) ---
@@ -683,6 +764,10 @@ export type ModelGroupRow = typeof modelGroups.$inferSelect;
 export type ModelGroupInsert = typeof modelGroups.$inferInsert;
 export type ModelGroupMemberRow = typeof modelGroupMembers.$inferSelect;
 export type ModelGroupMemberInsert = typeof modelGroupMembers.$inferInsert;
+export type ModelReferenceEntryRow = typeof modelReferenceEntries.$inferSelect;
+export type ModelReferenceEntryInsert = typeof modelReferenceEntries.$inferInsert;
+export type ModelReferenceSyncStatusRow = typeof modelReferenceSyncStatus.$inferSelect;
+export type ModelReferenceSyncStatusInsert = typeof modelReferenceSyncStatus.$inferInsert;
 export type UsageRecordRow = typeof usageRecords.$inferSelect;
 export type UsageRecordInsert = typeof usageRecords.$inferInsert;
 export type StickyBindingRow = typeof stickyBindings.$inferSelect;

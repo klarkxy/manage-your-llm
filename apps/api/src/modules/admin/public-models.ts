@@ -1,4 +1,4 @@
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import {
   generateId,
@@ -246,7 +246,7 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
       const existingName = await tx
         .select({ id: targetNames.id })
         .from(targetNames)
-        .where(eq(targetNames.name, name))
+        .where(sql`lower(${targetNames.name}) = lower(${name})`)
         .get();
       if (existingName) {
         throw new ValidationError(`name already in use: ${name}`);

@@ -23,6 +23,7 @@ import {
   registerAuditRoutes,
   registerConsumerKeyRoutes,
   registerModelGroupRoutes,
+  registerModelReferenceRoutes,
   registerObservabilityRoutes,
   registerPublicModelRoutes,
   registerSettingsRoutes,
@@ -141,6 +142,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     registerUpstreamOAuthRoutes(app, { db: options.db, secretKey });
     registerPublicModelRoutes(app, { db: options.db });
     registerModelGroupRoutes(app, { db: options.db });
+    registerModelReferenceRoutes(app, { db: options.db });
     registerAppRoutes(app, { db: options.db });
     registerConsumerKeyRoutes(app, { db: options.db });
     registerObservabilityRoutes(app, { db: options.db });

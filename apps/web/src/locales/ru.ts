@@ -65,6 +65,7 @@ const messages = {
       upstreamKeys: 'Upstream-ключи',
       publicModels: 'Публичные модели',
       modelGroups: 'Группы моделей',
+      modelReference: 'Model Reference',
       apps: 'Приложения',
       usage: 'Использование',
       settings: 'Настройки',

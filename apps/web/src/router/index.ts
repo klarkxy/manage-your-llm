@@ -41,6 +41,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../pages/ModelGroups.vue'),
   },
   {
+    path: '/model-reference',
+    name: 'model-reference',
+    component: () => import('../pages/ModelReference.vue'),
+  },
+  {
     path: '/apps',
     name: 'apps',
     component: () => import('../pages/Apps.vue'),

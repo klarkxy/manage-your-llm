@@ -4,6 +4,8 @@ export {
   publicModelCandidates,
   modelGroups,
   modelGroupMembers,
+  modelReferenceEntries,
+  modelReferenceSyncStatus,
   type PublicModelRow,
   type PublicModelInsert,
   type PublicModelCandidateRow,
@@ -12,4 +14,8 @@ export {
   type ModelGroupInsert,
   type ModelGroupMemberRow,
   type ModelGroupMemberInsert,
+  type ModelReferenceEntryRow,
+  type ModelReferenceEntryInsert,
+  type ModelReferenceSyncStatusRow,
+  type ModelReferenceSyncStatusInsert,
 } from '../schema.js';

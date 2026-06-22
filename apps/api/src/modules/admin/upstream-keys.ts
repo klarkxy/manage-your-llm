@@ -264,11 +264,13 @@ function normalizeModelMappings(value: unknown): OnboardingMapping[] {
     }
     seen.add(realName);
     const publicNameRaw = (item as { publicName?: unknown }).publicName;
-    const publicName = typeof publicNameRaw === 'string' ? publicNameRaw.trim() : '';
+    const publicName =
+      (typeof publicNameRaw === 'string' ? publicNameRaw.trim() : '').toLowerCase() ||
+      realName.toLowerCase();
     const enabledRaw = (item as { enabled?: unknown }).enabled;
     const enabled = typeof enabledRaw === 'boolean' ? enabledRaw : true;
     const endpointFields = normalizeMappingEndpointFields(item as Record<string, unknown>);
-    mappings.push({ publicName: publicName || realName, realName, enabled, ...endpointFields });
+    mappings.push({ publicName, realName, enabled, ...endpointFields });
   }
   return mappings;
 }
@@ -748,7 +750,7 @@ export async function discoverUpstreamModels(ctx: DiscoverContext): Promise<Disc
 
       return bots.map((bot) => ({
         realName: bot.id,
-        publicName: realToPublic.get(bot.id) ?? bot.name,
+        publicName: (realToPublic.get(bot.id) ?? bot.name).toLowerCase(),
         ...discoveryEndpointFields(discoveryEndpoint),
       }));
     }
@@ -784,7 +786,7 @@ export async function discoverUpstreamModels(ctx: DiscoverContext): Promise<Disc
 
     return ids.map((realName) => ({
       realName,
-      publicName: realToPublic.get(realName) ?? derivePublicName(preset?.id, realName),
+      publicName: (realToPublic.get(realName) ?? derivePublicName(preset?.id, realName)).toLowerCase(),
       ...discoveryEndpointFields(resolveModelEndpoint(preset, discoveryEndpoint, realName)),
     }));
   } catch (err) {
