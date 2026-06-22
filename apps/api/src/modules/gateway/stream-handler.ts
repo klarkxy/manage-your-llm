@@ -53,6 +53,7 @@ import {
 } from '../upstream/endpoint-health.js';
 import { startUpstreamStream, type RawStreamEvent, type StreamStart } from './stream-sender.js';
 import { writeUsageRecord } from '../usage/index.js';
+import { touchUpstreamLastUsed } from './handler.js';
 import { writeContentLog } from '../observability/content-logs.js';
 import {
   generateTraceId,
@@ -878,6 +879,7 @@ async function driveStream(args: DriveStreamArgs): Promise<boolean> {
   if (lastError) {
     await recordUsageOnFailure(ctx, streamCtx, target, candidate, lastError, latencyMs);
   } else {
+    void touchUpstreamLastUsed(ctx.db, candidate.upstreamKeyId);
     await recordUsageOnSuccess(
       ctx,
       streamCtx,

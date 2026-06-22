@@ -324,6 +324,13 @@ const STATEMENTS: readonly string[] = [
   // M8: usage record cache token columns (must run after the table exists)
   `ALTER TABLE usage_records ADD COLUMN cache_read_tokens INTEGER`,
   `ALTER TABLE usage_records ADD COLUMN cache_write_tokens INTEGER`,
+  // M7.3: short-window session stickiness — flag whether the request reused
+  // a session-scoped sticky binding (as opposed to the longer-lived
+  // `sticky_hit` field). Required by the gateway streaming and
+  // non-streaming record paths; if missing on an upgraded DB, the
+  // `/api/admin/usage/recent` route errors out with
+  // `no such column: session_sticky_hit`.
+  `ALTER TABLE usage_records ADD COLUMN session_sticky_hit INTEGER NOT NULL DEFAULT 0`,
   // M6: quota counters
   `CREATE TABLE IF NOT EXISTS upstream_key_counters (
      id TEXT PRIMARY KEY,

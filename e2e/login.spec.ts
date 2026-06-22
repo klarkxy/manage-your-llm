@@ -47,8 +47,12 @@ test('Usage page renders the empty state when there is no traffic', async ({ pag
   await page.goto('/usage');
   await expect(page.getByText('Usage overview')).toBeVisible({ timeout: 15_000 });
   // The four breakdown cards are always present (zero-row state is fine).
-  await expect(page.getByText('By app')).toBeVisible();
-  await expect(page.getByText('By consumer key')).toBeVisible();
-  await expect(page.getByText('By upstream key')).toBeVisible();
-  await expect(page.getByText('By target')).toBeVisible();
+  // Match the card title text exactly: the dropdown selector labels share
+  // the "By app" / "By consumer key" / etc. prefix with the card titles
+  // ("Requests by app (top 8)"), so a substring match resolves to two
+  // elements under Playwright's strict mode.
+  await expect(page.getByText('By app', { exact: true })).toBeVisible();
+  await expect(page.getByText('By consumer key', { exact: true })).toBeVisible();
+  await expect(page.getByText('By upstream key', { exact: true })).toBeVisible();
+  await expect(page.getByText('By target', { exact: true })).toBeVisible();
 });

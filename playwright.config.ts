@@ -1,8 +1,13 @@
 // Playwright E2E config.
 //
-// Runs the api and web dev servers in parallel, hermetically pointed at a
-// temp sqlite database, and serves the web build on the port the config
-// promises. `pnpm e2e` is the entrypoint.
+// Boots the api and web dev servers in parallel, each pointed at a
+// per-run temp sqlite database so reruns don't see each other's state
+// (admin bootstrapping, sticky bindings, usage rows). The temp file path
+// is generated in `e2e/global-setup.ts` and passed to the api via
+// `MODELHARBOR_DATABASE_URL`; the api's schema bootstrap re-runs on every
+// cold start, so the fresh DB is fully populated before any test runs.
+//
+// `pnpm e2e` is the entrypoint.
 //
 // Browser: we reuse the system Microsoft Edge instead of downloading
 // Playwright's own chromium. Set MODELHARBOR_E2E_EDGE to override; pass
@@ -17,11 +22,15 @@ const EDGE_PATH =
   process.env['MODELHARBOR_E2E_EDGE'] ??
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 
+// globalSetup writes the temp DB path to this env var; webServer reads it.
+const E2E_DB_URL_ENV = 'MODELHARBOR_E2E_DB_URL';
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   fullyParallel: false,
   workers: 1,
+  globalSetup: './e2e/global-setup.ts',
   reporter: [['list']],
   use: {
     baseURL: `http://127.0.0.1:${WEB_PORT}`,
@@ -37,7 +46,7 @@ export default defineConfig({
       timeout: 60_000,
       env: {
         MODELHARBOR_PORT: String(API_PORT),
-        MODELHARBOR_DATABASE_URL: 'file:./data/e2e-modelharbor.sqlite',
+        MODELHARBOR_DATABASE_URL: process.env[E2E_DB_URL_ENV] ?? 'file:./data/e2e-modelharbor.sqlite',
       },
       stdout: 'pipe',
       stderr: 'pipe',

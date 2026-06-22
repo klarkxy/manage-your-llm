@@ -41,6 +41,9 @@ playwright-report/
 # Local learnings / per-developer notes
 .learnings/
 
+# Claude Code per-developer settings
+.claude/
+
 # Editor swap files
 *.swp
 *.swo
