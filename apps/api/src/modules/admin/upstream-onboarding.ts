@@ -25,6 +25,17 @@ function normalizePublicName(name: string): string {
 }
 
 async function findPublicModelByName(tx: Db, name: string) {
+  // Prefer an exact case match so admin-provided names like `MiniMax-M3` and
+  // upstream-derived lowercase names like `minimax-m3` don't collapse into the
+  // same rowid-first row when both forms already exist. Fall back to
+  // case-insensitive matching so legacy mixed-case rows still get reused when
+  // a lowercase version doesn't exist yet.
+  const exact = await tx
+    .select({ id: publicModels.id, name: publicModels.name })
+    .from(publicModels)
+    .where(eq(publicModels.name, name))
+    .get();
+  if (exact) return exact;
   return tx
     .select({ id: publicModels.id, name: publicModels.name })
     .from(publicModels)
@@ -135,6 +146,34 @@ export async function onboardUpstreamKeyWithMappings(
       const existingPm = await findPublicModelByName(tx as unknown as Db, publicName);
       if (existingPm) {
         pmId = existingPm.id;
+        // Same case-folding logic as syncUpstreamKeyMappings: when we matched
+        // case-insensitively and the stored name differs in case, fold the
+        // legacy row into the canonical lowercase name. Skip if a lowercase
+        // sibling already exists.
+        if (existingPm.name !== publicName) {
+          const sibling = await tx
+            .select({ id: publicModels.id })
+            .from(publicModels)
+            .where(and(eq(publicModels.name, publicName), sql`${publicModels.id} != ${existingPm.id}`))
+            .get();
+          if (!sibling) {
+            await tx
+              .update(publicModels)
+              .set({ name: publicName, updatedAt: now })
+              .where(eq(publicModels.id, existingPm.id));
+            await tx
+              .update(targetNames)
+              .set({ name: publicName })
+              .where(
+                and(
+                  eq(targetNames.targetType, 'public_model'),
+                  eq(targetNames.targetId, existingPm.id),
+                ),
+              );
+          } else {
+            pmId = sibling.id;
+          }
+        }
       } else {
         pmId = generateId('publicModel');
         await tx.insert(publicModels).values({
@@ -271,6 +310,39 @@ export async function syncUpstreamKeyMappings(
       const existingPm = await findPublicModelByName(tx as unknown as Db, publicName);
       if (existingPm) {
         pmId = existingPm.id;
+        // If we matched case-insensitively but the stored name differs in case
+        // (e.g. legacy `MiniMax-M2.7-highspeed` vs the canonical lowercase
+        // `minimax-m2.7-highspeed`), fold the legacy row into the canonical
+        // name so PM lookups are stable going forward. The rename is skipped
+        // when a sibling row already owns the lowercase name — in that case
+        // findPublicModelByName's exact-match branch would have returned it
+        // first and pmId would point at that sibling already.
+        if (existingPm.name !== publicName) {
+          const sibling = await tx
+            .select({ id: publicModels.id })
+            .from(publicModels)
+            .where(and(eq(publicModels.name, publicName), sql`${publicModels.id} != ${existingPm.id}`))
+            .get();
+          if (!sibling) {
+            await tx
+              .update(publicModels)
+              .set({ name: publicName, updatedAt: now })
+              .where(eq(publicModels.id, existingPm.id));
+            await tx
+              .update(targetNames)
+              .set({ name: publicName })
+              .where(
+                and(
+                  eq(targetNames.targetType, 'public_model'),
+                  eq(targetNames.targetId, existingPm.id),
+                ),
+              );
+          } else {
+            // A lowercase sibling already exists — switch the candidate to it
+            // so we don't leave a forked PM behind.
+            pmId = sibling.id;
+          }
+        }
       } else {
         pmId = generateId('publicModel');
         await tx.insert(publicModels).values({
@@ -300,11 +372,16 @@ export async function syncUpstreamKeyMappings(
       .where(eq(publicModelCandidates.upstreamKeyId, upstreamKeyId))
       .all();
 
-    // 3. Upsert: update existing candidates, insert missing ones.
+    // 3. Upsert: update existing candidates, insert missing ones. Keys here MUST
+    // match the form used to build `desired` above (normalized publicName + raw
+    // realModelName); otherwise every save degenerates into delete-then-reinsert,
+    // which churns audit rows and can race the candidate UNIQUE index when a
+    // public model has both mixed- and lower-cased siblings pointing at the same
+    // upstream key.
     const result: UpstreamKeyCandidate[] = [];
     const handled = new Set<string>();
     for (const { c, p } of existing) {
-      const key = `${p.name}\0${c.realModelName}`;
+      const key = `${normalizePublicName(p.name)}\0${c.realModelName}`;
       const mapping = desired.get(key);
       if (mapping) {
         await tx

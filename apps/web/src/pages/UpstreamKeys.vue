@@ -236,7 +236,14 @@ async function openEdit(row: UpstreamKey) {
     const res = await upstreamKeysApi.getCandidates(row.id);
     modelMappings.value = res.items.map((c) => ({
       realName: c.realName,
-      publicName: c.publicName === c.realName ? '' : c.publicName,
+      // Keep whatever public name was stored — never blank it out based on a
+      // string-equality check against realName, since the discover-models API
+      // now lowercases publicName and many PMs end up sharing the same lower
+      // form as their realName. The previous `c.publicName === c.realName ? ''
+      // : c.publicName` rule looked redundant on the surface but actually
+      // nuked legitimate lowercase publicNames like `minimax-m3` whenever the
+      // upstream key happened to use mixed-case realNames.
+      publicName: c.publicName ?? '',
       enabled: c.enabled,
     }));
   } catch (err) {
@@ -898,16 +905,105 @@ async function handleFetchModels() {
     for (const item of result.items) {
       const realName = item.realName.trim();
       if (!realName || existing.has(realName)) continue;
-      const publicName = item.publicName.trim();
       modelMappings.value.push({
         realName,
-        publicName: publicName === realName ? '' : publicName,
+        // Use the upstream-supplied publicName verbatim. Discover normalises
+        // it to lowercase server-side, so collapsing `publicName === realName`
+        // to '' would only ever fire for already-lowercase realNames and lose
+        // the explicit label otherwise.
+        publicName: item.publicName.trim(),
         enabled: true,
       });
       existing.set(realName, modelMappings.value[modelMappings.value.length - 1]!);
       added++;
     }
     message.success(t('upstreamKeys.drawer.modelMappings.fetchSuccess', { count: added }));
+  } catch (err) {
+    message.error((err as Error).message);
+  } finally {
+    fetchingModels.value = false;
+  }
+}
+
+// "Fetch free models" variant: pulls models whose realName ends with `-free`
+// (e.g. `minimax-m3-free`) and writes a row where:
+//   - `realName`   = upstream name unchanged (`minimax-m3-free`) — required so
+//                    the upstream key can actually find the model when routing.
+//   - `publicName` = the upstream name minus the trailing `-free`
+//                    (`minimax-m3`) — gives the routing table a clean label.
+// Dedup uses the upstream realName so multiple `-free` variants of the same
+// base model all land as separate rows.
+async function handleFetchFreeModels() {
+  if (!canFetchModels.value) {
+    message.error(t('upstreamKeys.validation.required'));
+    return;
+  }
+  fetchingModels.value = true;
+  try {
+    const payload: DiscoverModelsPayload = {
+      baseUrl: form.value.baseUrl?.trim() ?? '',
+      providerType: form.value.providerType ?? 'anthropic_compatible',
+      providerPresetId: selectedPresetId.value || undefined,
+      authType: authType.value as DiscoverModelsPayload['authType'],
+    };
+    if (isCoze.value) {
+      payload.workspaceId = workspaceId.value.trim();
+      if (authType.value === 'pat' && form.value.apiKey?.trim()) {
+        payload.apiKey = form.value.apiKey.trim();
+      } else if (authType.value === 'coze_oauth_jwt') {
+        payload.authConfig = {
+          appId: cozeAuthConfig.value.appId.trim(),
+          kid: cozeAuthConfig.value.kid.trim(),
+          privateKey: cozeAuthConfig.value.privateKey.trim(),
+          durationSeconds: cozeAuthConfig.value.durationSeconds,
+        };
+      } else if (authType.value === 'coze_oauth_pkce') {
+        if (isEdit.value && editingId.value) {
+          payload.upstreamKeyId = editingId.value;
+        }
+      }
+    } else if (authType.value === 'codex_oauth') {
+      payload.authConfig = {
+        refreshToken: codexAuthConfig.value.refreshToken.trim(),
+        ...(codexAuthConfig.value.clientId.trim()
+          ? { clientId: codexAuthConfig.value.clientId.trim() }
+          : {}),
+        ...(codexAuthConfig.value.tokenUrl.trim()
+          ? { tokenUrl: codexAuthConfig.value.tokenUrl.trim() }
+          : {}),
+      };
+    } else if (form.value.apiKey?.trim()) {
+      payload.apiKey = form.value.apiKey.trim();
+    } else if (isEdit.value && editingId.value) {
+      payload.upstreamKeyId = editingId.value;
+    }
+    const result = await upstreamKeysApi.discoverModels(payload);
+    const FREE_SUFFIX = '-free';
+    const existing = new Map(modelMappings.value.map((m) => [m.realName.trim(), m]));
+    let added = 0;
+    for (const item of result.items) {
+      const realName = item.realName.trim();
+      if (!realName.endsWith(FREE_SUFFIX)) continue;
+      if (!realName || existing.has(realName)) continue;
+      const cleaned = realName.slice(0, -FREE_SUFFIX.length);
+      modelMappings.value.push({
+        realName,
+        // Keep the cleaned name as the publicName so the routing table shows
+        // `minimax-m3` instead of `minimax-m3-free`. Server falls back to
+        // `realName.toLowerCase()` when publicName is empty, so leaving this
+        // populated is what actually gets the cleaned label into the PM.
+        publicName: cleaned,
+        enabled: true,
+      });
+      existing.set(realName, modelMappings.value[modelMappings.value.length - 1]!);
+      added += 1;
+    }
+    message.success(
+      t('upstreamKeys.drawer.modelMappings.fetchFreeSuccess', {
+        added,
+        skipped: result.items.length - added,
+      }),
+    );
   } catch (err) {
     message.error((err as Error).message);
   } finally {
@@ -1265,18 +1361,32 @@ const columns = computed<DataTableColumns<UpstreamKey>>(() => [
           </NFormItem>
           <NFormItem :label="t('upstreamKeys.drawer.modelMappings.label')" required>
             <NSpace vertical style="width: 100%">
-              <NButton
-                size="small"
-                :disabled="!canFetchModels || fetchingModels"
-                :loading="fetchingModels"
-                @click="handleFetchModels"
-              >
-                {{
-                  fetchingModels
-                    ? t('upstreamKeys.drawer.modelMappings.fetching')
-                    : t('upstreamKeys.drawer.modelMappings.fetch')
-                }}
-              </NButton>
+              <NSpace>
+                <NButton
+                  size="small"
+                  :disabled="!canFetchModels || fetchingModels"
+                  :loading="fetchingModels"
+                  @click="handleFetchModels"
+                >
+                  {{
+                    fetchingModels
+                      ? t('upstreamKeys.drawer.modelMappings.fetching')
+                      : t('upstreamKeys.drawer.modelMappings.fetch')
+                  }}
+                </NButton>
+                <NButton
+                  size="small"
+                  :disabled="!canFetchModels || fetchingModels"
+                  :loading="fetchingModels"
+                  @click="handleFetchFreeModels"
+                >
+                  {{
+                    fetchingModels
+                      ? t('upstreamKeys.drawer.modelMappings.fetching')
+                      : t('upstreamKeys.drawer.modelMappings.fetchFree')
+                  }}
+                </NButton>
+              </NSpace>
               <ModelMappingEditor v-model="modelMappings" />
             </NSpace>
           </NFormItem>

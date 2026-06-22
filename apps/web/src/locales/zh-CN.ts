@@ -273,8 +273,10 @@ const messages: Messages = {
         publicName: '公开名（可选）',
         add: '添加模型',
         fetch: '从上游获取模型',
+        fetchFree: '只获取免费模型',
         fetching: '获取中...',
         fetchSuccess: '已添加 {count} 个模型',
+        fetchFreeSuccess: '已添加 {added} 个免费模型（跳过 {skipped} 个非免费）',
       },
       placeholders: {
         name: 'DeepSeek key 1',

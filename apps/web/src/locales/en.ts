@@ -272,8 +272,10 @@ const messages = {
         publicName: 'Public name (optional)',
         add: 'Add model',
         fetch: 'Fetch models from upstream',
+        fetchFree: 'Fetch free models only',
         fetching: 'Fetching...',
         fetchSuccess: 'Added {count} models',
+        fetchFreeSuccess: 'Added {added} free models ({skipped} non-free skipped)',
       },
       placeholders: {
         name: 'DeepSeek key 1',

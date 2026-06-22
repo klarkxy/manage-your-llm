@@ -19,6 +19,21 @@ export function registerErrorHandler(app: FastifyInstance): void {
       reply.status(statusFor(err)).send(err.toClientShape());
       return;
     }
+    // Map well-known driver-level errors to actionable client responses before
+    // falling back to the generic 500. Right now the only one we see in
+    // practice is a UNIQUE constraint failure on libsql/SQLite — surface which
+    // table/index tripped so the admin can see what they double-submitted.
+    if (isLibsqlUniqueError(err)) {
+      req.log.warn({ err }, 'uniqueness conflict');
+      reply.status(409).send({
+        error: {
+          message: `uniqueness conflict: ${err.message.split('\n')[0]}`,
+          type: 'uniqueness_conflict',
+          code: 'uniqueness_conflict',
+        },
+      });
+      return;
+    }
     req.log.error({ err }, 'unhandled error');
     reply.status(500).send({
       error: {
@@ -28,6 +43,15 @@ export function registerErrorHandler(app: FastifyInstance): void {
       },
     });
   });
+}
+
+function isLibsqlUniqueError(err: unknown): err is Error & { code: string; rawCode?: number } {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { code?: unknown; rawCode?: unknown; name?: unknown };
+  return (
+    e.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+    (e.name === 'LibsqlError' && e.rawCode === 2067)
+  );
 }
 
 function statusFor(err: unknown): number {

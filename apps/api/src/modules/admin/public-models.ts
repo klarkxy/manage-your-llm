@@ -182,6 +182,11 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
     };
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     assertTargetName(name);
+    // Routing is case-insensitive and `findPublicModelByName` now prefers
+    // exact case. Force the stored PM name to lowercase so admin-typed mixed
+    // case (e.g. `MiniMax-M3`) and discover-supplied lowercase (e.g.
+    // `minimax-m3`) collapse to the same canonical name in the DB.
+    const storedName = name.toLowerCase();
     const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : null;
     const description = typeof body.description === 'string' ? body.description.trim() : null;
     const id = generateId('publicModel');
@@ -253,7 +258,7 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
       }
       await tx.insert(publicModels).values({
         id,
-        name,
+        name: storedName,
         displayName,
         description,
         enabled: true,
@@ -262,7 +267,7 @@ export function registerPublicModelRoutes(app: FastifyInstance, deps: PublicMode
       });
       await tx.insert(targetNames).values({
         id: `tn_${generateId('publicModel').slice(-8)}`,
-        name,
+        name: storedName,
         targetType: 'public_model',
         targetId: id,
         createdAt: now,
