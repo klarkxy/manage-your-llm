@@ -475,10 +475,6 @@ const messages: Messages = {
         plan: '规划',
         cheap: '低价',
       },
-      regions: {
-        international: '国际',
-        domestic: '国内',
-      },
     },
     validation: {
       required: '名称为必填项',
@@ -728,7 +724,6 @@ const messages: Messages = {
     },
     modelReference: {
       title: '模型参考',
-      defaultRegion: '默认参考区域',
       autoPreset: '默认自动模式',
       autoTopN: '默认自动 Top N',
       autoWeights: '默认自动权重',

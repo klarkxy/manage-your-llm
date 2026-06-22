@@ -6,7 +6,6 @@ import {
   NCard,
   NDataTable,
   NEmpty,
-  NSelect,
   NSpace,
   NTag,
   NText,
@@ -19,13 +18,11 @@ import {
   type ModelReferenceSyncStatus,
 } from '../api/admin.js';
 
-type ReferenceRegion = 'international' | 'domestic';
 type SortOrder = 'ascend' | 'descend' | false;
 type SortState = { columnKey: string | number; order: SortOrder } | null;
 
 const { t } = useI18n();
 const message = useMessage();
-const region = ref<ReferenceRegion>('international');
 const loading = ref(false);
 const refreshing = ref(false);
 const items = ref<ModelReferenceEntry[]>([]);
@@ -33,11 +30,6 @@ const sync = ref<ModelReferenceSyncStatus[]>([]);
 const sortState = ref<SortState>(null);
 const page = ref(1);
 const pageSize = ref(20);
-
-const regionOptions = computed(() => [
-  { label: t('modelGroups.drawer.regions.international'), value: 'international' },
-  { label: t('modelGroups.drawer.regions.domestic'), value: 'domestic' },
-]);
 
 const preferredScoreKeys = [
   'intelligence',
@@ -50,10 +42,6 @@ const preferredScoreKeys = [
   'agentic',
   'costEfficiency',
 ] as const;
-
-function fmtDate(value: string | null): string {
-  return value ? new Date(value).toLocaleString() : '-';
-}
 
 function score(entry: ModelReferenceEntry, key: string): string {
   const value = entry.scores[key];
@@ -155,7 +143,7 @@ const scoreKeys = computed(() => {
 async function refreshList(): Promise<void> {
   loading.value = true;
   try {
-    const res = await modelReferenceApi.list(region.value);
+    const res = await modelReferenceApi.list();
     items.value = res.items;
     sync.value = res.sync;
     page.value = 1;
@@ -169,7 +157,7 @@ async function refreshList(): Promise<void> {
 async function refreshRemote(): Promise<void> {
   refreshing.value = true;
   try {
-    const res = await modelReferenceApi.refresh(region.value, true);
+    const res = await modelReferenceApi.refresh(true);
     items.value = res.items.items;
     sync.value = res.items.sync;
     page.value = 1;
@@ -263,6 +251,10 @@ const columns = computed<DataTableColumns<ModelReferenceEntry>>(() => [
     sortOrder: sortState.value?.columnKey === 'contextWindow' ? sortState.value.order : false,
   },
 ]);
+
+function syncLabel(row: ModelReferenceSyncStatus): string {
+  return row.lastError ? `${row.status}: ${row.lastError}` : row.status;
+}
 </script>
 
 <template>
@@ -271,12 +263,6 @@ const columns = computed<DataTableColumns<ModelReferenceEntry>>(() => [
       <NSpace align="center" justify="space-between" style="margin-bottom: 16px">
         <NSpace align="center">
           <NText strong>{{ t('modelReference.title') }}</NText>
-          <NSelect
-            v-model:value="region"
-            :options="regionOptions"
-            style="width: 150px"
-            @update:value="refreshList"
-          />
         </NSpace>
         <NButton type="primary" :loading="refreshing" @click="refreshRemote">
           {{ t('modelReference.refresh') }}
@@ -285,7 +271,7 @@ const columns = computed<DataTableColumns<ModelReferenceEntry>>(() => [
 
       <NSpace v-if="sync.length > 0" style="margin-bottom: 12px">
         <NTag v-for="row in sync" :key="`${row.region}:${row.source}`" size="small">
-          {{ row.source }} · {{ row.status }} · {{ fmtDate(row.lastRefreshAt) }}
+          {{ syncLabel(row) }}
         </NTag>
       </NSpace>
 

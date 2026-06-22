@@ -124,7 +124,6 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
       members?: unknown;
       mode?: unknown;
       autoPreset?: unknown;
-      autoReferenceRegion?: unknown;
       autoWeights?: unknown;
       autoTopN?: unknown;
     };
@@ -145,11 +144,7 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
       : isAutoGroupPreset(settingRow?.modelReferenceAutoPreset)
         ? settingRow.modelReferenceAutoPreset
         : 'balanced';
-    const autoReferenceRegion = isReferenceRegion(body.autoReferenceRegion)
-      ? body.autoReferenceRegion
-      : isReferenceRegion(settingRow?.modelReferenceDefaultRegion)
-        ? settingRow.modelReferenceDefaultRegion
-        : 'international';
+    const autoReferenceRegion = 'global' as const;
     const autoTopN =
       typeof body.autoTopN === 'number'
         ? Math.max(1, Math.min(20, Math.round(body.autoTopN)))
@@ -415,9 +410,7 @@ export function registerModelGroupRoutes(app: FastifyInstance, deps: ModelGroupR
       throw new ValidationError('model group is not an auto snapshot group');
     }
     const preset = isAutoGroupPreset(existing.autoPreset) ? existing.autoPreset : 'balanced';
-    const region = isReferenceRegion(existing.autoReferenceRegion)
-      ? existing.autoReferenceRegion
-      : 'international';
+    const region = isReferenceRegion(existing.autoReferenceRegion) ? existing.autoReferenceRegion : 'global';
     const weights = existing.autoWeightsJson ? JSON.parse(existing.autoWeightsJson) : undefined;
     const topN = existing.autoTopN ?? 5;
     const result = await applyAutoGroupSnapshot(db, {

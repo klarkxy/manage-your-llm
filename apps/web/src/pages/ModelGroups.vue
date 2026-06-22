@@ -43,7 +43,6 @@ const drawerOpen = ref(false);
 const submitting = ref(false);
 const previewLoading = ref(false);
 const autoPreview = ref<AutoGroupRecommendation[]>([]);
-const defaultReferenceRegion = ref<'international' | 'domestic'>('international');
 const defaultAutoPreset = ref('balanced');
 const defaultAutoTopN = ref(5);
 const defaultAutoWeights = ref<Record<string, number>>({});
@@ -58,7 +57,6 @@ const form = ref<ModelGroupCreatePayload>({
   routingPolicy: 'priority',
   mode: 'manual',
   autoPreset: 'balanced',
-  autoReferenceRegion: 'international',
   autoTopN: 5,
   autoWeights: {},
 });
@@ -72,7 +70,6 @@ function resetForm() {
     routingPolicy: 'priority',
     mode: 'manual',
     autoPreset: defaultAutoPreset.value,
-    autoReferenceRegion: defaultReferenceRegion.value,
     autoTopN: defaultAutoTopN.value,
     autoWeights: { ...defaultAutoWeights.value },
   };
@@ -90,7 +87,6 @@ async function refresh() {
     ]);
     items.value = res.items;
     publicModelOptions.value = pmRes.items;
-    defaultReferenceRegion.value = settings.modelReference.defaultRegion;
     defaultAutoPreset.value = settings.modelReference.autoPreset;
     defaultAutoTopN.value = settings.modelReference.autoTopN;
     defaultAutoWeights.value = settings.modelReference.autoWeights;
@@ -183,7 +179,6 @@ async function onSubmit() {
       ...(form.value.mode === 'auto_snapshot'
         ? {
             autoPreset: form.value.autoPreset,
-            autoReferenceRegion: form.value.autoReferenceRegion,
             autoTopN: form.value.autoTopN,
             autoWeights: form.value.autoWeights,
           }
@@ -211,7 +206,6 @@ async function previewAutoMembers() {
   previewLoading.value = true;
   try {
     const res = await modelGroupsApi.autoPreview({
-      region: form.value.autoReferenceRegion ?? defaultReferenceRegion.value,
       preset: form.value.autoPreset ?? 'balanced',
       weights: form.value.autoWeights,
       topN: form.value.autoTopN ?? 5,
@@ -310,11 +304,6 @@ const modeOptions = computed(() => [
   { label: t('modelGroups.drawer.autoMode'), value: 'auto_snapshot' },
 ]);
 
-const regionOptions = computed(() => [
-  { label: t('modelGroups.drawer.regions.international'), value: 'international' },
-  { label: t('modelGroups.drawer.regions.domestic'), value: 'domestic' },
-]);
-
 const presetOptions = computed(() => [
   { label: t('modelGroups.drawer.presets.balanced'), value: 'balanced' },
   { label: t('modelGroups.drawer.presets.chat'), value: 'chat' },
@@ -376,9 +365,6 @@ const previewColumns = computed<DataTableColumns<AutoGroupRecommendation>>(() =>
             <NSelect v-model:value="form.mode" :options="modeOptions" />
           </NFormItem>
           <template v-if="form.mode === 'auto_snapshot'">
-            <NFormItem :label="t('modelGroups.drawer.autoRegion')">
-              <NSelect v-model:value="form.autoReferenceRegion" :options="regionOptions" />
-            </NFormItem>
             <NFormItem :label="t('modelGroups.drawer.autoPreset')">
               <NSelect v-model:value="form.autoPreset" :options="presetOptions" />
             </NFormItem>

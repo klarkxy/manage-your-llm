@@ -67,11 +67,7 @@ export const adminSettings = sqliteTable('admin_settings', {
   contentLogEnabled: integer('content_log_enabled', { mode: 'boolean' }).notNull().default(false),
   contentLogRetentionDays: integer('content_log_retention_days').notNull().default(7),
   contentLogMaxPayloadBytes: integer('content_log_max_payload_bytes').notNull().default(100_000),
-  modelReferenceDefaultRegion: text('model_reference_default_region', {
-    enum: ['international', 'domestic'] as const,
-  })
-    .notNull()
-    .default('international'),
+  modelReferenceDefaultRegion: text('model_reference_default_region').notNull().default('global'),
   modelReferenceAutoPreset: text('model_reference_auto_preset').notNull().default('balanced'),
   modelReferenceAutoWeightsJson: text('model_reference_auto_weights_json'),
   modelReferenceAutoTopN: integer('model_reference_auto_top_n').notNull().default(5),
@@ -366,9 +362,7 @@ export const modelGroups = sqliteTable('model_groups', {
   roundRobinCounter: integer('round_robin_counter').notNull().default(0),
   mode: text('mode', { enum: ['manual', 'auto_snapshot'] as const }).notNull().default('manual'),
   autoPreset: text('auto_preset'),
-  autoReferenceRegion: text('auto_reference_region', {
-    enum: ['international', 'domestic'] as const,
-  }),
+  autoReferenceRegion: text('auto_reference_region'),
   autoWeightsJson: text('auto_weights_json'),
   autoTopN: integer('auto_top_n'),
   autoLastRefreshedAt: integer('auto_last_refreshed_at', { mode: 'timestamp_ms' }),
@@ -397,18 +391,10 @@ export const modelGroupMembers = sqliteTable(
 
 // --- Model reference data ---
 
-export const MODEL_REFERENCE_REGIONS = ['international', 'domestic'] as const;
+export const MODEL_REFERENCE_REGIONS = ['global'] as const;
 export type ModelReferenceRegion = (typeof MODEL_REFERENCE_REGIONS)[number];
 
-export const MODEL_REFERENCE_SOURCES = [
-  'openrouter',
-  'artificial_analysis',
-  'arena',
-  'aider',
-  'opencompass',
-  'superclue',
-  'manual',
-] as const;
+export const MODEL_REFERENCE_SOURCES = ['datalearner'] as const;
 export type ModelReferenceSource = (typeof MODEL_REFERENCE_SOURCES)[number];
 
 export const modelReferenceEntries = sqliteTable(

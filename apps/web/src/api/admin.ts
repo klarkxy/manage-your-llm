@@ -331,7 +331,7 @@ export interface ModelGroup {
   routingPolicy: string;
   mode: 'manual' | 'auto_snapshot';
   autoPreset: string | null;
-  autoReferenceRegion: 'international' | 'domestic' | null;
+  autoReferenceRegion: string | null;
   autoWeights: Record<string, number> | null;
   autoTopN: number | null;
   autoLastRefreshedAt: string | null;
@@ -348,7 +348,6 @@ export interface ModelGroupCreatePayload {
   routingPolicy?: string;
   mode?: 'manual' | 'auto_snapshot';
   autoPreset?: string;
-  autoReferenceRegion?: 'international' | 'domestic';
   autoWeights?: Record<string, number>;
   autoTopN?: number;
   members?: Array<{
@@ -371,7 +370,6 @@ export const modelGroupsApi = {
       members: members ?? [],
     }),
   autoPreview: (payload: {
-    region: 'international' | 'domestic';
     preset: string;
     weights?: Record<string, number>;
     topN?: number;
@@ -391,7 +389,7 @@ export const modelGroupsApi = {
 
 export interface ModelReferenceEntry {
   id: string;
-  region: 'international' | 'domestic';
+  region: string;
   source: string;
   normalizedModelName: string;
   sourceModelId: string;
@@ -409,7 +407,7 @@ export interface ModelReferenceEntry {
 }
 
 export interface ModelReferenceSyncStatus {
-  region: 'international' | 'domestic';
+  region: string;
   source: string;
   status: 'idle' | 'refreshing' | 'success' | 'error';
   lastRefreshAt: string | null;
@@ -444,12 +442,11 @@ export interface AutoGroupRecommendation {
 }
 
 export const modelReferenceApi = {
-  list: (region: 'international' | 'domestic') =>
-    api.get<ModelReferenceResponse>(`/api/admin/model-reference?region=${region}`),
-  refresh: (region: 'international' | 'domestic', force = true) =>
-    api.post<{ refreshed: boolean; source: string; items: ModelReferenceResponse }>(
+  list: () => api.get<ModelReferenceResponse>('/api/admin/model-reference'),
+  refresh: (force = true) =>
+    api.post<{ refreshed: boolean; sources: string[]; items: ModelReferenceResponse }>(
       '/api/admin/model-reference/refresh',
-      { region, force },
+      { force },
     ),
 };
 
@@ -742,7 +739,6 @@ export interface SettingsResponse {
   streaming: StreamingSettings;
   contentLogging: ContentLogSettings;
   modelReference: {
-    defaultRegion: 'international' | 'domestic';
     autoPreset: string;
     autoWeights: Record<string, number>;
     autoTopN: number;
@@ -773,7 +769,6 @@ export const settingsApi = {
     streaming?: Partial<StreamingSettings>;
     contentLogging?: Partial<ContentLogSettings>;
     modelReference?: {
-      defaultRegion?: 'international' | 'domestic';
       autoPreset?: string;
       autoWeights?: Record<string, number>;
       autoTopN?: number;

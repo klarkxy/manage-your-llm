@@ -476,10 +476,6 @@ const messages = {
         plan: 'Plan',
         cheap: 'Cheap',
       },
-      regions: {
-        international: 'International',
-        domestic: 'Domestic',
-      },
     },
     validation: {
       required: 'Name is required',
@@ -730,7 +726,6 @@ const messages = {
     },
     modelReference: {
       title: 'Model reference',
-      defaultRegion: 'Default reference region',
       autoPreset: 'Default auto preset',
       autoTopN: 'Default auto Top N',
       autoWeights: 'Default auto weights',

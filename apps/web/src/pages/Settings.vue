@@ -60,7 +60,6 @@ const endpointHealthSettings = ref<EndpointHealthSettings | null>(null);
 const streamingSettings = ref<StreamingSettings | null>(null);
 const contentLogSettings = ref<ContentLogSettings | null>(null);
 const modelReferenceSettings = ref<{
-  defaultRegion: 'international' | 'domestic';
   autoPreset: string;
   autoWeights: Record<string, number>;
   autoTopN: number;
@@ -326,11 +325,6 @@ const breakerColumns = computed<DataTableColumns<CircuitBreakerItem>>(() => [
 
 const username = computed(() => profile.value?.username ?? '');
 
-const referenceRegionOptions = computed(() => [
-  { label: t('modelGroups.drawer.regions.international'), value: 'international' },
-  { label: t('modelGroups.drawer.regions.domestic'), value: 'domestic' },
-]);
-
 const autoPresetOptions = computed(() => [
   { label: t('modelGroups.drawer.presets.balanced'), value: 'balanced' },
   { label: t('modelGroups.drawer.presets.chat'), value: 'chat' },
@@ -511,13 +505,6 @@ const autoWeightKeys = [
       <NCard :title="t('settings.modelReference.title')">
         <NSpin v-if="!modelReferenceSettings" />
         <NForm v-else label-placement="top" style="max-width: 640px">
-          <NFormItem :label="t('settings.modelReference.defaultRegion')">
-            <NSelect
-              v-model:value="modelReferenceSettings.defaultRegion"
-              :options="referenceRegionOptions"
-              style="width: 220px"
-            />
-          </NFormItem>
           <NFormItem :label="t('settings.modelReference.autoPreset')">
             <NSelect
               v-model:value="modelReferenceSettings.autoPreset"

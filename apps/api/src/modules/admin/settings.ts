@@ -16,7 +16,6 @@ import {
 } from '../observability/content-logs.js';
 import {
   isAutoGroupPreset,
-  isReferenceRegion,
   normalizeAutoWeights,
   type AutoGroupWeights,
 } from './model-reference.js';
@@ -56,7 +55,6 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
         maxPayloadBytes: contentLog.maxPayloadBytes,
       },
       modelReference: {
-        defaultRegion: row?.modelReferenceDefaultRegion ?? 'international',
         autoPreset: row?.modelReferenceAutoPreset ?? 'balanced',
         autoWeights: row?.modelReferenceAutoWeightsJson
           ? JSON.parse(row.modelReferenceAutoWeightsJson) as AutoGroupWeights
@@ -86,7 +84,6 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
       };
       contentLogging?: Partial<ContentLogSettings>;
       modelReference?: {
-        defaultRegion?: unknown;
         autoPreset?: unknown;
         autoWeights?: unknown;
         autoTopN?: unknown;
@@ -132,9 +129,6 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
     if (typeof clInput.maxPayloadBytes === 'number') {
       values.contentLogMaxPayloadBytes = Math.max(0, Math.round(clInput.maxPayloadBytes));
     }
-    if (isReferenceRegion(mrInput.defaultRegion)) {
-      values.modelReferenceDefaultRegion = mrInput.defaultRegion;
-    }
     if (isAutoGroupPreset(mrInput.autoPreset)) {
       values.modelReferenceAutoPreset = mrInput.autoPreset;
     }
@@ -179,7 +173,6 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
         maxPayloadBytes: contentLog.maxPayloadBytes,
       },
       modelReference: {
-        defaultRegion: row?.modelReferenceDefaultRegion ?? 'international',
         autoPreset: row?.modelReferenceAutoPreset ?? 'balanced',
         autoWeights: row?.modelReferenceAutoWeightsJson
           ? JSON.parse(row.modelReferenceAutoWeightsJson) as AutoGroupWeights
