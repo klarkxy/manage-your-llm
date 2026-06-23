@@ -560,4 +560,191 @@ describe('UpstreamKeys page', () => {
     );
     expect(healthCall).toBeTruthy();
   });
+
+  it('starts a codex OAuth flow via the OAuth init endpoint', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/api/admin/upstream-keys') && (!init || init.method === 'GET')) {
+        return jsonResponse({ items: [upstreamKey()] });
+      }
+      if (url.endsWith('/api/admin/provider-presets')) return jsonResponse({ items: [] });
+      if (url.endsWith('/api/admin/upstream-endpoint-health')) return jsonResponse({ items: [] });
+      if (url.endsWith('/api/admin/upstream-keys/oauth-init') && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as { provider?: string; authType?: string };
+        expect(body.provider).toBe('codex');
+        expect(body.authType).toBe('codex_oauth');
+        return jsonResponse({
+          authorizationUrl: 'https://auth.codex.test/oauth?state=xyz',
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    // Stub window.open so we can assert the URL gets passed through.
+    const openSpy = vi.fn();
+    const originalOpen = window.open;
+    window.open = openSpy;
+
+    const { wrapper } = await mountUpstreamKeys();
+    await flushPromises();
+
+    const vm = wrapper.findComponent(UpstreamKeys).vm as unknown as {
+      authType: string;
+      form: { name: string; baseUrl?: string };
+      selectedPresetId: string | null;
+      startOAuth: () => Promise<void>;
+    };
+    vm.authType = 'codex_oauth';
+    // On the test VM the `form` ref auto-unwraps to a plain object, but
+    // reassigning the whole ref re-establishes the reactive link.
+    vm.form = { ...vm.form, name: 'Codex Key', baseUrl: 'https://api.codex.test' };
+    vm.selectedPresetId = null;
+    await vm.startOAuth();
+    await flushPromises();
+
+    const initCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).endsWith('/api/admin/upstream-keys/oauth-init') &&
+        (init as RequestInit | undefined)?.method === 'POST',
+    );
+    expect(initCall).toBeTruthy();
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://auth.codex.test/oauth?state=xyz',
+      '_blank',
+    );
+
+    window.open = originalOpen;
+  });
+
+  it('starts a coze PKCE OAuth flow via the OAuth init endpoint', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/api/admin/upstream-keys') && (!init || init.method === 'GET')) {
+        return jsonResponse({ items: [upstreamKey()] });
+      }
+      if (url.endsWith('/api/admin/provider-presets')) return jsonResponse({ items: [] });
+      if (url.endsWith('/api/admin/upstream-endpoint-health')) return jsonResponse({ items: [] });
+      if (url.endsWith('/api/admin/upstream-keys/oauth-init') && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as {
+          provider?: string;
+          draft?: { name?: string };
+        };
+        expect(body.provider).toBe('coze');
+        expect(body.draft?.name).toBe('Coze Key');
+        return jsonResponse({
+          authorizationUrl: 'https://auth.coze.test/oauth?state=abc',
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const openSpy = vi.fn();
+    const originalOpen = window.open;
+    window.open = openSpy;
+
+    const { wrapper } = await mountUpstreamKeys();
+    await flushPromises();
+
+    const vm = wrapper.findComponent(UpstreamKeys).vm as unknown as {
+      authType: string;
+      form: { name: string; baseUrl?: string };
+      selectedPresetId: string | null;
+      workspaceId: string;
+      cozePkceConfig: { clientId: string; redirectUri: string };
+      startOAuth: () => Promise<void>;
+    };
+    vm.authType = 'coze_oauth_pkce';
+    vm.form = { ...vm.form, name: 'Coze Key', baseUrl: 'https://api.coze.test' };
+    vm.selectedPresetId = null;
+    vm.workspaceId = 'ws-1';
+    vm.cozePkceConfig = { clientId: 'coze-client', redirectUri: 'http://localhost/cb' };
+    await vm.startOAuth();
+    await flushPromises();
+
+    const initCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).endsWith('/api/admin/upstream-keys/oauth-init') &&
+        (init as RequestInit | undefined)?.method === 'POST',
+    );
+    expect(initCall).toBeTruthy();
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://auth.coze.test/oauth?state=abc',
+      '_blank',
+    );
+
+    window.open = originalOpen;
+  });
+
+  it('calls the discover-models endpoint through handleFetchModels', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/api/admin/upstream-keys') && (!init || init.method === 'GET')) {
+        return jsonResponse({ items: [upstreamKey()] });
+      }
+      if (url.endsWith('/api/admin/provider-presets')) return jsonResponse({ items: [] });
+      if (url.endsWith('/api/admin/upstream-endpoint-health')) return jsonResponse({ items: [] });
+      if (url.endsWith('/api/admin/upstream-keys/discover-models') && init?.method === 'POST') {
+        return jsonResponse({
+          items: [
+            { realName: 'free-model', publicName: 'free-model' },
+          ],
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { wrapper } = await mountUpstreamKeys();
+    await flushPromises();
+
+    const vm = wrapper.findComponent(UpstreamKeys).vm as unknown as {
+      form: { baseUrl?: string; apiKey?: string };
+      canFetchModels: boolean;
+      handleFetchModels: () => Promise<void>;
+    };
+    // Reassign the form so the reactive ref sees the new baseUrl + apiKey;
+    // canFetchModels is computed from these.
+    vm.form = { ...vm.form, baseUrl: 'https://api.test', apiKey: 'sk-test' };
+    expect(vm.canFetchModels).toBe(true);
+    await vm.handleFetchModels();
+    await flushPromises();
+
+    const discoverCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).endsWith('/api/admin/upstream-keys/discover-models') &&
+        (init as RequestInit | undefined)?.method === 'POST',
+    );
+    expect(discoverCall).toBeTruthy();
+  });
+
+  it('rejects handleFetchModels when canFetchModels is false', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/api/admin/upstream-keys') && (!init || init.method === 'GET')) {
+        return jsonResponse({ items: [upstreamKey()] });
+      }
+      if (url.endsWith('/api/admin/provider-presets')) return jsonResponse({ items: [] });
+      if (url.endsWith('/api/admin/upstream-endpoint-health')) return jsonResponse({ items: [] });
+      return jsonResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { wrapper } = await mountUpstreamKeys();
+    await flushPromises();
+
+    const vm = wrapper.findComponent(UpstreamKeys).vm as unknown as {
+      canFetchModels: boolean;
+      handleFetchModels: () => Promise<void>;
+    };
+    // canFetchModels defaults to false because baseUrl is empty and there is
+    // no api key; this should short-circuit handleFetchModels.
+    expect(vm.canFetchModels).toBe(false);
+    await vm.handleFetchModels();
+    await flushPromises();
+
+    const discoverCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).endsWith('/api/admin/upstream-keys/discover-models') &&
+        (init as RequestInit | undefined)?.method === 'POST',
+    );
+    expect(discoverCall).toBeFalsy();
+  });
 });

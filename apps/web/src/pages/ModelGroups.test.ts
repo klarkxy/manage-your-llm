@@ -276,4 +276,176 @@ describe('ModelGroups page', () => {
       autoWeights: { coding: 2 },
     });
   });
+
+  it('refreshes an auto-snapshot group via the per-group refresh endpoint', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/api/admin/model-groups') && (!init || init.method === 'GET')) {
+        return jsonResponse({
+          items: [
+            {
+              id: 'grp_auto',
+              name: 'auto-coder',
+              displayName: 'Auto Coder',
+              description: null,
+              enabled: true,
+              routingPolicy: 'priority',
+              mode: 'auto_snapshot',
+              autoPreset: 'code',
+              autoReferenceRegion: 'global',
+              autoWeights: { coding: 1 },
+              autoTopN: 1,
+              autoLastRefreshedAt: null,
+              memberCount: 1,
+              createdAt: '2026-06-22T00:00:00.000Z',
+              updatedAt: '2026-06-22T00:00:00.000Z',
+            },
+          ],
+        });
+      }
+      if (url.endsWith('/api/admin/public-models')) {
+        return jsonResponse({ items: [] });
+      }
+      if (url.endsWith('/api/admin/settings')) {
+        return jsonResponse({
+          circuitBreaker: {
+            enabled: true,
+            failureThreshold: 5,
+            baseCooldownMs: 1000,
+            maxCooldownMs: 60000,
+            halfOpenSuccessCount: 2,
+          },
+          endpointHealth: {
+            probeEnabled: true,
+            probeIntervalMs: 60000,
+            probeTimeoutMs: 2000,
+            degradedLatencyMs: 3000,
+          },
+          streaming: { firstTokenTimeoutMs: 10000 },
+          contentLogging: { enabled: false, retentionDays: 7, maxPayloadBytes: 8192 },
+          modelReference: { autoPreset: 'code', autoWeights: { coding: 2 }, autoTopN: 3 },
+        });
+      }
+      if (url.endsWith('/api/admin/model-groups/grp_auto/refresh-auto') && init?.method === 'POST') {
+        return jsonResponse({
+          id: 'grp_auto',
+          name: 'auto-coder',
+          displayName: 'Auto Coder',
+          description: null,
+          enabled: true,
+          routingPolicy: 'priority',
+          mode: 'auto_snapshot',
+          autoPreset: 'code',
+          autoReferenceRegion: 'global',
+          autoWeights: { coding: 1 },
+          autoTopN: 1,
+          autoLastRefreshedAt: '2026-06-23T00:00:00.000Z',
+          memberCount: 1,
+          createdAt: '2026-06-22T00:00:00.000Z',
+          updatedAt: '2026-06-23T00:00:00.000Z',
+          members: [
+            {
+              publicModelId: 'pm_1',
+              publicModelName: 'claude-public',
+              displayName: 'Claude Public',
+              priority: 10,
+              weight: 100,
+              enabled: true,
+            },
+          ],
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const wrapper = mountModelGroups();
+    await flushPromises();
+
+    const vm = wrapper.findComponent(ModelGroups).vm as unknown as {
+      refreshAuto: (row: { id: string; mode: string }) => Promise<void>;
+    };
+    await vm.refreshAuto({ id: 'grp_auto', mode: 'auto_snapshot' });
+    await flushPromises();
+
+    const refreshCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).endsWith('/api/admin/model-groups/grp_auto/refresh-auto') &&
+        (init as RequestInit | undefined)?.method === 'POST',
+    );
+    expect(refreshCall).toBeTruthy();
+    // The success toast is rendered through Naive UI's message provider;
+    // since the toast itself is in a portal we only check the call landed.
+  });
+
+  it('deletes a model group via the delete popconfirm', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/api/admin/model-groups') && (!init || init.method === 'GET')) {
+        return jsonResponse({
+          items: [
+            {
+              id: 'grp_1',
+              name: 'coding',
+              displayName: 'Coding',
+              description: null,
+              enabled: true,
+              routingPolicy: 'priority',
+              mode: 'manual',
+              autoPreset: null,
+              autoReferenceRegion: null,
+              autoWeights: null,
+              autoTopN: null,
+              autoLastRefreshedAt: null,
+              memberCount: 1,
+              createdAt: '2026-06-22T00:00:00.000Z',
+              updatedAt: '2026-06-22T00:00:00.000Z',
+            },
+          ],
+        });
+      }
+      if (url.endsWith('/api/admin/public-models')) {
+        return jsonResponse({ items: [] });
+      }
+      if (url.endsWith('/api/admin/settings')) {
+        return jsonResponse({
+          circuitBreaker: {
+            enabled: true,
+            failureThreshold: 5,
+            baseCooldownMs: 1000,
+            maxCooldownMs: 60000,
+            halfOpenSuccessCount: 2,
+          },
+          endpointHealth: {
+            probeEnabled: true,
+            probeIntervalMs: 60000,
+            probeTimeoutMs: 2000,
+            degradedLatencyMs: 3000,
+          },
+          streaming: { firstTokenTimeoutMs: 10000 },
+          contentLogging: { enabled: false, retentionDays: 7, maxPayloadBytes: 8192 },
+          modelReference: { autoPreset: 'code', autoWeights: { coding: 2 }, autoTopN: 3 },
+        });
+      }
+      if (url.endsWith('/api/admin/model-groups/grp_1') && init?.method === 'DELETE') {
+        return new Response(null, { status: 204 });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const wrapper = mountModelGroups();
+    await flushPromises();
+
+    const vm = wrapper.findComponent(ModelGroups).vm as unknown as {
+      remove: (row: { id: string }) => Promise<void>;
+    };
+    await vm.remove({ id: 'grp_1' });
+    await flushPromises();
+
+    const deleteCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).endsWith('/api/admin/model-groups/grp_1') &&
+        (init as RequestInit | undefined)?.method === 'DELETE',
+    );
+    expect(deleteCall).toBeTruthy();
+  });
 });

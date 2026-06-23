@@ -132,4 +132,80 @@ describe('consumer keys admin', () => {
     });
     expect(res.statusCode).toBeGreaterThanOrEqual(400);
   });
+
+  it('lists consumer keys for an app and returns 404 on unknown appId', async () => {
+    const refs = await seedFullRoute(rig);
+    const list = await rig.app.inject({
+      method: 'GET',
+      url: `/api/admin/apps/${refs.appId}/consumer-keys`,
+      headers: { cookie: rig.cookie },
+    });
+    expect(list.statusCode).toBe(200);
+    const body = list.json() as { items: Array<{ id: string }> };
+    expect(body.items.length).toBeGreaterThanOrEqual(1);
+    expect(body.items[0]?.id).toBe(refs.consumerKeyId);
+
+    const missing = await rig.app.inject({
+      method: 'GET',
+      url: '/api/admin/apps/app_doesnotexist/consumer-keys',
+      headers: { cookie: rig.cookie },
+    });
+    expect(missing.statusCode).toBe(404);
+  });
+
+  it('rejects access to non-existent target on PUT access', async () => {
+    const refs = await seedFullRoute(rig);
+    const put = await rig.app.inject({
+      method: 'PUT',
+      url: '/api/admin/consumer-keys/' + refs.consumerKeyId + '/access',
+      headers: { cookie: rig.cookie },
+      payload: {
+        access: [{ targetType: 'public_model', targetId: 'pm_doesnotexist' }],
+      },
+    });
+    expect(put.statusCode).toBeGreaterThanOrEqual(400);
+  });
+
+  it('PUT access on a non-existent consumer key returns 404', async () => {
+    const put = await rig.app.inject({
+      method: 'PUT',
+      url: '/api/admin/consumer-keys/ck_doesnotexist/access',
+      headers: { cookie: rig.cookie },
+      payload: { access: [] },
+    });
+    expect(put.statusCode).toBe(404);
+  });
+
+  it('PUT access with non-array body returns 400', async () => {
+    const refs = await seedFullRoute(rig);
+    const put = await rig.app.inject({
+      method: 'PUT',
+      url: '/api/admin/consumer-keys/' + refs.consumerKeyId + '/access',
+      headers: { cookie: rig.cookie },
+      payload: { access: 'not-an-array' },
+    });
+    expect(put.statusCode).toBeGreaterThanOrEqual(400);
+  });
+
+  it('PUT access rejects an entry without targetType/targetId', async () => {
+    const refs = await seedFullRoute(rig);
+    const put = await rig.app.inject({
+      method: 'PUT',
+      url: '/api/admin/consumer-keys/' + refs.consumerKeyId + '/access',
+      headers: { cookie: rig.cookie },
+      payload: { access: [{ foo: 'bar' }] },
+    });
+    expect(put.statusCode).toBeGreaterThanOrEqual(400);
+  });
+
+  it('PUT access rejects an entry with an unknown targetType', async () => {
+    const refs = await seedFullRoute(rig);
+    const put = await rig.app.inject({
+      method: 'PUT',
+      url: '/api/admin/consumer-keys/' + refs.consumerKeyId + '/access',
+      headers: { cookie: rig.cookie },
+      payload: { access: [{ targetType: 'unknown_type', targetId: 'x' }] },
+    });
+    expect(put.statusCode).toBeGreaterThanOrEqual(400);
+  });
 });

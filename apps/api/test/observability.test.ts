@@ -223,6 +223,31 @@ describe('usage aggregation API', () => {
     expect(body.totalRequests).toBe(0);
     expect(body.successfulRequests).toBe(0);
     expect(body.failedRequests).toBe(0);
+
+    // Each breakdown endpoint returns an empty items list.
+    for (const path of [
+      '/api/admin/usage/by-app',
+      '/api/admin/usage/by-consumer-key',
+      '/api/admin/usage/by-upstream-key',
+      '/api/admin/usage/by-target',
+    ]) {
+      const res = await rig.app.inject({
+        method: 'GET',
+        url: `${path}?window=today`,
+        headers: { cookie: rig.cookie },
+      });
+      expect(res.statusCode).toBe(200);
+      expect((res.json() as { items: unknown[] }).items).toEqual([]);
+    }
+
+    // Recent requests returns an empty list as well.
+    const recent = await rig.app.inject({
+      method: 'GET',
+      url: '/api/admin/usage/recent?limit=10',
+      headers: { cookie: rig.cookie },
+    });
+    expect(recent.statusCode).toBe(200);
+    expect((recent.json() as { items: unknown[] }).items).toEqual([]);
   });
 
   it('aggregates by app and by upstream key when usage records exist', async () => {

@@ -149,4 +149,39 @@ describe('Overview page', () => {
     await flushPromises();
     expect(router.currentRoute.value.path).toBe('/upstream-keys');
   });
+
+  it('navigates to /public-models and /apps via the next-step buttons', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (url: string) => {
+        if (
+          url.endsWith('/apps') ||
+          url.endsWith('/model-groups') ||
+          url.endsWith('/public-models') ||
+          url.endsWith('/upstream-keys') ||
+          url.includes('/consumption/daily')
+        ) {
+          return jsonResponse({ items: [] });
+        }
+        return jsonResponse({});
+      }),
+    );
+
+    const { wrapper, router } = mountOverview();
+    await flushPromises();
+
+    const publicModelsBtn = wrapper.findAll('button').find((b) =>
+      /public models/i.test(b.text()),
+    );
+    expect(publicModelsBtn).toBeTruthy();
+    await publicModelsBtn!.trigger('click');
+    await flushPromises();
+    expect(router.currentRoute.value.path).toBe('/public-models');
+
+    const appsBtn = wrapper.findAll('button').find((b) => /^apps$/i.test(b.text().trim()));
+    expect(appsBtn).toBeTruthy();
+    await appsBtn!.trigger('click');
+    await flushPromises();
+    expect(router.currentRoute.value.path).toBe('/apps');
+  });
 });

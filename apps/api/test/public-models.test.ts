@@ -197,4 +197,113 @@ describe('public models admin', () => {
     });
     expect(retry.statusCode).toBe(200);
   });
+
+  it('patches the displayName / description / enabled fields on an existing model', async () => {
+    const refs = await seedFullRoute(rig);
+    const created = await rig.app.inject({
+      method: 'POST',
+      url: '/api/admin/public-models',
+      headers: { cookie: rig.cookie },
+      payload: { name: 'ds-patch', displayName: 'Original' },
+    });
+    expect(created.statusCode).toBe(200);
+    const id = (created.json() as { id: string }).id;
+
+    const patched = await rig.app.inject({
+      method: 'PATCH',
+      url: `/api/admin/public-models/${id}`,
+      headers: { cookie: rig.cookie },
+      payload: { displayName: 'Renamed', enabled: false, description: null },
+    });
+    expect(patched.statusCode).toBe(200);
+    const body = patched.json() as { displayName: string; enabled: boolean; description: string | null };
+    expect(body.displayName).toBe('Renamed');
+    expect(body.enabled).toBe(false);
+    expect(body.description).toBeNull();
+
+    // PATCH on an unknown id returns 404.
+    const missing = await rig.app.inject({
+      method: 'PATCH',
+      url: '/api/admin/public-models/pm_does_not_exist',
+      headers: { cookie: rig.cookie },
+      payload: { displayName: 'X' },
+    });
+    expect(missing.statusCode).toBe(404);
+    void refs;
+  });
+
+  it('deletes a public model and its target_names row together', async () => {
+    const refs = await seedFullRoute(rig);
+    void refs;
+    const created = await rig.app.inject({
+      method: 'POST',
+      url: '/api/admin/public-models',
+      headers: { cookie: rig.cookie },
+      payload: {
+        name: 'ds-del',
+        candidates: [{ upstreamKeyId: refs.upstreamKeyId, realModelName: 'ds-v4-flash' }],
+      },
+    });
+    expect(created.statusCode).toBe(200);
+    const id = (created.json() as { id: string }).id;
+
+    const del = await rig.app.inject({
+      method: 'DELETE',
+      url: `/api/admin/public-models/${id}`,
+      headers: { cookie: rig.cookie },
+    });
+    expect(del.statusCode).toBe(200);
+    expect(del.json()).toEqual({ id, deleted: true });
+
+    const tn = await rig.db
+      .select()
+      .from(targetNames)
+      .where(eq(targetNames.targetId, id))
+      .all();
+    expect(tn).toHaveLength(0);
+  });
+
+  it('resets the candidate order to upstream-key-defined priorities', async () => {
+    const refs = await seedFullRoute(rig);
+    const created = await rig.app.inject({
+      method: 'POST',
+      url: '/api/admin/public-models',
+      headers: { cookie: rig.cookie },
+      payload: {
+        name: 'ds-reset',
+        candidates: [
+          { upstreamKeyId: refs.upstreamKeyId, realModelName: 'real-a', priority: 50 },
+        ],
+      },
+    });
+    expect(created.statusCode).toBe(200);
+    const id = (created.json() as { id: string }).id;
+
+    const reset = await rig.app.inject({
+      method: 'POST',
+      url: `/api/admin/public-models/${id}/candidates/reset-order`,
+      headers: { cookie: rig.cookie },
+    });
+    expect(reset.statusCode).toBe(200);
+    const body = reset.json() as { candidates: Array<{ realModelName: string; priority: number }> };
+    expect(body.candidates.length).toBeGreaterThan(0);
+    expect(body.candidates[0]?.realModelName).toBe('real-a');
+
+    // Resetting an unknown id returns 404.
+    const missing = await rig.app.inject({
+      method: 'POST',
+      url: '/api/admin/public-models/pm_does_not_exist/candidates/reset-order',
+      headers: { cookie: rig.cookie },
+    });
+    expect(missing.statusCode).toBe(404);
+  });
+
+  it('returns 404 when GET /:id targets an unknown model', async () => {
+    const missing = await rig.app.inject({
+      method: 'GET',
+      url: '/api/admin/public-models/pm_does_not_exist',
+      headers: { cookie: rig.cookie },
+    });
+    expect(missing.statusCode).toBe(404);
+  });
 });

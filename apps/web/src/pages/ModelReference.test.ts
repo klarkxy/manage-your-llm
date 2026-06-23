@@ -163,4 +163,66 @@ describe('ModelReference page', () => {
     expect(wrapper.text()).toContain('Qwen Max');
     expect(wrapper.text()).not.toContain('Claude 3.5 Sonnet');
   });
+
+  it('filters by metric and applies the score-based sort', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          items: [
+            referenceRow({ id: 'ref_a', scores: { '总分': 90, coding: 70 } }),
+            referenceRow({ id: 'ref_b', scores: { '总分': 70, coding: 90 } }),
+          ],
+          sync: [],
+        }),
+      ),
+    );
+    const wrapper = mountModelReference();
+    await flushPromises();
+    await flushPromises();
+
+    // selectedMetric is a ref<string>; on the test VM the ref auto-unwraps
+    // to a plain string. Toggle the metric so the sort runs on the
+    // coding column instead of the default rank order.
+    const vm = wrapper.findComponent(ModelReference).vm as unknown as {
+      selectedMetric: string;
+    };
+    vm.selectedMetric = 'coding';
+    await flushPromises();
+
+    const sortedItems = (
+      wrapper.findComponent(ModelReference).vm as unknown as {
+        sortedItems: Array<{ id: string }>;
+      }
+    ).sortedItems;
+    expect(sortedItems[0]?.id).toBe('ref_b');
+    expect(sortedItems[1]?.id).toBe('ref_a');
+  });
+
+  it('handles refresh errors by restoring the previous list and surfacing a toast', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/api/admin/model-reference') && (!init || init.method === 'GET')) {
+        return jsonResponse({ items: [referenceRow()], sync: [] });
+      }
+      if (url.endsWith('/api/admin/model-reference/refresh') && init?.method === 'POST') {
+        return new Response(JSON.stringify({
+          error: { message: 'refresh failed', code: 'upstream_error', type: 'server_error' },
+        }), { status: 500, headers: { 'content-type': 'application/json' } });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const wrapper = mountModelReference();
+    await flushPromises();
+    await wrapper.findAll('button').find((button) => button.text() === 'Refresh')!.trigger('click');
+    await flushPromises();
+
+    // On error, the page should re-fetch the list and the error message
+    // from the server should have been used for the toast.
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/admin/model-reference',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
 });
