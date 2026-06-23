@@ -411,5 +411,35 @@ function resetFilters(): void {
 .page {
   max-width: 1400px;
   margin: 0 auto;
+  /*
+   * `display: flex; flex-direction: column` makes the `.page` a flex
+   * container; its children (including the <NCard> wrapping the table)
+   * become flex items that can shrink. Naive UI's <NDataTable> insists
+   * on rendering its inner <table> at its natural column-summed width,
+   * which can exceed the page column when many metrics are visible.
+   * Combined with the table wrapper's `overflow-x: auto`, this lets the
+   * wrapper own the horizontal scrollbar while the `fixed: 'left'`
+   * model column stays pinned to its left edge.
+   */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* Inside the page flex column, every descendant must drop its
+ * implicit `min-width: auto` so it can be shrunk below its content
+ * width. Without this, Naive UI's table flex chain refuses to give
+ * back space and the wrapper never gets a scrollbar. */
+.page :deep(.n-card),
+.page :deep(.n-card-content),
+.page :deep(.n-data-table) {
+  min-width: 0;
+}
+:deep(.n-data-table-wrapper) {
+  overflow-x: auto;
+}
+:deep(.n-data-table),
+:deep(.n-data-table-base-table) {
+  min-width: min-content;
+  flex-shrink: 0;
 }
 </style>
