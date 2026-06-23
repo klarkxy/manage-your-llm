@@ -77,6 +77,7 @@ const STATEMENTS: readonly string[] = [
      name TEXT NOT NULL,
      key_hash TEXT NOT NULL UNIQUE,
      key_prefix TEXT NOT NULL,
+     key_suffix TEXT NOT NULL DEFAULT '',
      enabled INTEGER NOT NULL DEFAULT 1,
      revoked_at INTEGER,
      last_used_at INTEGER,
@@ -85,6 +86,10 @@ const STATEMENTS: readonly string[] = [
      FOREIGN KEY (app_id) REFERENCES apps(id) ON DELETE CASCADE
    )`,
   `CREATE INDEX IF NOT EXISTS consumer_keys_app_idx ON consumer_keys(app_id)`,
+  // Migration: add key_suffix to existing databases. SQLite does not support
+  // ADD COLUMN IF NOT EXISTS, so the duplicate-column error is caught and
+  // treated as a no-op (matching the pattern used elsewhere in this file).
+  `ALTER TABLE consumer_keys ADD COLUMN key_suffix TEXT NOT NULL DEFAULT ''`,
   `CREATE TABLE IF NOT EXISTS consumer_key_access (
      id TEXT PRIMARY KEY,
      consumer_key_id TEXT NOT NULL,

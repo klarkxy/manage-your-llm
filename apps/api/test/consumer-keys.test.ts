@@ -24,10 +24,11 @@ describe('consumer keys admin', () => {
       },
     });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as { id: string; key: string; keyPrefix: string; name: string };
+    const body = res.json() as { id: string; key: string; keyPrefix: string; keySuffix: string; name: string };
     expect(body.key.startsWith('mh_')).toBe(true);
     expect(body.key.length).toBeGreaterThan(20);
     expect(body.keyPrefix).toBe(body.key.slice(0, 7));
+    expect(body.keySuffix).toBe(body.key.slice(-7));
 
     // Now GET the list: the raw key must NOT appear in any item.
     const list = await rig.app.inject({
@@ -70,9 +71,11 @@ describe('consumer keys admin', () => {
       headers: { cookie: rig.cookie },
     });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as { key: string; keyPrefix: string };
+    const body = res.json() as { key: string; keyPrefix: string; keySuffix: string };
     expect(body.key).not.toBe(refs.rawConsumerKey);
     expect(body.key.startsWith('mh_')).toBe(true);
+    expect(body.keyPrefix).toBe(body.key.slice(0, 7));
+    expect(body.keySuffix).toBe(body.key.slice(-7));
     const row = await rig.db
       .select()
       .from(consumerKeys)

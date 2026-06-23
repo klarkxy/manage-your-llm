@@ -26,8 +26,24 @@ import AppConsumerKeys from '../components/AppConsumerKeys.vue';
 const message = useMessage();
 const { t } = useI18n();
 
+const LAST_SELECTED_APP_KEY = 'modelharbor:lastSelectedAppId';
+
+function readLastSelectedAppId(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(LAST_SELECTED_APP_KEY);
+}
+
+function writeLastSelectedAppId(id: string | null): void {
+  if (typeof window === 'undefined') return;
+  if (id) {
+    window.localStorage.setItem(LAST_SELECTED_APP_KEY, id);
+  } else {
+    window.localStorage.removeItem(LAST_SELECTED_APP_KEY);
+  }
+}
+
 const items = ref<AppSummary[]>([]);
-const selectedAppId = ref<string | null>(null);
+const selectedAppId = ref<string | null>(readLastSelectedAppId());
 const selectedApp = computed(() => items.value.find((a) => a.id === selectedAppId.value) ?? null);
 const loading = ref(false);
 const drawerOpen = ref(false);
@@ -39,6 +55,10 @@ async function refresh() {
   try {
     const appsRes = await appsApi.list();
     items.value = appsRes.items;
+    if (selectedAppId.value && !items.value.some((a) => a.id === selectedAppId.value)) {
+      selectedAppId.value = null;
+      writeLastSelectedAppId(null);
+    }
   } catch (err) {
     message.error((err as Error).message);
   } finally {
@@ -79,6 +99,7 @@ const rowProps = (row: AppSummary) => ({
   class: row.id === selectedAppId.value ? 'app-row--selected' : '',
   onClick: () => {
     selectedAppId.value = row.id;
+    writeLastSelectedAppId(row.id);
   },
 });
 
@@ -151,6 +172,9 @@ const columns = computed<DataTableColumns<AppSummary>>(() => [
   margin: 0 auto;
 }
 :deep(.app-row--selected td) {
-  background: var(--n-color-target) !important;
+  background: rgba(37, 99, 235, 0.10) !important;
+}
+:deep(.app-row--selected:hover td) {
+  background: rgba(37, 99, 235, 0.18) !important;
 }
 </style>

@@ -339,6 +339,7 @@ const messages = {
     columns: {
       name: 'Имя',
       prefix: 'Префикс',
+      suffix: 'Суффикс',
       status: 'Статус',
       actions: 'Действия',
     },

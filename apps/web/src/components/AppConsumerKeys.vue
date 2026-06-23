@@ -101,7 +101,8 @@ async function rotate(row: ConsumerKey) {
 
 const columns = computed<DataTableColumns<ConsumerKey>>(() => [
   { title: t('consumerKeys.columns.name'), key: 'name', width: 160, sorter: true },
-  { title: t('consumerKeys.columns.prefix'), key: 'keyPrefix', width: 160, sorter: true },
+  { title: t('consumerKeys.columns.prefix'), key: 'keyPrefix', width: 130, sorter: true },
+  { title: t('consumerKeys.columns.suffix'), key: 'keySuffix', width: 130, sorter: true },
   {
     title: t('consumerKeys.columns.lastUsed'),
     key: 'lastUsedAt',

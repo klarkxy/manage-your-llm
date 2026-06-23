@@ -339,6 +339,7 @@ const messages = {
     columns: {
       name: '이름',
       prefix: '접두사',
+      suffix: '접미사',
       status: '상태',
       actions: '작업',
     },

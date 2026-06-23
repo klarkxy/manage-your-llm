@@ -485,6 +485,7 @@ export interface ConsumerKey {
   appId: string;
   name: string;
   keyPrefix: string;
+  keySuffix: string;
   enabled: boolean;
   revokedAt: string | null;
   lastUsedAt: string | null;

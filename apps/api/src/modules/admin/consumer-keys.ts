@@ -27,6 +27,7 @@ function presentConsumerKey(row: ConsumerKeyRow) {
     appId: row.appId,
     name: row.name,
     keyPrefix: row.keyPrefix,
+    keySuffix: row.keySuffix,
     enabled: row.enabled,
     revokedAt: row.revokedAt,
     lastUsedAt: row.lastUsedAt,
@@ -78,6 +79,7 @@ export function registerConsumerKeyRoutes(app: FastifyInstance, deps: ConsumerKe
       name,
       keyHash: generated.hash,
       keyPrefix: generated.prefix,
+      keySuffix: generated.suffix,
       enabled: true,
       createdAt: now,
       updatedAt: now,
@@ -110,7 +112,7 @@ export function registerConsumerKeyRoutes(app: FastifyInstance, deps: ConsumerKe
       action: 'consumer_key.create',
       resourceType: 'consumer_key',
       resourceId: row.id,
-      details: { name: row.name, appId: row.appId, keyPrefix: row.keyPrefix },
+      details: { name: row.name, appId: row.appId, keyPrefix: row.keyPrefix, keySuffix: row.keySuffix },
     });
     // Raw key is returned only on create/rotate.
     return { ...presentConsumerKey(row), key: generated.raw };
@@ -162,6 +164,7 @@ export function registerConsumerKeyRoutes(app: FastifyInstance, deps: ConsumerKe
       .set({
         keyHash: generated.hash,
         keyPrefix: generated.prefix,
+        keySuffix: generated.suffix,
         enabled: true,
         revokedAt: null,
         updatedAt: new Date(),
@@ -174,7 +177,7 @@ export function registerConsumerKeyRoutes(app: FastifyInstance, deps: ConsumerKe
       action: 'consumer_key.rotate',
       resourceType: 'consumer_key',
       resourceId: row.id,
-      details: { keyPrefix: row.keyPrefix },
+      details: { keyPrefix: row.keyPrefix, keySuffix: row.keySuffix },
     });
     return { ...presentConsumerKey(row), key: generated.raw };
   });

@@ -571,6 +571,7 @@ const messages: Messages = {
     columns: {
       name: '名称',
       prefix: '前缀',
+      suffix: '后缀',
       lastUsed: '上次使用',
       status: '状态',
       actions: '操作',

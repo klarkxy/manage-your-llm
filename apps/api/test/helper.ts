@@ -171,6 +171,7 @@ export async function seedFullRoute(rig: AdminTestRig): Promise<SeedRefs> {
     name: 'Test key',
     keyHash: ck.hash,
     keyPrefix: ck.prefix,
+    keySuffix: ck.suffix,
     enabled: true,
     createdAt: now,
     updatedAt: now,

@@ -104,10 +104,20 @@ export function decryptUpstreamApiKey(ciphertext: string, secretKey: string): st
   return decryptSecret(ciphertext, secretKey);
 }
 
-export function generateConsumerKeyRaw(): { raw: string; prefix: string; hash: string } {
+export function generateConsumerKeyRaw(): {
+  raw: string;
+  prefix: string;
+  suffix: string;
+  hash: string;
+} {
   const secret = randomBase64Url(32);
   const raw = `mh_${secret}`;
-  return { raw, prefix: raw.slice(0, 7), hash: hashSessionId(raw) };
+  return {
+    raw,
+    prefix: raw.slice(0, 7),
+    suffix: raw.slice(-7),
+    hash: hashSessionId(raw),
+  };
 }
 
 export function safeJsonString(value: unknown, fallback: string): string {

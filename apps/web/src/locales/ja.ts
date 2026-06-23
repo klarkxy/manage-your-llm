@@ -339,6 +339,7 @@ const messages = {
     columns: {
       name: '名前',
       prefix: 'プレフィックス',
+      suffix: 'サフィックス',
       status: '状態',
       actions: 'アクション',
     },

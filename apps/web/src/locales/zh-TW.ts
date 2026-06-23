@@ -338,6 +338,7 @@ const messages = {
     columns: {
       name: '名稱',
       prefix: '前綴',
+      suffix: '後綴',
       status: '狀態',
       actions: '操作',
     },

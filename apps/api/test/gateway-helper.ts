@@ -197,6 +197,7 @@ export async function makeGatewayRig(seed: SeedRouteOptions = {}): Promise<Gatew
     name: 'Test key',
     keyHash: ck.hash,
     keyPrefix: ck.prefix,
+    keySuffix: ck.suffix,
     enabled: true,
     createdAt: now,
     updatedAt: now,

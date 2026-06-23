@@ -48,6 +48,7 @@ async function seedConsumer(rig: AdminTestRig): Promise<{ appId: string; consume
     // exercised here, only the FK constraint).
     keyHash: '0'.repeat(64),
     keyPrefix: 'mh_test',
+    keySuffix: 'mh_test',
     enabled: true,
     createdAt: now,
     updatedAt: now,

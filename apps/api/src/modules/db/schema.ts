@@ -99,6 +99,7 @@ export const consumerKeys = sqliteTable(
     name: text('name').notNull(),
     keyHash: text('key_hash').notNull().unique(),
     keyPrefix: text('key_prefix').notNull(),
+    keySuffix: text('key_suffix').notNull().default(''),
     enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
     revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
     lastUsedAt: integer('last_used_at', { mode: 'timestamp_ms' }),
