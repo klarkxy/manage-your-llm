@@ -12,10 +12,12 @@ import fastifyStatic from '@fastify/static';
 import pino from 'pino';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { eq } from 'drizzle-orm';
 import { createEnv } from './config/env.js';
 import { healthRoutes } from './plugins/health.js';
 import { registerErrorHandler } from './errors.js';
 import { type Db } from './modules/db/index.js';
+import { adminSettings } from './modules/db/tables/settings.js';
 import { registerAdminAuthRoutes, requireAdmin } from './modules/auth/index.js';
 import { registerGatewayRoutes } from './modules/gateway/index.js';
 import {
@@ -149,7 +151,16 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     registerObservabilityRoutes(app, { db: options.db });
     registerSettingsRoutes(app, { db: options.db });
     registerAuditRoutes(app, { db: options.db });
-    registerGatewayRoutes(app, { db: options.db, secretKey });
+    // Read the public-endpoints base path once at boot. A change requires
+    // a server restart (see `publicEndpoints` settings docs). Falls back
+    // to `/v1` if the settings row hasn't been seeded yet.
+    const settingsRow = await options.db
+      .select({ basePath: adminSettings.publicEndpointsBasePath })
+      .from(adminSettings)
+      .where(eq(adminSettings.id, 'default'))
+      .get();
+    const publicEndpointsBasePath = (settingsRow?.basePath ?? '/v1').replace(/\/+$/, '') || '/v1';
+    registerGatewayRoutes(app, { db: options.db, secretKey, publicEndpointsBasePath });
 
     // Serve built web assets in production, or in development when explicitly
     // requested (useful for single-port full-stack debugging).
@@ -161,12 +172,16 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
         prefix: '/',
         wildcard: false,
       });
-      // SPA fallback: serve index.html for any non-API route
+      // SPA fallback: serve index.html for any non-API route. The public
+      // endpoint prefix is the same `publicEndpointsBasePath` the gateway
+      // registered under, so the notFound handler can correctly tell an
+      // API call (404) from a SPA route (index.html).
       app.setNotFoundHandler(async (req, reply) => {
         const url = req.url;
         if (
           url.startsWith('/api/') ||
-          url.startsWith('/v1/') ||
+          url.startsWith(`${publicEndpointsBasePath}/`) ||
+          url === publicEndpointsBasePath ||
           url.startsWith('/healthz') ||
           url.startsWith('/readyz')
         ) {

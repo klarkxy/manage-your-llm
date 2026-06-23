@@ -159,6 +159,18 @@ const messages = {
       publicModels: 'Public models',
       apps: 'Apps',
     },
+    publicEndpoints: {
+      title: 'Public endpoints',
+      caption: 'Hand these URLs to the apps that will call ModelHarbor:',
+      basePathLabel: 'Base path',
+      baseUrlLabel: 'Base URL',
+      messages: 'Anthropic Messages',
+      chatCompletions: 'OpenAI Chat Completions',
+      responses: 'OpenAI Responses',
+      models: 'Models list',
+      copy: 'Copy',
+      copied: 'Copied',
+    },
   },
   upstreamKeys: {
     title: 'Upstream Keys',
@@ -782,6 +794,22 @@ const messages = {
       autoWeights: 'Default auto weights',
       save: 'Save',
       saved: 'Model reference settings saved',
+    },
+    publicEndpoints: {
+      title: 'Public endpoints',
+      basePath: 'Base path',
+      basePathHelp:
+        'URL prefix for the client-facing endpoints. Default `/v1` works for most LLM clients.',
+      restartNote:
+        'Changing the base path requires a server restart before the new URL becomes active.',
+      save: 'Save',
+      saved: 'Public endpoints saved',
+      messages: 'Anthropic Messages',
+      chatCompletions: 'OpenAI Chat Completions',
+      responses: 'OpenAI Responses',
+      models: 'Models list',
+      copy: 'Copy',
+      copied: 'Copied',
     },
     secretsNote:
       'Secrets (raw consumer keys, raw upstream API keys, Authorization / x-api-key values) are redacted before they reach the application log or the audit store.',

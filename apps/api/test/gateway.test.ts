@@ -1230,4 +1230,33 @@ describe('GET /v1/models', () => {
       await rig.close();
     }
   });
+
+  it('registers gateway routes under a non-default publicEndpointsBasePath', async () => {
+    // Build the rig with basePath=/api/v1 so the gateway routes
+    // register under that prefix instead of /v1.
+    const rig = await makeGatewayRig({ publicEndpointsBasePath: '/api/v1' });
+    try {
+      // New prefix should work (auth still required).
+      const newPrefix = await rig.app.inject({
+        method: 'POST',
+        url: '/api/v1/messages',
+        headers: anthropicHeader(rig.rawConsumerKey),
+        payload: ANTHROPIC_BODY,
+      });
+      // We don't care about the wire-shape result here; just that the
+      // request reached a route (not a 404 from Fastify).
+      expect(newPrefix.statusCode).not.toBe(404);
+
+      // Old prefix should NOT exist anymore.
+      const oldPrefix = await rig.app.inject({
+        method: 'POST',
+        url: '/v1/messages',
+        headers: anthropicHeader(rig.rawConsumerKey),
+        payload: ANTHROPIC_BODY,
+      });
+      expect(oldPrefix.statusCode).toBe(404);
+    } finally {
+      await rig.close();
+    }
+  });
 });

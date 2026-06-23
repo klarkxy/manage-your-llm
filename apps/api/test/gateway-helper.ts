@@ -18,6 +18,7 @@ import {
   type Db,
   upstreamKeys,
 } from '../src/modules/db/index.js';
+import { adminSettings } from '../src/modules/db/tables/settings.js';
 import { bootstrapAdmin } from '../src/modules/auth/index.js';
 import { encryptUpstreamApiKey, generateConsumerKeyRaw } from '../src/modules/admin/index.js';
 import { generateId, type ProviderType } from '@modelharbor/shared';
@@ -70,6 +71,11 @@ export interface SeedRouteOptions {
   grantGroupAccess?: boolean;
   // Group member priority (only used when createGroup=true).
   memberPriority?: number;
+  // Public-endpoints base path to seed into admin_settings BEFORE
+  // `buildServer` runs. Defaults to the table's own default (`/v1`).
+  // Used by tests that need to verify the gateway registers routes
+  // under a non-default prefix.
+  publicEndpointsBasePath?: string;
 }
 
 const TEST_SECRET = 'test-secret-key-for-m4';
@@ -86,6 +92,23 @@ export async function makeGatewayRig(seed: SeedRouteOptions = {}): Promise<Gatew
   const { db, client } = createDb({ url: `file:${dbFile}` });
   await initSchema(db);
   await bootstrapAdmin(db, { username: 'admin', password: 'secret123', displayName: 'Admin' });
+  if (seed.publicEndpointsBasePath) {
+    // Seed the public-endpoints base path BEFORE buildServer so the
+    // gateway registers its routes at the requested prefix.
+    const now = new Date();
+    await db
+      .insert(adminSettings)
+      .values({
+        id: 'default',
+        publicEndpointsBasePath: seed.publicEndpointsBasePath,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: adminSettings.id,
+        set: { publicEndpointsBasePath: seed.publicEndpointsBasePath, updatedAt: now },
+      });
+  }
   const app = await buildServer({
     db,
     logger: false,

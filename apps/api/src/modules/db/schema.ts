@@ -71,6 +71,7 @@ export const adminSettings = sqliteTable('admin_settings', {
   modelReferenceAutoPreset: text('model_reference_auto_preset').notNull().default('balanced'),
   modelReferenceAutoWeightsJson: text('model_reference_auto_weights_json'),
   modelReferenceAutoTopN: integer('model_reference_auto_top_n').notNull().default(5),
+  publicEndpointsBasePath: text('public_endpoints_base_path').notNull().default('/v1'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });

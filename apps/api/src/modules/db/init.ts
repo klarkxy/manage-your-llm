@@ -44,6 +44,7 @@ const STATEMENTS: readonly string[] = [
      model_reference_auto_preset TEXT NOT NULL DEFAULT 'balanced',
      model_reference_auto_weights_json TEXT,
      model_reference_auto_top_n INTEGER NOT NULL DEFAULT 5,
+     public_endpoints_base_path TEXT NOT NULL DEFAULT '/v1',
      created_at INTEGER NOT NULL,
      updated_at INTEGER NOT NULL
    )`,
@@ -59,6 +60,7 @@ const STATEMENTS: readonly string[] = [
   `ALTER TABLE admin_settings ADD COLUMN model_reference_auto_preset TEXT NOT NULL DEFAULT 'balanced'`,
   `ALTER TABLE admin_settings ADD COLUMN model_reference_auto_weights_json TEXT`,
   `ALTER TABLE admin_settings ADD COLUMN model_reference_auto_top_n INTEGER NOT NULL DEFAULT 5`,
+  `ALTER TABLE admin_settings ADD COLUMN public_endpoints_base_path TEXT NOT NULL DEFAULT '/v1'`,
 
   // Apps
   `CREATE TABLE IF NOT EXISTS apps (

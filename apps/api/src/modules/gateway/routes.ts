@@ -38,6 +38,17 @@ import {
 export interface GatewayRouteDeps {
   db: Db;
   secretKey: string;
+  /**
+   * Base path prefix for the public-facing client endpoints (Anthropic
+   * Messages, OpenAI Chat Completions / Responses, and the model list).
+   * Default `/v1`; configurable in Admin Settings so deployments behind
+   * a path-prefixed reverse proxy can mount the gateway under a
+   * different prefix (e.g. `/api/v1`, `/llm/v1`).
+   *
+   * A server restart is required to apply a change — the value is read
+   * once at boot and used to register the routes.
+   */
+  publicEndpointsBasePath: string;
 }
 
 interface ListModelsEntry {
@@ -49,13 +60,18 @@ interface ListModelsEntry {
 
 export function registerGatewayRoutes(app: FastifyInstance, deps: GatewayRouteDeps): void {
   const { db, secretKey } = deps;
+  // Normalize once: empty / trailing-slash only paths collapse to "/v1"
+  // so a misconfigured value doesn't produce "" or "//" route prefixes.
+  const base = (deps.publicEndpointsBasePath || '/v1').replace(/\/+$/, '') || '/v1';
   const guard = requireConsumerKey(db);
 
   // POST /v1/messages — Anthropic Messages-compatible endpoint. The handler
   // throws NormalizedError subclasses on bad input, missing target, denied
   // access, or no available route; we catch them here so the body matches
   // the Anthropic shape (the global error handler returns the OpenAI shape).
-  app.post('/v1/messages', { preHandler: guard }, async (req, reply) => {
+  // The actual path is parameterized via `publicEndpointsBasePath`; the
+  // comment above uses the default `/v1` prefix for documentation.
+  app.post(`${base}/messages`, { preHandler: guard }, async (req, reply) => {
     const consumer = req as FastifyRequest & { consumerKey: ConsumerKeyRow; app: AppRow };
     const b = (req.body ?? {}) as Record<string, unknown>;
     const traceId = generateTraceId();
@@ -111,7 +127,7 @@ export function registerGatewayRoutes(app: FastifyInstance, deps: GatewayRouteDe
   // The global error handler already returns the OpenAI shape for
   // NormalizedError, but we still route provider errors through this handler
   // so the mapping stays in one place.
-  app.post('/v1/chat/completions', { preHandler: guard }, async (req, reply) => {
+  app.post(`${base}/chat/completions`, { preHandler: guard }, async (req, reply) => {
     const consumer = req as FastifyRequest & { consumerKey: ConsumerKeyRow; app: AppRow };
     const b = (req.body ?? {}) as Record<string, unknown>;
     const traceId = generateTraceId();
@@ -168,7 +184,7 @@ export function registerGatewayRoutes(app: FastifyInstance, deps: GatewayRouteDe
   // request/response shapes are materially different (`input` vs `messages`,
   // `output[]` vs `choices[]`). Provider errors are returned in the OpenAI
   // error shape so existing clients handle them consistently.
-  app.post('/v1/responses', { preHandler: guard }, async (req, reply) => {
+  app.post(`${base}/responses`, { preHandler: guard }, async (req, reply) => {
     const consumer = req as FastifyRequest & { consumerKey: ConsumerKeyRow; app: AppRow };
     const b = (req.body ?? {}) as Record<string, unknown>;
     const traceId = generateTraceId();
@@ -221,7 +237,7 @@ export function registerGatewayRoutes(app: FastifyInstance, deps: GatewayRouteDe
   });
 
   // GET /v1/models — list public models and groups the consumer key can access.
-  app.get('/v1/models', { preHandler: guard }, async (req) => {
+  app.get(`${base}/models`, { preHandler: guard }, async (req) => {
     const consumer = req as FastifyRequest & { consumerKey: ConsumerKeyRow; app: AppRow };
     const access = await listConsumerKeyAccess(db, consumer.consumerKey.id);
     const publicModelIds = access

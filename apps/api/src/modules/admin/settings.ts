@@ -19,9 +19,44 @@ import {
   normalizeAutoWeights,
   type AutoGroupWeights,
 } from './model-reference.js';
+import { createEnv, getPublicBaseUrl } from '../../config/env.js';
 
 export interface SettingsRouteDeps {
   db: Db;
+}
+
+/**
+ * Resolved public-facing endpoint URLs the API exposes to client
+ * applications (LLM clients that hold a consumer key). Returned by both
+ * GET / PUT /api/admin/settings so the Settings page and the Overview
+ * page can show copy-pasteable URLs.
+ */
+export interface PublicEndpointsBlock {
+  /** Configured base path prefix, e.g. `/v1` or `/api/v1`. */
+  basePath: string;
+  /** Resolved public base URL, e.g. `https://llm.example.com`. */
+  baseUrl: string;
+  endpoints: {
+    messages: string;
+    chatCompletions: string;
+    responses: string;
+    models: string;
+  };
+}
+
+function buildPublicEndpoints(basePath: string): PublicEndpointsBlock {
+  const base = (basePath || '/v1').replace(/\/+$/, '') || '/v1';
+  const host = getPublicBaseUrl(createEnv());
+  return {
+    basePath: base,
+    baseUrl: host,
+    endpoints: {
+      messages: `${host}${base}/messages`,
+      chatCompletions: `${host}${base}/chat/completions`,
+      responses: `${host}${base}/responses`,
+      models: `${host}${base}/models`,
+    },
+  };
 }
 
 export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRouteDeps): void {
@@ -61,10 +96,11 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
           : normalizeAutoWeights('balanced', undefined),
         autoTopN: row?.modelReferenceAutoTopN ?? 5,
       },
+      publicEndpoints: buildPublicEndpoints(row?.publicEndpointsBasePath ?? '/v1'),
     };
   });
 
-  app.put('/api/admin/settings', async (req) => {
+  app.put('/api/admin/settings', async (req, reply) => {
     const body = (req.body ?? {}) as {
       circuitBreaker?: {
         enabled?: boolean;
@@ -88,12 +124,16 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
         autoWeights?: unknown;
         autoTopN?: unknown;
       };
+      publicEndpoints?: {
+        basePath?: string;
+      };
     };
     const cbInput = body.circuitBreaker ?? {};
     const ehInput = body.endpointHealth ?? {};
     const streamInput = body.streaming ?? {};
     const clInput = body.contentLogging ?? {};
     const mrInput = body.modelReference ?? {};
+    const peInput = body.publicEndpoints ?? {};
 
     const values: Partial<typeof adminSettings.$inferInsert> = {};
     if (typeof cbInput.enabled === 'boolean') values.circuitBreakerEnabled = cbInput.enabled;
@@ -143,6 +183,20 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
     if (typeof mrInput.autoTopN === 'number') {
       values.modelReferenceAutoTopN = Math.max(1, Math.min(20, Math.round(mrInput.autoTopN)));
     }
+    if (typeof peInput.basePath === 'string' && peInput.basePath.trim().length > 0) {
+      const trimmed = peInput.basePath.trim();
+      if (!trimmed.startsWith('/')) {
+        reply.code(400);
+        return {
+          error: {
+            message: 'publicEndpoints.basePath must start with "/"',
+            type: 'validation_error',
+            code: 'invalid_base_path',
+          },
+        };
+      }
+      values.publicEndpointsBasePath = trimmed.replace(/\/+$/, '') || '/v1';
+    }
 
     await ensureDefaultCircuitBreakerSettings(db);
     await db.update(adminSettings).set({ ...values, updatedAt: new Date() }).where(eq(adminSettings.id, 'default'));
@@ -179,6 +233,7 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
           : normalizeAutoWeights('balanced', undefined),
         autoTopN: row?.modelReferenceAutoTopN ?? 5,
       },
+      publicEndpoints: buildPublicEndpoints(row?.publicEndpointsBasePath ?? '/v1'),
     };
   });
 

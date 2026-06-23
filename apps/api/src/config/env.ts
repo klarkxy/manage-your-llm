@@ -21,6 +21,15 @@ export interface Env {
    *   "10.0.0.0/8,192.168.0.0/16" — comma-separated CIDR list
    */
   TRUST_PROXY: string;
+  /**
+   * Public-facing base URL the API is reachable at from the outside
+   * world. Used to construct absolute endpoint URLs shown in the UI
+   * (Overview + Settings). When empty, falls back to
+   * `http://localhost:${PORT}` so local dev works without config.
+   * Set this when running behind a reverse proxy with a different
+   * public host (e.g. `https://llm.example.com`).
+   */
+  PUBLIC_BASE_URL: string;
 }
 
 const DEFAULTS: Env = {
@@ -35,6 +44,7 @@ const DEFAULTS: Env = {
   ADMIN_PASSWORD: 'change-me-on-first-run',
   ADMIN_DISPLAY_NAME: 'Admin',
   TRUST_PROXY: '',
+  PUBLIC_BASE_URL: '',
 };
 
 function readNumber(name: string, fallback: number): number {
@@ -54,10 +64,16 @@ function readEnv(): Env {
   const nodeEnv: Env['NODE_ENV'] = ['development', 'production', 'test'].includes(nodeEnvRaw)
     ? nodeEnvRaw
     : 'development';
+  const port = readNumber('MODELHARBOR_PORT', DEFAULTS.PORT);
+  // Empty value = "build a localhost URL from PORT" so the UI can show
+  // a working copy-paste example without forcing every dev to set it.
+  const rawBaseUrl = process.env['MODELHARBOR_PUBLIC_BASE_URL'] ?? DEFAULTS.PUBLIC_BASE_URL;
+  const resolvedBaseUrl =
+    rawBaseUrl.trim().length > 0 ? rawBaseUrl.trim() : `http://localhost:${port}`;
   return {
     NODE_ENV: nodeEnv,
     HOST: process.env['MODELHARBOR_HOST'] ?? DEFAULTS.HOST,
-    PORT: readNumber('MODELHARBOR_PORT', DEFAULTS.PORT),
+    PORT: port,
     LOG_LEVEL: process.env['MODELHARBOR_LOG_LEVEL'] ?? DEFAULTS.LOG_LEVEL,
     LOG_FILE: process.env['MODELHARBOR_LOG_FILE'] ?? DEFAULTS.LOG_FILE,
     DATABASE_URL: process.env['MODELHARBOR_DATABASE_URL'] ?? DEFAULTS.DATABASE_URL,
@@ -67,6 +83,7 @@ function readEnv(): Env {
     ADMIN_DISPLAY_NAME:
       process.env['MODELHARBOR_ADMIN_DISPLAY_NAME'] ?? DEFAULTS.ADMIN_DISPLAY_NAME,
     TRUST_PROXY: process.env['MODELHARBOR_TRUST_PROXY'] ?? DEFAULTS.TRUST_PROXY,
+    PUBLIC_BASE_URL: resolvedBaseUrl,
   };
 }
 
@@ -90,4 +107,14 @@ export function createEnv(): Env {
 
 export function resetEnvForTests(): void {
   cached = null;
+}
+
+/**
+ * Return the public-facing base URL with any trailing `/` stripped so
+ * the caller can do `${baseUrl}${basePath}/...` without worrying about
+ * double slashes. Use this anywhere an absolute URL is shown to the
+ * admin (Overview / Settings cards).
+ */
+export function getPublicBaseUrl(env: Env): string {
+  return env.PUBLIC_BASE_URL.replace(/\/+$/, '');
 }

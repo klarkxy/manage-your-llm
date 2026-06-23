@@ -6,6 +6,7 @@ import {
   NButton,
   NCard,
   NDataTable,
+  NDivider,
   NForm,
   NFormItem,
   NInput,
@@ -31,6 +32,7 @@ import {
   type EndpointHealthSettings,
   type StreamingSettings,
   type ContentLogSettings,
+  type PublicEndpointsSettings,
 } from '../api/admin.js';
 
 const { t } = useI18n();
@@ -44,6 +46,7 @@ const savingEndpointHealth = ref(false);
 const savingStreaming = ref(false);
 const savingContentLogging = ref(false);
 const savingModelReference = ref(false);
+const savingPublicEndpoints = ref(false);
 
 const profile = ref<AdminSummary | null>(null);
 const displayName = ref<string>('');
@@ -64,6 +67,13 @@ const modelReferenceSettings = ref<{
   autoWeights: Record<string, number>;
   autoTopN: number;
 } | null>(null);
+const publicEndpointsSettings = ref<PublicEndpointsSettings | null>(null);
+// Editable mirror of `publicEndpointsSettings.basePath`. We bind the form
+// input to this local ref so the user can edit without immediately
+// mutating the loaded settings (which is what the other sections do).
+const publicEndpointsBasePathInput = ref<string>('');
+const publicEndpointsCopied = ref<string | null>(null);
+let publicEndpointsCopyTimer: ReturnType<typeof setTimeout> | null = null;
 const circuitBreakers = ref<CircuitBreakerItem[]>([]);
 const circuitBreakersLoading = ref(false);
 
@@ -97,6 +107,8 @@ async function refreshCircuitBreakerSettings(): Promise<void> {
     streamingSettings.value = res.streaming;
     contentLogSettings.value = res.contentLogging;
     modelReferenceSettings.value = res.modelReference;
+    publicEndpointsSettings.value = res.publicEndpoints;
+    publicEndpointsBasePathInput.value = res.publicEndpoints.basePath;
   } catch (err) {
     error.value = (err as Error).message;
   }
@@ -184,6 +196,52 @@ async function saveModelReferenceSettings(): Promise<void> {
   } finally {
     savingModelReference.value = false;
   }
+}
+
+async function savePublicEndpointsSettings(): Promise<void> {
+  savingPublicEndpoints.value = true;
+  error.value = null;
+  message.value = null;
+  try {
+    const res = await settingsApi.update({
+      publicEndpoints: { basePath: publicEndpointsBasePathInput.value },
+    });
+    publicEndpointsSettings.value = res.publicEndpoints;
+    publicEndpointsBasePathInput.value = res.publicEndpoints.basePath;
+    message.value = t('settings.publicEndpoints.saved');
+  } catch (err) {
+    error.value = err instanceof ApiClientError ? err.message : (err as Error).message;
+  } finally {
+    savingPublicEndpoints.value = false;
+  }
+}
+
+async function copyPublicEndpoint(key: string, value: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(value);
+  } catch {
+    // Fallback: select-and-copy via a hidden textarea. Modern browsers
+    // gate clipboard.writeText behind a secure context; this keeps the
+    // UI usable in older setups (e.g. plain http://127.0.0.1 dev).
+    const ta = document.createElement('textarea');
+    ta.value = value;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+    } catch {
+      // give up silently; the "Copied" indicator will not flash but the
+      // user can still select the text by hand.
+    }
+    document.body.removeChild(ta);
+  }
+  publicEndpointsCopied.value = key;
+  if (publicEndpointsCopyTimer) clearTimeout(publicEndpointsCopyTimer);
+  publicEndpointsCopyTimer = setTimeout(() => {
+    publicEndpointsCopied.value = null;
+  }, 1500);
 }
 
 async function saveProfile(): Promise<void> {
@@ -550,6 +608,78 @@ const autoWeightKeys = [
             </NButton>
           </NSpace>
         </NForm>
+      </NCard>
+
+      <NCard :title="t('settings.publicEndpoints.title')">
+        <NSpin v-if="!publicEndpointsSettings" />
+        <template v-else>
+          <NForm label-placement="top" style="max-width: 640px">
+            <NFormItem :label="t('settings.publicEndpoints.basePath')">
+              <NInput
+                v-model:value="publicEndpointsBasePathInput"
+                placeholder="/v1"
+                style="max-width: 360px"
+              />
+            </NFormItem>
+            <NText depth="3" style="display: block; margin-top: -12px; margin-bottom: 12px; font-size: 12px">
+              {{ t('settings.publicEndpoints.basePathHelp') }}
+            </NText>
+            <NAlert type="warning" style="margin-bottom: 16px">
+              {{ t('settings.publicEndpoints.restartNote') }}
+            </NAlert>
+            <NSpace>
+              <NButton
+                type="primary"
+                :loading="savingPublicEndpoints"
+                @click="savePublicEndpointsSettings"
+              >
+                {{ t('settings.publicEndpoints.save') }}
+              </NButton>
+            </NSpace>
+          </NForm>
+
+          <NDivider />
+
+          <NSpace vertical size="small">
+            <NText depth="3" style="font-size: 12px">{{ publicEndpointsSettings.baseUrl }}</NText>
+            <NSpace align="center" :wrap="false">
+              <NText style="width: 200px">{{ t('settings.publicEndpoints.messages') }}</NText>
+              <NText code style="flex: 1; min-width: 0; word-break: break-all">
+                {{ publicEndpointsSettings.endpoints.messages }}
+              </NText>
+              <NButton size="small" @click="copyPublicEndpoint('messages', publicEndpointsSettings.endpoints.messages)">
+                {{ publicEndpointsCopied === 'messages' ? t('settings.publicEndpoints.copied') : t('settings.publicEndpoints.copy') }}
+              </NButton>
+            </NSpace>
+            <NSpace align="center" :wrap="false">
+              <NText style="width: 200px">{{ t('settings.publicEndpoints.chatCompletions') }}</NText>
+              <NText code style="flex: 1; min-width: 0; word-break: break-all">
+                {{ publicEndpointsSettings.endpoints.chatCompletions }}
+              </NText>
+              <NButton size="small" @click="copyPublicEndpoint('chatCompletions', publicEndpointsSettings.endpoints.chatCompletions)">
+                {{ publicEndpointsCopied === 'chatCompletions' ? t('settings.publicEndpoints.copied') : t('settings.publicEndpoints.copy') }}
+              </NButton>
+            </NSpace>
+            <NSpace align="center" :wrap="false">
+              <NText style="width: 200px">{{ t('settings.publicEndpoints.responses') }}</NText>
+              <NText code style="flex: 1; min-width: 0; word-break: break-all">
+                {{ publicEndpointsSettings.endpoints.responses }}
+              </NText>
+              <NButton size="small" @click="copyPublicEndpoint('responses', publicEndpointsSettings.endpoints.responses)">
+                {{ publicEndpointsCopied === 'responses' ? t('settings.publicEndpoints.copied') : t('settings.publicEndpoints.copy') }}
+              </NButton>
+            </NSpace>
+            <NSpace align="center" :wrap="false">
+              <NText style="width: 200px">{{ t('settings.publicEndpoints.models') }}</NText>
+              <NText code style="flex: 1; min-width: 0; word-break: break-all">
+                {{ publicEndpointsSettings.endpoints.models }}
+              </NText>
+              <NButton size="small" @click="copyPublicEndpoint('models', publicEndpointsSettings.endpoints.models)">
+                {{ publicEndpointsCopied === 'models' ? t('settings.publicEndpoints.copied') : t('settings.publicEndpoints.copy') }}
+              </NButton>
+            </NSpace>
+          </NSpace>
+        </template>
       </NCard>
 
       <NCard :title="t('settings.circuitBreaker.listTitle')" :loading="circuitBreakersLoading">

@@ -25,6 +25,65 @@ describe('admin settings routes', () => {
     expect(body.modelReference.autoTopN).toBe(5);
   });
 
+  it('GET /api/admin/settings returns the publicEndpoints block with default /v1 prefix', async () => {
+    const res = await rig.app.inject({
+      method: 'GET',
+      url: '/api/admin/settings',
+      headers: { cookie: rig.cookie },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.publicEndpoints.basePath).toBe('/v1');
+    expect(typeof body.publicEndpoints.baseUrl).toBe('string');
+    expect(body.publicEndpoints.endpoints.messages).toMatch(/\/v1\/messages$/);
+    expect(body.publicEndpoints.endpoints.chatCompletions).toMatch(/\/v1\/chat\/completions$/);
+    expect(body.publicEndpoints.endpoints.responses).toMatch(/\/v1\/responses$/);
+    expect(body.publicEndpoints.endpoints.models).toMatch(/\/v1\/models$/);
+  });
+
+  it('PUT /api/admin/settings persists publicEndpoints.basePath and updates endpoint URLs', async () => {
+    const res = await rig.app.inject({
+      method: 'PUT',
+      url: '/api/admin/settings',
+      headers: { cookie: rig.cookie },
+      payload: { publicEndpoints: { basePath: '/api/v1/' } },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    // Trailing slash is stripped so the URLs don't end up with `//messages`.
+    expect(body.publicEndpoints.basePath).toBe('/api/v1');
+    expect(body.publicEndpoints.endpoints.messages).toMatch(/\/api\/v1\/messages$/);
+    expect(body.publicEndpoints.endpoints.chatCompletions).toMatch(/\/api\/v1\/chat\/completions$/);
+
+    // Round-trip: a follow-up GET should return the new prefix.
+    const get = await rig.app.inject({
+      method: 'GET',
+      url: '/api/admin/settings',
+      headers: { cookie: rig.cookie },
+    });
+    expect(get.statusCode).toBe(200);
+    expect(get.json().publicEndpoints.basePath).toBe('/api/v1');
+  });
+
+  it('PUT /api/admin/settings rejects publicEndpoints.basePath without a leading slash', async () => {
+    const res = await rig.app.inject({
+      method: 'PUT',
+      url: '/api/admin/settings',
+      headers: { cookie: rig.cookie },
+      payload: { publicEndpoints: { basePath: 'v1' } },
+    });
+    expect(res.statusCode).toBe(400);
+    const body = res.json();
+    expect(body.error?.code).toBe('invalid_base_path');
+    // The stored value should not have changed.
+    const get = await rig.app.inject({
+      method: 'GET',
+      url: '/api/admin/settings',
+      headers: { cookie: rig.cookie },
+    });
+    expect(get.json().publicEndpoints.basePath).toBe('/v1');
+  });
+
   it('PUT /api/admin/settings updates circuit breaker knobs (clamped to floor)', async () => {
     const res = await rig.app.inject({
       method: 'PUT',

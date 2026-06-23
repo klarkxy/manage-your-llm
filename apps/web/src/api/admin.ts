@@ -735,6 +735,19 @@ export interface ContentLogSettings {
   maxPayloadBytes: number;
 }
 
+export interface PublicEndpointsSettings {
+  /** Configured base path prefix, e.g. `/v1` or `/api/v1`. */
+  basePath: string;
+  /** Resolved public base URL, e.g. `https://llm.example.com`. */
+  baseUrl: string;
+  endpoints: {
+    messages: string;
+    chatCompletions: string;
+    responses: string;
+    models: string;
+  };
+}
+
 export interface SettingsResponse {
   circuitBreaker: CircuitBreakerSettings;
   endpointHealth: EndpointHealthSettings;
@@ -745,6 +758,7 @@ export interface SettingsResponse {
     autoWeights: Record<string, number>;
     autoTopN: number;
   };
+  publicEndpoints: PublicEndpointsSettings;
 }
 
 export interface CircuitBreakerItem {
@@ -774,6 +788,9 @@ export const settingsApi = {
       autoPreset?: string;
       autoWeights?: Record<string, number>;
       autoTopN?: number;
+    };
+    publicEndpoints?: {
+      basePath?: string;
     };
   }) => api.put<SettingsResponse>('/api/admin/settings', payload),
 };
