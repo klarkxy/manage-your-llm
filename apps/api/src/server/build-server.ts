@@ -15,6 +15,7 @@ import { registerErrorHandler } from './errors.js';
 import { healthRoutes } from './plugins/health.js';
 import { registerAdminAuthGuard } from './plugins/admin-auth.js';
 import { adminRoutes } from './routes/admin/index.js';
+import { gatewayRoutes } from './routes/gateway/index.js';
 import { createDb, initSchema } from '../infrastructure/db/index.js';
 import { AdminUserRepository } from '../infrastructure/db/repositories/admin-user.repository.js';
 import { AdminAuthService } from '../application/admin-auth.service.js';
@@ -61,7 +62,8 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
   }
   const backupsDir = options.backupsDir ?? './backups';
   await initSchema(db);
-  await new SettingsService(db).getSettings();
+  const settings = await new SettingsService(db).getSettings();
+  const gatewayBasePath = settings.gatewayBasePath ?? '/v1';
 
   // 首次启动时若没有任何管理员，则使用环境变量中的默认管理员账号自动创建。
   // 生产环境下 createEnv 会拒绝默认密码/secret，因此不会留下不安全的初始账号。
@@ -102,6 +104,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     backups: { db, dbFilePath, backupsDir },
     settings: { db },
   });
+  await app.register(gatewayRoutes, { prefix: gatewayBasePath, db });
   await app.register(healthRoutes, {
     db: {
       get: async (query: string) => client.execute(query),
