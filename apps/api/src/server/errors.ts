@@ -55,11 +55,11 @@ function statusFor(err: unknown): number {
   if (err instanceof ValidationError) return 400;
   if (err instanceof NoRouteAvailableError) return 503;
   if (err instanceof ProviderRateLimitError) return 429;
+  if (err instanceof ProviderStreamError) return 501;
   if (
     err instanceof ProviderError ||
     err instanceof ProviderQuotaError ||
-    err instanceof ProviderTimeoutError ||
-    err instanceof ProviderStreamError
+    err instanceof ProviderTimeoutError
   ) {
     return 502;
   }

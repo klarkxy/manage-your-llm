@@ -1,0 +1,115 @@
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { rm } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { buildServer } from '../../src/server/build-server.js';
+import { createTestDb } from '../../src/infrastructure/db/test-helper.js';
+import { AppRepository } from '../../src/infrastructure/db/repositories/app.repository.js';
+import { ConsumerKeyService } from '../../src/domain/identity-access/consumer-key.service.js';
+import { UpstreamKeyService } from '../../src/application/upstream-key.service.js';
+import { PublicModelRepository } from '../../src/infrastructure/db/repositories/public-model.repository.js';
+import { TargetRepository } from '../../src/infrastructure/db/repositories/target.repository.js';
+import { resetEnvForTests } from '../../src/config/env.js';
+
+describe('gateway e2e smoke', () => {
+  const originalFetch = globalThis.fetch;
+  let app: Awaited<ReturnType<typeof buildServer>>;
+  let rawKey: string;
+  let dbFilePath: string;
+
+  beforeAll(async () => {
+    process.env.NODE_ENV = 'test';
+    process.env.MYLLM_SECRET_KEY = 'test-secret-key-32chars-long!!';
+    process.env.MYLLM_ADMIN_USERNAME = 'admin';
+    process.env.MYLLM_ADMIN_PASSWORD = 'password123';
+    process.env.MYLLM_ADMIN_DISPLAY_NAME = 'Admin';
+    resetEnvForTests();
+
+    const testDb = await createTestDb();
+    const { db, client } = testDb;
+    dbFilePath = testDb.filePath;
+
+    const appRow = await new AppRepository(db).createApp({ name: 'e2e-app', enabled: true });
+    const consumer = await new ConsumerKeyService(db).createConsumerKey({
+      appId: appRow.id,
+      name: 'default',
+      accessMode: 'all',
+    });
+    rawKey = consumer.rawKey;
+
+    const upstreamService = new UpstreamKeyService(db, process.env.MYLLM_SECRET_KEY);
+    const upstream = await upstreamService.createUpstreamKey({
+      name: 'openai-e2e',
+      providerType: 'openai_compatible',
+      baseUrl: 'https://api.openai.com',
+      apiKey: 'sk-test',
+    });
+
+    const publicModel = await new PublicModelRepository(db).createPublicModel({
+      name: 'gpt-4o',
+      displayName: 'GPT-4o',
+    });
+    await new PublicModelRepository(db).createCandidate({
+      publicModelId: publicModel.id,
+      upstreamKeyId: upstream.id,
+      realModelName: 'gpt-4o-real',
+      enabled: true,
+      priority: 100,
+      weight: 1,
+    });
+    await new TargetRepository(db).createTargetName({
+      name: 'gpt-4o',
+      targetType: 'public_model',
+      targetId: publicModel.id,
+    });
+
+    globalThis.fetch = async () =>
+      ({
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: async () =>
+          JSON.stringify({
+            id: 'chatcmpl-e2e',
+            object: 'chat.completion',
+            created: Math.floor(Date.now() / 1000),
+            model: 'gpt-4o-real',
+            choices: [
+              {
+                index: 0,
+                message: { role: 'assistant', content: 'Hello from e2e' },
+                finish_reason: 'stop',
+              },
+            ],
+            usage: { prompt_tokens: 5, completion_tokens: 4, total_tokens: 9 },
+          }),
+        ok: true,
+      }) as Response;
+
+    app = await buildServer({
+      db,
+      client,
+      logger: false,
+      disableBackgroundJobs: true,
+    });
+  });
+
+  afterAll(async () => {
+    await app.close();
+    globalThis.fetch = originalFetch;
+    await new Promise((r) => setTimeout(r, 100));
+    await rm(dirname(dbFilePath), { force: true, recursive: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  it('proxies an OpenAI chat completion through the gateway', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: { authorization: `Bearer ${rawKey}`, 'content-type': 'application/json' },
+      payload: JSON.stringify({ model: 'gpt-4o', messages: [{ role: 'user', content: 'hi' }] }),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.choices[0].message.content).toBe('Hello from e2e');
+    expect(body.usage.prompt_tokens).toBe(5);
+  });
+});

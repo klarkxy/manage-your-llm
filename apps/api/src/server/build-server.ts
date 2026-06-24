@@ -16,7 +16,7 @@ import { healthRoutes } from './plugins/health.js';
 import { registerAdminAuthGuard } from './plugins/admin-auth.js';
 import { adminRoutes } from './routes/admin/index.js';
 import { gatewayRoutes } from './routes/gateway/index.js';
-import { createDb, initSchema } from '../infrastructure/db/index.js';
+import { createDb, initSchema, type Db } from '../infrastructure/db/index.js';
 import { AdminUserRepository } from '../infrastructure/db/repositories/admin-user.repository.js';
 import { AdminAuthService } from '../application/admin-auth.service.js';
 import { SettingsService } from '../domain/settings/settings.service.js';
@@ -32,6 +32,9 @@ export interface BuildServerOptions {
   databaseUrl?: string;
   // 覆盖备份目录，测试使用临时目录避免污染工作区。
   backupsDir?: string;
+  // 测试注入共享内存数据库连接。
+  db?: Db;
+  client?: Awaited<ReturnType<typeof createDb>>['client'];
 }
 
 export interface BackgroundJobsHandle {
@@ -52,7 +55,10 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
   const logger = options.logger ?? { level: env.LOG_LEVEL };
   const trustProxy = parseTrustProxy(env.TRUST_PROXY);
   const databaseUrl = options.databaseUrl ?? env.DATABASE_URL;
-  const { db, client } = createDb({ url: databaseUrl });
+  const { db, client } =
+    options.db && options.client
+      ? { db: options.db, client: options.client }
+      : createDb({ url: databaseUrl });
 
   // 计算数据库文件绝对路径供 backup service 使用。
   let dbFilePath = databaseUrl;
@@ -104,7 +110,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     backups: { db, dbFilePath, backupsDir },
     settings: { db },
   });
-  await app.register(gatewayRoutes, { prefix: gatewayBasePath, db });
+  await app.register(gatewayRoutes, { prefix: gatewayBasePath, db, secretKey: env.SECRET_KEY });
   await app.register(healthRoutes, {
     db: {
       get: async (query: string) => client.execute(query),
