@@ -4,49 +4,49 @@
 
 ## Admin Auth
 
-- [ ] P2-001 Implement admin bootstrap
+- [x] P2-001 Implement admin bootstrap
   - Depends on: P1-050
   - Deliverables: bootstrap first admin from env or setup flow
   - Acceptance: production rejects default password.
 
-- [ ] P2-002 Implement auth routes
+- [x] P2-002 Implement auth routes
   - Depends on: P2-001, P0-022
   - Deliverables: login/logout/me/change-password/profile
   - Acceptance: Fastify inject tests cover success, invalid password, session expiry.
 
-- [ ] P2-003 Add admin route guard
+- [x] P2-003 Add admin route guard
   - Depends on: P2-002
   - Deliverables: guard for `/api/admin/*` except auth/setup allowance
   - Acceptance: unauthenticated admin API returns 401.
 
 ## Setup Wizard API
 
-- [ ] P2-010 Implement setup status endpoint
+- [x] P2-010 Implement setup status endpoint
   - Depends on: P2-001
   - Deliverables: `/api/admin/setup/status`
   - Acceptance: returns whether admin, secret, DB, first provider, first key are ready.
 
-- [ ] P2-011 Implement setup security step
+- [x] P2-011 Implement setup security step
   - Depends on: P2-010
   - Deliverables: endpoint/service to confirm admin password and secret readiness
   - Acceptance: setup cannot proceed in production with unsafe defaults.
 
-- [ ] P2-012 Implement setup upstream step
+- [x] P2-012 Implement setup upstream step
   - Depends on: P2-020, P2-030
   - Deliverables: create upstream from preset/manual input
   - Acceptance: returns created upstream without raw secret.
 
-- [ ] P2-013 Implement setup model mapping step
+- [x] P2-013 Implement setup model mapping step
   - Depends on: P2-040
   - Deliverables: create public models/candidates from selected discovered/manual models
   - Acceptance: transactional create works and duplicate names are reported.
 
-- [ ] P2-014 Implement setup consumer key step
+- [x] P2-014 Implement setup consumer key step
   - Depends on: P2-060
   - Deliverables: create app and default all-access Consumer Key
   - Acceptance: raw key shown once in response.
 
-- [ ] P2-015 Implement setup test request helper
+- [x] P2-015 Implement setup test request helper
   - Depends on: P2-014
   - Deliverables: generated curl/config snippets without performing real gateway call
   - Acceptance: snippets include base URL, key placeholder/value control, model.

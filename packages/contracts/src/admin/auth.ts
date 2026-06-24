@@ -26,9 +26,20 @@ export const meResponseSchema = successEnvelope(
 
 export const logoutResponseSchema = successEnvelope(z.object({ ok: z.boolean() }));
 
+export const changePasswordRequestSchema = z.object({
+  currentPassword: z.string().min(1, '当前密码不能为空'),
+  newPassword: z.string().min(8, '新密码至少 8 位'),
+});
+
+export const changePasswordResponseSchema = successEnvelope(
+  z.object({ admin: adminSummarySchema }),
+);
+
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 export type LoginResponse = z.infer<typeof loginResponseSchema>;
 export type MeResponse = z.infer<typeof meResponseSchema>;
 export type LogoutResponse = z.infer<typeof logoutResponseSchema>;
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
+export type ChangePasswordResponse = z.infer<typeof changePasswordResponseSchema>;
 
 export { errorEnvelope };

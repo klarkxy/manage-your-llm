@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, count } from 'drizzle-orm';
 import { generateId } from '@manageyourllm/shared';
 import type { Db } from '../client.js';
 import {
@@ -59,6 +59,11 @@ export class ConsumerKeyRepository {
       .from(consumerKeys)
       .where(eq(consumerKeys.appId, appId))
       .orderBy(consumerKeys.createdAt);
+  }
+
+  async hasConsumerKeys(): Promise<boolean> {
+    const rows = await this.db.select({ count: count() }).from(consumerKeys);
+    return (rows[0]?.count ?? 0) > 0;
   }
 
   async updateConsumerKey(

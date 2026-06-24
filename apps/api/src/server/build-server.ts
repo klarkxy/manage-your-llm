@@ -13,7 +13,11 @@ import fastifyStatic from '@fastify/static';
 import { createEnv } from '../config/env.js';
 import { registerErrorHandler } from './errors.js';
 import { healthRoutes } from './plugins/health.js';
+import { registerAdminAuthGuard } from './plugins/admin-auth.js';
+import { adminRoutes } from './routes/admin/index.js';
 import { createDb, initSchema } from '../infrastructure/db/index.js';
+import { AdminUserRepository } from '../infrastructure/db/repositories/admin-user.repository.js';
+import { AdminAuthService } from '../application/admin-auth.service.js';
 import { SettingsService } from '../domain/settings/settings.service.js';
 
 export const BackgroundJobsSymbol = Symbol.for('manageyourllm.backgroundJobs');
@@ -48,6 +52,15 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
   const { db, client } = createDb({ url: databaseUrl });
   await initSchema(db);
   await new SettingsService(db).getSettings();
+
+  // 首次启动时若没有任何管理员，则使用环境变量中的默认管理员账号自动创建。
+  // 生产环境下 createEnv 会拒绝默认密码/secret，因此不会留下不安全的初始账号。
+  const adminRepo = new AdminUserRepository(db);
+  if (!(await adminRepo.hasAdmins())) {
+    const authService = new AdminAuthService({ db, secretKey: env.SECRET_KEY });
+    await authService.bootstrap(env.ADMIN_USERNAME, env.ADMIN_PASSWORD, env.ADMIN_DISPLAY_NAME);
+  }
+
   const app = Fastify({ logger, trustProxy });
 
   // 允许 content-type 为 application/json 时 body 为空（例如 logout）。
@@ -65,6 +78,12 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
 
   registerErrorHandler(app);
   await app.register(fastifyCookie);
+  registerAdminAuthGuard(app, { db, secretKey: env.SECRET_KEY });
+  await app.register(adminRoutes, {
+    prefix: '/api/admin',
+    auth: { db, secretKey: env.SECRET_KEY, publicBaseUrl: env.PUBLIC_BASE_URL },
+    setup: { db, secretKey: env.SECRET_KEY, publicBaseUrl: env.PUBLIC_BASE_URL },
+  });
   await app.register(healthRoutes, {
     db: {
       get: async (query: string) => client.execute(query),

@@ -44,6 +44,11 @@ export class AdminUserRepository {
     return rows[0];
   }
 
+  async hasAdmins(): Promise<boolean> {
+    const rows = await this.db.select({ count: count() }).from(adminUsers);
+    return (rows[0]?.count ?? 0) > 0;
+  }
+
   async updateAdmin(
     id: string,
     data: Partial<Omit<AdminUserInsert, 'id' | 'createdAt'>>,

@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, count } from 'drizzle-orm';
 import { generateId } from '@manageyourllm/shared';
 import type { Db } from '../client.js';
 import {
@@ -50,6 +50,11 @@ export class PublicModelRepository {
 
   async listPublicModels(): Promise<PublicModelRow[]> {
     return this.db.select().from(publicModels).orderBy(publicModels.name);
+  }
+
+  async hasPublicModels(): Promise<boolean> {
+    const rows = await this.db.select({ count: count() }).from(publicModels);
+    return (rows[0]?.count ?? 0) > 0;
   }
 
   async updatePublicModel(

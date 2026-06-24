@@ -1,4 +1,4 @@
-import { eq, and, gt, lt } from 'drizzle-orm';
+import { eq, and, gt, lt, count } from 'drizzle-orm';
 import { generateId } from '@manageyourllm/shared';
 import type { Db } from '../client.js';
 import {
@@ -54,6 +54,11 @@ export class UpstreamKeyRepository {
       .select()
       .from(upstreamKeys)
       .orderBy(upstreamKeys.displayOrder, upstreamKeys.name);
+  }
+
+  async hasUpstreamKeys(): Promise<boolean> {
+    const rows = await this.db.select({ count: count() }).from(upstreamKeys);
+    return (rows[0]?.count ?? 0) > 0;
   }
 
   async updateUpstreamKey(
