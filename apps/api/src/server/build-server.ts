@@ -5,7 +5,7 @@
 // 以便 `main.ts` 在关闭时获取它，而测试可以继续使用裸 Fastify API。
 
 import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import fastifyCookie from '@fastify/cookie';
@@ -29,6 +29,8 @@ export interface BuildServerOptions {
   disableBackgroundJobs?: boolean;
   // 覆盖默认数据库 URL，测试使用 :memory: 避免文件 I/O。
   databaseUrl?: string;
+  // 覆盖备份目录，测试使用临时目录避免污染工作区。
+  backupsDir?: string;
 }
 
 export interface BackgroundJobsHandle {
@@ -50,6 +52,14 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
   const trustProxy = parseTrustProxy(env.TRUST_PROXY);
   const databaseUrl = options.databaseUrl ?? env.DATABASE_URL;
   const { db, client } = createDb({ url: databaseUrl });
+
+  // 计算数据库文件绝对路径供 backup service 使用。
+  let dbFilePath = databaseUrl;
+  if (databaseUrl.startsWith('file:')) {
+    const rawPath = databaseUrl.slice('file:'.length);
+    dbFilePath = rawPath === ':memory:' ? rawPath : isAbsolute(rawPath) ? rawPath : resolve(rawPath);
+  }
+  const backupsDir = options.backupsDir ?? './backups';
   await initSchema(db);
   await new SettingsService(db).getSettings();
 
@@ -83,6 +93,14 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     prefix: '/api/admin',
     auth: { db, secretKey: env.SECRET_KEY, publicBaseUrl: env.PUBLIC_BASE_URL },
     setup: { db, secretKey: env.SECRET_KEY, publicBaseUrl: env.PUBLIC_BASE_URL },
+    providerPresets: { db },
+    upstreamKeys: { db, secretKey: env.SECRET_KEY },
+    publicModels: { db },
+    modelGroups: { db },
+    apps: { db },
+    consumerKeys: { db },
+    backups: { db, dbFilePath, backupsDir },
+    settings: { db },
   });
   await app.register(healthRoutes, {
     db: {

@@ -24,6 +24,7 @@ export interface CreateUpstreamKeyInput {
   endpoints?: unknown[];
   displayOrder?: number;
   enabled?: boolean;
+  frozen?: boolean;
   stickySessionTtlMs?: number;
   quota?: Omit<UpstreamKeyQuotaInsert, 'id' | 'upstreamKeyId' | 'createdAt' | 'updatedAt'>;
 }
@@ -62,6 +63,7 @@ export class UpstreamKeyService {
         endpointsJson: input.endpoints ?? null,
         displayOrder: input.displayOrder ?? 1000,
         enabled: input.enabled ?? true,
+        frozen: input.frozen ?? false,
         stickySessionTtlMs: input.stickySessionTtlMs ?? 5 * 60 * 1000,
       });
 
@@ -137,5 +139,17 @@ export class UpstreamKeyService {
 
   async deleteUpstreamKey(id: string): Promise<void> {
     await this.repo().deleteUpstreamKey(id);
+  }
+
+  async rotateApiKey(id: string, apiKey: string): Promise<UpstreamKeyRow | undefined> {
+    const encrypted = encryptSecret(apiKey, this.secretKey);
+    return this.repo().updateUpstreamKey(id, {
+      apiKeyCiphertext: encrypted.ciphertext,
+      apiKeyPrefix: encrypted.prefix,
+    });
+  }
+
+  async freezeUpstreamKey(id: string, frozen: boolean, reason?: string): Promise<UpstreamKeyRow | undefined> {
+    return this.repo().updateFreeze(id, frozen, reason);
   }
 }

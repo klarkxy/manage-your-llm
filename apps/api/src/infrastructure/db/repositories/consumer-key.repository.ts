@@ -66,6 +66,10 @@ export class ConsumerKeyRepository {
     return (rows[0]?.count ?? 0) > 0;
   }
 
+  async listAll(): Promise<ConsumerKeyRow[]> {
+    return this.db.select().from(consumerKeys).orderBy(consumerKeys.createdAt);
+  }
+
   async updateConsumerKey(
     id: string,
     data: Partial<Omit<ConsumerKeyInsert, 'id' | 'createdAt'>>,

@@ -114,6 +114,12 @@ export const adminSettings = sqliteTable('admin_settings', {
   contentLogRetentionDays: integer('content_log_retention_days').notNull().default(7),
   contentLogMaxPayloadBytes: integer('content_log_max_payload_bytes').notNull().default(100_000),
   publicEndpointsBasePath: text('public_endpoints_base_path').notNull().default('/v1'),
+  publicBaseUrl: text('public_base_url'),
+  gatewayBasePath: text('gateway_base_path').default('/v1'),
+  defaultRequestTimeoutMs: integer('default_request_timeout_ms').default(30_000),
+  defaultRetries: integer('default_retries').default(0),
+  enableStickySession: integer('enable_sticky_session', { mode: 'boolean' }).default(true),
+  enableCircuitBreaker: integer('enable_circuit_breaker', { mode: 'boolean' }).default(true),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });

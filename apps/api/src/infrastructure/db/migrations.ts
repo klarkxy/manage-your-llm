@@ -509,4 +509,15 @@ export const MIGRATIONS: readonly Migration[] = [
       `CREATE INDEX IF NOT EXISTS backups_created_at_idx ON backups(created_at)`,
     ],
   },
+  {
+    version: 2,
+    statements: [
+      `ALTER TABLE admin_settings ADD COLUMN public_base_url TEXT`,
+      `ALTER TABLE admin_settings ADD COLUMN gateway_base_path TEXT DEFAULT '/v1'`,
+      `ALTER TABLE admin_settings ADD COLUMN default_request_timeout_ms INTEGER DEFAULT 30000`,
+      `ALTER TABLE admin_settings ADD COLUMN default_retries INTEGER DEFAULT 0`,
+      `ALTER TABLE admin_settings ADD COLUMN enable_sticky_session INTEGER DEFAULT 1`,
+      `ALTER TABLE admin_settings ADD COLUMN enable_circuit_breaker INTEGER DEFAULT 1`,
+    ],
+  },
 ];

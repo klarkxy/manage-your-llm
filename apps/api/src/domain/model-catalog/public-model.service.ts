@@ -53,7 +53,11 @@ export class PublicModelService {
         for (const candidate of input.candidates) {
           await new PublicModelRepository(tx).createCandidate({
             publicModelId: model.id,
-            ...candidate,
+            upstreamKeyId: candidate.upstreamKeyId,
+            realModelName: candidate.realModelName,
+            priority: candidate.priority ?? 100,
+            weight: candidate.weight ?? 1,
+            enabled: candidate.enabled ?? true,
           });
         }
       }
