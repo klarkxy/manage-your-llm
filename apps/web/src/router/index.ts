@@ -1,0 +1,64 @@
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
+import AdminLayout from '../layouts/AdminLayout.vue';
+
+const routes: RouteRecordRaw[] = [
+  {
+    path: '/login',
+    name: 'login',
+    component: () => import('../pages/Login.vue'),
+    meta: { standalone: true },
+  },
+  {
+    path: '/',
+    component: AdminLayout,
+    children: [
+      {
+        path: '',
+        name: 'overview',
+        component: () => import('../pages/Overview.vue'),
+        meta: { titleKey: 'layout.menu.overview' },
+      },
+      {
+        path: '/upstream-keys',
+        name: 'upstream-keys',
+        component: () => import('../pages/UpstreamKeys.vue'),
+        meta: { titleKey: 'layout.menu.upstreamKeys' },
+      },
+      {
+        path: '/public-models',
+        name: 'public-models',
+        component: () => import('../pages/PublicModels.vue'),
+        meta: { titleKey: 'layout.menu.publicModels' },
+      },
+      {
+        path: '/model-groups',
+        name: 'model-groups',
+        component: () => import('../pages/ModelGroups.vue'),
+        meta: { titleKey: 'layout.menu.modelGroups' },
+      },
+      {
+        path: '/apps',
+        name: 'apps',
+        component: () => import('../pages/Apps.vue'),
+        meta: { titleKey: 'layout.menu.apps' },
+      },
+      {
+        path: '/usage',
+        name: 'usage',
+        component: () => import('../pages/Usage.vue'),
+        meta: { titleKey: 'layout.menu.usage' },
+      },
+      {
+        path: '/settings',
+        name: 'settings',
+        component: () => import('../pages/Settings.vue'),
+        meta: { titleKey: 'layout.menu.settings' },
+      },
+    ],
+  },
+];
+
+export const router = createRouter({
+  history: createWebHistory(),
+  routes,
+});
