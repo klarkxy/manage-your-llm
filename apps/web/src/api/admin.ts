@@ -332,7 +332,6 @@ export interface ModelGroup {
   mode: 'manual' | 'auto_snapshot';
   autoPreset: string | null;
   autoReferenceRegion: string | null;
-  autoWeights: Record<string, number> | null;
   autoTopN: number | null;
   autoLastRefreshedAt: string | null;
   memberCount: number;
@@ -348,7 +347,6 @@ export interface ModelGroupCreatePayload {
   routingPolicy?: string;
   mode?: 'manual' | 'auto_snapshot';
   autoPreset?: string;
-  autoWeights?: Record<string, number>;
   autoTopN?: number;
   members?: Array<{
     publicModelId: string;
@@ -369,6 +367,13 @@ export const modelGroupsApi = {
     api.put<{ members: ModelGroupMember[] }>(`/api/admin/model-groups/${id}/members`, {
       members: members ?? [],
     }),
+  // Toggle a single member's `enabled` flag without losing the group's
+  // auto config (unlike `setMembers`, which flips the mode to `manual`).
+  toggleMember: (id: string, memberId: string, enabled: boolean) =>
+    api.patch<{ members: ModelGroupMember[] }>(
+      `/api/admin/model-groups/${id}/members/${memberId}`,
+      { enabled },
+    ),
   autoPreview: (payload: {
     preset: string;
     weights?: Record<string, number>;
@@ -383,6 +388,15 @@ export const modelGroupsApi = {
       `/api/admin/model-groups/${id}/refresh-auto`,
       {},
     ),
+  // Append up to 5 more public models to an auto-snapshot group,
+  // ranked by the same preset/weights and skipping ids that are
+  // already members (enabled or disabled).
+  loadMoreAuto: (id: string) =>
+    api.post<{
+      added: number;
+      recommendations: AutoGroupRecommendation[];
+      members: ModelGroupMember[];
+    }>(`/api/admin/model-groups/${id}/load-more-auto`, {}),
   remove: (id: string) =>
     api.delete<{ id: string; deleted: boolean }>(`/api/admin/model-groups/${id}`),
 };
@@ -753,11 +767,6 @@ export interface SettingsResponse {
   endpointHealth: EndpointHealthSettings;
   streaming: StreamingSettings;
   contentLogging: ContentLogSettings;
-  modelReference: {
-    autoPreset: string;
-    autoWeights: Record<string, number>;
-    autoTopN: number;
-  };
   publicEndpoints: PublicEndpointsSettings;
 }
 
@@ -784,11 +793,6 @@ export const settingsApi = {
     endpointHealth?: Partial<EndpointHealthSettings>;
     streaming?: Partial<StreamingSettings>;
     contentLogging?: Partial<ContentLogSettings>;
-    modelReference?: {
-      autoPreset?: string;
-      autoWeights?: Record<string, number>;
-      autoTopN?: number;
-    };
     publicEndpoints?: {
       basePath?: string;
     };

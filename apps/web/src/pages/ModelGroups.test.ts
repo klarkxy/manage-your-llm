@@ -23,7 +23,6 @@ function modelGroup(overrides: Record<string, unknown> = {}) {
     mode: 'manual',
     autoPreset: null,
     autoReferenceRegion: null,
-    autoWeights: null,
     autoTopN: null,
     autoLastRefreshedAt: null,
     memberCount: 1,
@@ -124,11 +123,6 @@ function installFetchMock() {
         },
         streaming: { firstTokenTimeoutMs: 10000 },
         contentLogging: { enabled: false, retentionDays: 7, maxPayloadBytes: 8192 },
-        modelReference: {
-          autoPreset: 'code',
-          autoWeights: { coding: 2 },
-          autoTopN: 3,
-        },
       });
     }
     if (url.endsWith('/api/admin/model-groups/auto-preview') && init?.method === 'POST') {
@@ -250,10 +244,12 @@ describe('ModelGroups page', () => {
         (init as RequestInit | undefined)?.method === 'POST',
     );
     expect(previewCall).toBeTruthy();
+    // No `weights` field — the preset alone drives the ranking.
+    // Defaults are `balanced` / 5 because there is no longer any
+    // per-admin "default" stored in the settings.
     expect(JSON.parse(String((previewCall![1] as RequestInit).body))).toEqual({
-      preset: 'code',
-      weights: { coding: 2 },
-      topN: 3,
+      preset: 'balanced',
+      topN: 5,
     });
 
     Array.from(document.body.querySelectorAll('button'))
@@ -271,9 +267,8 @@ describe('ModelGroups page', () => {
       name: 'auto-code',
       routingPolicy: 'priority',
       mode: 'auto_snapshot',
-      autoPreset: 'code',
-      autoTopN: 3,
-      autoWeights: { coding: 2 },
+      autoPreset: 'balanced',
+      autoTopN: 5,
     });
   });
 
@@ -292,7 +287,6 @@ describe('ModelGroups page', () => {
               mode: 'auto_snapshot',
               autoPreset: 'code',
               autoReferenceRegion: 'global',
-              autoWeights: { coding: 1 },
               autoTopN: 1,
               autoLastRefreshedAt: null,
               memberCount: 1,
@@ -322,7 +316,6 @@ describe('ModelGroups page', () => {
           },
           streaming: { firstTokenTimeoutMs: 10000 },
           contentLogging: { enabled: false, retentionDays: 7, maxPayloadBytes: 8192 },
-          modelReference: { autoPreset: 'code', autoWeights: { coding: 2 }, autoTopN: 3 },
         });
       }
       if (url.endsWith('/api/admin/model-groups/grp_auto/refresh-auto') && init?.method === 'POST') {
@@ -336,7 +329,6 @@ describe('ModelGroups page', () => {
           mode: 'auto_snapshot',
           autoPreset: 'code',
           autoReferenceRegion: 'global',
-          autoWeights: { coding: 1 },
           autoTopN: 1,
           autoLastRefreshedAt: '2026-06-23T00:00:00.000Z',
           memberCount: 1,
@@ -392,7 +384,6 @@ describe('ModelGroups page', () => {
               mode: 'manual',
               autoPreset: null,
               autoReferenceRegion: null,
-              autoWeights: null,
               autoTopN: null,
               autoLastRefreshedAt: null,
               memberCount: 1,
@@ -422,7 +413,6 @@ describe('ModelGroups page', () => {
           },
           streaming: { firstTokenTimeoutMs: 10000 },
           contentLogging: { enabled: false, retentionDays: 7, maxPayloadBytes: 8192 },
-          modelReference: { autoPreset: 'code', autoWeights: { coding: 2 }, autoTopN: 3 },
         });
       }
       if (url.endsWith('/api/admin/model-groups/grp_1') && init?.method === 'DELETE') {

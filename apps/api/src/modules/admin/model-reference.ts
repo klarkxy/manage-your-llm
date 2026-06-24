@@ -17,7 +17,19 @@ import {
 } from '../db/schema.js';
 
 export const DEFAULT_REFERENCE_TTL_MS = 24 * 60 * 60 * 1000;
-export const AUTO_GROUP_PRESETS = ['balanced', 'chat', 'code', 'plan', 'cheap'] as const;
+// Six presets with clearly differentiated weight profiles. The
+// `isAutoGroupPreset` guard + `coerceWeights` rely on this list being
+// exhaustive; adding/removing entries is a breaking change for any
+// stored setting row that names a removed preset, so the admin settings
+// PUT handler treats unknown presets as "keep current".
+export const AUTO_GROUP_PRESETS = [
+  'balanced',
+  'code',
+  'chat',
+  'writing',
+  'reasoning',
+  'fast',
+] as const;
 export type AutoGroupPreset = (typeof AUTO_GROUP_PRESETS)[number];
 
 export interface AutoGroupWeights {
@@ -97,7 +109,15 @@ const RELE_SCORE_KEYS = new Set<string>([
   'coding',
 ]);
 
+// Weight profiles per preset. Weights are normalized to sum to 1, and
+// every preset has its top-2 metrics clearly above 0.3 so the
+// `sort by score` step actually picks visibly different models. The
+// ReLE leaderboard is the scoring source — every key below must
+// correspond to a column exposed in `RELE_SCORE_KEYS` or be one of
+// the synthetic dimensions (intelligence, costEfficiency, price,
+// context) that `AutoGroupWeights` documents.
 const PRESET_WEIGHTS: Record<AutoGroupPreset, Required<AutoGroupWeights>> = {
+  // Default: every meaningful metric gets a slice, no extreme bias.
   balanced: {
     intelligence: 0.2,
     chat: 0.14,
@@ -111,57 +131,79 @@ const PRESET_WEIGHTS: Record<AutoGroupPreset, Required<AutoGroupWeights>> = {
     price: 0,
     context: 0,
   },
+  // Coding: heavy on coding + agentic, with reasoning as a supporting
+  // signal so a model good at agentic coding wins over a raw coder.
+  code: {
+    intelligence: 0.05,
+    chat: 0.02,
+    knowledge: 0.03,
+    math: 0.05,
+    chinese: 0,
+    reasoning: 0.15,
+    coding: 0.55,
+    agentic: 0.15,
+    costEfficiency: 0,
+    price: 0,
+    context: 0,
+  },
+  // Chat: natural conversation, multilingual, general knowledge.
   chat: {
-    intelligence: 0.22,
-    chat: 0.4,
+    intelligence: 0.2,
+    chat: 0.45,
     knowledge: 0.1,
     math: 0,
-    chinese: 0.14,
-    reasoning: 0.08,
+    chinese: 0.15,
+    reasoning: 0.05,
+    coding: 0.02,
+    agentic: 0.03,
+    costEfficiency: 0,
+    price: 0,
+    context: 0,
+  },
+  // Writing: long-form generation, multilingual + chat style.
+  writing: {
+    intelligence: 0.15,
+    chat: 0.3,
+    knowledge: 0.2,
+    math: 0.02,
+    chinese: 0.18,
+    reasoning: 0.1,
+    coding: 0,
+    agentic: 0.05,
+    costEfficiency: 0,
+    price: 0,
+    context: 0,
+  },
+  // Reasoning: math + reasoning dominate; knowledge as supporting
+  // context, intelligence as a tiebreaker for very close scores.
+  reasoning: {
+    intelligence: 0.15,
+    chat: 0.02,
+    knowledge: 0.18,
+    math: 0.35,
+    chinese: 0.02,
+    reasoning: 0.22,
     coding: 0.04,
     agentic: 0.02,
     costEfficiency: 0,
     price: 0,
     context: 0,
   },
-  code: {
-    intelligence: 0.08,
-    chat: 0.02,
-    knowledge: 0.03,
-    math: 0.1,
-    chinese: 0,
-    reasoning: 0.12,
-    coding: 0.55,
-    agentic: 0.1,
-    costEfficiency: 0,
-    price: 0,
-    context: 0,
-  },
-  plan: {
-    intelligence: 0.14,
-    chat: 0.06,
-    knowledge: 0.16,
-    math: 0.1,
-    chinese: 0.02,
-    reasoning: 0.24,
-    coding: 0.04,
-    agentic: 0.24,
-    costEfficiency: 0,
-    price: 0,
-    context: 0,
-  },
-  cheap: {
-    intelligence: 0.18,
-    chat: 0.12,
-    knowledge: 0.12,
-    math: 0.1,
-    chinese: 0.08,
-    reasoning: 0.12,
-    coding: 0.14,
-    agentic: 0.14,
-    costEfficiency: 0,
-    price: 0,
-    context: 0,
+  // Fast: prioritise cost efficiency, with a long context window as
+  // the secondary tiebreaker. Quality metrics stay low but not zero,
+  // so a pathologically weak model still loses.
+  fast: {
+    intelligence: 0.05,
+    chat: 0.08,
+    knowledge: 0.05,
+    math: 0.05,
+    chinese: 0.05,
+    reasoning: 0.05,
+    coding: 0.07,
+    agentic: 0.05,
+    costEfficiency: 0.45,
+    price: 0.05,
+    context: 0.1,
   },
 };
 
@@ -721,9 +763,19 @@ export async function previewAutoGroupMembers(
     preset: AutoGroupPreset;
     weights?: unknown;
     topN?: number;
+    /**
+     * Public model IDs to skip — used by the "Load more" path so the
+     * preview returns the next batch instead of re-listing existing
+     * members. The returned list still honours the topN cap, so callers
+     * should request `currentCount + 5` here.
+     */
+    excludePublicModelIds?: readonly string[];
   },
 ): Promise<AutoGroupRecommendation[]> {
-  const topN = Math.max(1, Math.min(20, Math.round(input.topN ?? 5)));
+  // The cap is loose (100) instead of 20 so the "Load more" path can
+  // request enough headroom in one round-trip. The "create" path still
+  // passes its small topN and is unaffected.
+  const topN = Math.max(1, Math.min(100, Math.round(input.topN ?? 5)));
   const weights = coerceWeights(input.preset, input.weights);
   const refs = await db
     .select()
@@ -781,8 +833,12 @@ export async function previewAutoGroupMembers(
     aggregateByPublic.set(pm.id, existing);
   }
 
+  const excludeSet = new Set(input.excludePublicModelIds ?? []);
   const recommendations: AutoGroupRecommendation[] = [];
   for (const aggregate of aggregateByPublic.values()) {
+    // Skip public models that are already members of the group — used
+    // by the "Load more" path to fetch the *next* batch.
+    if (excludeSet.has(aggregate.publicModel.id)) continue;
     const scores = aggregate.scores;
     const priceScore = normalizePrice(aggregate.priceValue, priceMax);
     if (aggregate.priceValue !== null) {

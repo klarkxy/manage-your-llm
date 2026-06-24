@@ -240,7 +240,8 @@ const sortedItems = computed(() => {
 
 const pagination = computed(() => ({
   showSizePicker: true,
-  pageSizes: [20, 50, 100],
+  pageSize: 10,
+  pageSizes: [10, 20, 50, 100],
 }));
 
 const tableScrollX = computed(() => {

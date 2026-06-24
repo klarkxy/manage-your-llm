@@ -1,20 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, h } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   NSpace,
   NCard,
-  NStatistic,
   NButton,
   NTag,
   NGrid,
   NGi,
-  NDataTable,
-  NEmpty,
   NText,
   NDivider,
-  type DataTableColumns,
 } from 'naive-ui';
 import {
   appsApi,
@@ -40,7 +35,6 @@ import {
 import type { EChartsOption } from 'echarts';
 import EChart from '../components/EChart.vue';
 
-const router = useRouter();
 const { t } = useI18n();
 
 const apps = ref<AppSummary[]>([]);
@@ -87,35 +81,120 @@ const frozenKeys = computed(() => keys.value.filter((k) => k.frozen).length);
 const activeKeys = computed(() => keys.value.filter((k) => k.enabled && !k.frozen).length);
 const hasConsumption = computed(() => (consumption.value?.length ?? 0) > 0);
 
-/** Mini sparkline fed to the upstream-keys StatCard. */
-const sparkOption = computed<EChartsOption>(() => ({
-  grid: { left: 0, right: 0, top: 2, bottom: 0 },
-  xAxis: { type: 'category', show: false, data: consumption.value.map((_, i) => i) },
-  yAxis: { type: 'value', show: false },
-  tooltip: { show: false },
-  series: [
-    {
-      type: 'line',
-      data: consumption.value.map((c) => c.totalRequests),
-      smooth: true,
-      symbol: 'none',
-      lineStyle: { width: 2, color: 'var(--n-primary-color)' },
-      areaStyle: { opacity: 0.18 },
+// The "groups" stat card needs a count. We removed the dedicated
+// model-groups API call from Overview; derive a placeholder count by
+// collapsing the previous total into the public-models stat instead.
+// Keep `modelGroupsCount` at 0 here so the layer's i18n string still
+// resolves; the production card that uses it is removed.
+const modelGroupsCount = computed(() => 0);
+
+/**
+ * Shorten a YYYY-MM-DD string to MM-DD for axis labels. ECharts'
+ * default font is small on this page and full dates don't fit.
+ */
+function shortDate(dayDate: string): string {
+  if (typeof dayDate !== 'string' || dayDate.length < 10) return dayDate;
+  return dayDate.slice(5);
+}
+
+/** Recharts-style line chart for "requests per day, last 30". */
+const requestsChartOption = computed<EChartsOption>(() => {
+  const days = consumption.value;
+  return {
+    grid: { left: 50, right: 16, top: 24, bottom: 32 },
+    tooltip: { trigger: 'axis' },
+    xAxis: {
+      type: 'category',
+      data: days.map((d) => shortDate(d.dayDate)),
+      axisLabel: { fontSize: 11 },
     },
-  ],
-}));
+    yAxis: {
+      type: 'value',
+      minInterval: 1,
+      axisLabel: { fontSize: 11 },
+    },
+    series: [
+      {
+        name: t('overview.requestsChart.series'),
+        type: 'line',
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        data: days.map((d) => d.totalRequests),
+        lineStyle: { width: 2, color: 'var(--n-primary-color)' },
+        areaStyle: { opacity: 0.18, color: 'var(--n-primary-color)' },
+      },
+    ],
+  };
+});
 
-const modelColumns = computed<DataTableColumns<PublicModel>>(() => [
-  { title: t('overview.modelsCard'), key: 'name', sorter: true },
-  { title: t('common.displayName'), key: 'displayName', sorter: true },
-  { title: t('common.candidates'), key: 'candidateCount', width: 110, sorter: true },
-]);
+/** Stacked bar chart for daily token consumption (input / output / cache). */
+const tokenChartOption = computed<EChartsOption>(() => {
+  const days = consumption.value;
+  return {
+    grid: { left: 60, right: 16, top: 32, bottom: 32 },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    legend: {
+      top: 0,
+      data: [
+        t('overview.tokenChart.input'),
+        t('overview.tokenChart.output'),
+        t('overview.tokenChart.cacheRead'),
+        t('overview.tokenChart.cacheWrite'),
+      ],
+      textStyle: { fontSize: 11 },
+    },
+    xAxis: {
+      type: 'category',
+      data: days.map((d) => shortDate(d.dayDate)),
+      axisLabel: { fontSize: 11 },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize: 11, formatter: (v: number) => abbreviateNumber(v) },
+    },
+    series: [
+      {
+        name: t('overview.tokenChart.input'),
+        type: 'bar',
+        stack: 'tokens',
+        data: days.map((d) => d.totalInputTokens),
+        itemStyle: { color: 'var(--n-primary-color)' },
+      },
+      {
+        name: t('overview.tokenChart.output'),
+        type: 'bar',
+        stack: 'tokens',
+        data: days.map((d) => d.totalOutputTokens),
+        itemStyle: { color: 'var(--n-success-color)' },
+      },
+      {
+        name: t('overview.tokenChart.cacheRead'),
+        type: 'bar',
+        stack: 'tokens',
+        data: days.map((d) => d.totalCacheReadTokens),
+        itemStyle: { color: 'var(--n-info-color)' },
+      },
+      {
+        name: t('overview.tokenChart.cacheWrite'),
+        type: 'bar',
+        stack: 'tokens',
+        data: days.map((d) => d.totalCacheWriteTokens),
+        itemStyle: { color: 'var(--n-warning-color)' },
+      },
+    ],
+  };
+});
 
-const groupColumns = computed<DataTableColumns<ModelGroup>>(() => [
-  { title: t('overview.groupsCard'), key: 'name', sorter: true },
-  { title: t('common.displayName'), key: 'displayName', sorter: true },
-  { title: t('common.members'), key: 'memberCount', width: 110, sorter: true },
-]);
+/** Compact "1.2k" / "3.4M" formatter for the Y axis. */
+function abbreviateNumber(n: number): string {
+  if (!Number.isFinite(n)) return '0';
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
 
 async function copyPublicEndpoint(key: string, value: string): Promise<void> {
   try {
@@ -183,11 +262,7 @@ async function copyPublicEndpoint(key: string, value: string): Promise<void> {
             :value="keys.length"
             :icon="KeyOutline"
             icon-color="var(--n-primary-color)"
-            :sparkline="hasConsumption"
           >
-            <template #sparkline>
-              <EChart :option="sparkOption" :height="40" />
-            </template>
             <template #default>
               <span style="font-size: 11px; color: var(--n-text-color-3)">
                 {{ t('overview.stats.active', { count: activeKeys }) }} ·
@@ -197,26 +272,6 @@ async function copyPublicEndpoint(key: string, value: string): Promise<void> {
           </StatCard>
         </NGi>
       </NGrid>
-
-      <NCard :title="t('overview.modelsCard')">
-        <NDataTable
-          :columns="modelColumns"
-          :data="models"
-          :bordered="false"
-          :row-key="(r) => r.id"
-          :empty="h(NEmpty, { description: t('overview.modelsEmpty') })"
-        />
-      </NCard>
-
-      <NCard :title="t('overview.groupsCard')">
-        <NDataTable
-          :columns="groupColumns"
-          :data="groups"
-          :bordered="false"
-          :row-key="(r) => r.id"
-          :empty="h(NEmpty, { description: t('overview.groupsEmpty') })"
-        />
-      </NCard>
 
       <NCard
         v-if="publicEndpoints"
@@ -273,17 +328,18 @@ async function copyPublicEndpoint(key: string, value: string): Promise<void> {
         </NSpace>
       </NCard>
 
-      <NCard :title="t('overview.nextSteps.title')">
-        <p>{{ t('overview.nextSteps.description') }}</p>
-        <NSpace>
-          <NButton type="primary" @click="router.push('/upstream-keys')">{{
-            t('overview.nextSteps.manageUpstreamKeys')
-          }}</NButton>
-          <NButton @click="router.push('/public-models')">{{
-            t('overview.nextSteps.publicModels')
-          }}</NButton>
-          <NButton @click="router.push('/apps')">{{ t('overview.nextSteps.apps') }}</NButton>
-        </NSpace>
+      <NCard :title="t('overview.requestsChart.title')">
+        <EChart v-if="hasConsumption" :option="requestsChartOption" :height="220" />
+        <NText v-else depth="3" style="font-size: 12px">
+          {{ t('overview.chartsEmpty') }}
+        </NText>
+      </NCard>
+
+      <NCard :title="t('overview.tokenChart.title')">
+        <EChart v-if="hasConsumption" :option="tokenChartOption" :height="240" />
+        <NText v-else depth="3" style="font-size: 12px">
+          {{ t('overview.chartsEmpty') }}
+        </NText>
       </NCard>
     </NSpace>
   </div>

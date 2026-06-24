@@ -113,6 +113,18 @@ const messages = {
       publicModels: '公共模型',
       apps: '應用程式',
     },
+    chartsEmpty: '暫無用量資料。',
+    requestsChart: {
+      title: '近 30 天請求數',
+      series: '請求數',
+    },
+    tokenChart: {
+      title: '近 30 天 Token 消耗',
+      input: '輸入',
+      output: '輸出',
+      cacheRead: '快取讀取',
+      cacheWrite: '快取寫入',
+    },
     publicEndpoints: {
       title: '公共端點',
       caption: '把以下 URL 提供給將呼叫 ModelHarbor 的應用程式:',
@@ -299,6 +311,14 @@ const messages = {
         name: 'coding',
         displayName: 'Coding',
         publicModel: '公共模型',
+      },
+      presets: {
+        balanced: '均衡',
+        code: '程式',
+        chat: '對話',
+        writing: '寫作',
+        reasoning: '推理',
+        fast: '便宜快',
       },
     },
     validation: {

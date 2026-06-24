@@ -36,22 +36,15 @@ const baseSettings = {
   },
   streaming: { firstTokenTimeoutMs: 8000 },
   contentLogging: { enabled: false, retentionDays: 7, maxPayloadBytes: 16384 },
-  modelReference: {
-    autoPreset: 'balanced',
-    autoWeights: {
-      intelligence: 0.2,
-      chat: 0.14,
-      knowledge: 0.14,
-      math: 0.12,
-      chinese: 0.08,
-      reasoning: 0.12,
-      coding: 0.12,
-      agentic: 0.08,
-      costEfficiency: 0,
-      price: 0,
-      context: 0,
+  publicEndpoints: {
+    basePath: '/v1',
+    baseUrl: 'http://localhost:5420',
+    endpoints: {
+      messages: 'http://localhost:5420/v1/messages',
+      chatCompletions: 'http://localhost:5420/v1/chat/completions',
+      responses: 'http://localhost:5420/v1/responses',
+      models: 'http://localhost:5420/v1/models',
     },
-    autoTopN: 5,
   },
 };
 
@@ -223,13 +216,18 @@ describe('Settings page', () => {
     expect(body.contentLogging).toEqual(baseSettings.contentLogging);
   });
 
-  it('saves model-reference settings via PUT /api/admin/settings', async () => {
+  it('saves public-endpoints settings via PUT /api/admin/settings', async () => {
     stubSettingsAndAudit();
     const wrapper = mountSettings();
     await flushPromises();
 
     const saveButtons = wrapper.findAll('button').filter((b) => b.text().trim() === 'Save');
-    await saveButtons[4]!.trigger('click');
+    // The Settings page now has 4 save buttons (profile, password,
+    // circuit breaker, endpoint health, streaming, content logging,
+    // public endpoints). The model-reference card is gone, so the
+    // public-endpoints Save button is the last one in the DOM.
+    const publicEndpointsSave = saveButtons[saveButtons.length - 1]!;
+    await publicEndpointsSave.trigger('click');
     await flushPromises();
 
     const putCall = vi
@@ -237,9 +235,9 @@ describe('Settings page', () => {
       .mock.calls.find(([url, init]) => String(url).endsWith('/api/admin/settings') && (init as RequestInit | undefined)?.method === 'PUT');
     expect(putCall).toBeTruthy();
     const body = JSON.parse(String((putCall![1] as RequestInit).body)) as {
-      modelReference?: unknown;
+      publicEndpoints?: { basePath?: string };
     };
-    expect(body.modelReference).toEqual(baseSettings.modelReference);
+    expect(body.publicEndpoints).toBeTruthy();
   });
 
   it('resets a circuit breaker from the breakers table', async () => {

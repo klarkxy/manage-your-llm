@@ -114,6 +114,18 @@ const messages = {
       publicModels: 'パブリックモデル',
       apps: 'アプリ',
     },
+    chartsEmpty: '使用記録がまだありません。',
+    requestsChart: {
+      title: 'リクエスト数 (過去 30 日)',
+      series: 'リクエスト数',
+    },
+    tokenChart: {
+      title: 'トークン消費 (過去 30 日)',
+      input: '入力',
+      output: '出力',
+      cacheRead: 'キャッシュ読み取り',
+      cacheWrite: 'キャッシュ書き込み',
+    },
     publicEndpoints: {
       title: '公共エンドポイント',
       caption: 'これらのURLをModelHarborを呼び出すアプリに渡してください:',
@@ -300,6 +312,14 @@ const messages = {
         name: 'coding',
         displayName: 'Coding',
         publicModel: 'パブリックモデル',
+      },
+      presets: {
+        balanced: 'バランス',
+        code: 'コーディング',
+        chat: 'チャット',
+        writing: '文章作成',
+        reasoning: '推論',
+        fast: '安価で高速',
       },
     },
     validation: {

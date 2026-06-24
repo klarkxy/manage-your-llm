@@ -89,16 +89,98 @@ describe('Overview page', () => {
     expect(wrapper.text()).toMatch(/frozen\s*0/);
   });
 
-  it('renders the public-model and model-group tables with their rows', async () => {
+  it('renders both usage chart cards with empty state when no consumption data', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockImplementation(async (url: string) => {
-        if (url.endsWith('/apps')) return jsonResponse({ items: [] });
+        if (
+          url.endsWith('/apps') ||
+          url.endsWith('/model-groups') ||
+          url.endsWith('/public-models') ||
+          url.endsWith('/upstream-keys') ||
+          url.includes('/consumption/daily')
+        ) {
+          return jsonResponse({ items: [] });
+        }
+        return jsonResponse({});
+      }),
+    );
+
+    const { wrapper } = mountOverview();
+    await flushPromises();
+    // Both chart card titles are present in the DOM.
+    expect(wrapper.text()).toContain('Requests (last 30 days)');
+    expect(wrapper.text()).toContain('Token consumption (last 30 days)');
+    // Empty state hint is shown when there's no data.
+    expect(wrapper.text()).toContain('No usage recorded yet');
+  });
+
+  it('places the public-endpoints card before the usage chart cards', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (url: string) => {
+        if (
+          url.endsWith('/apps') ||
+          url.endsWith('/model-groups') ||
+          url.endsWith('/public-models') ||
+          url.endsWith('/upstream-keys') ||
+          url.includes('/consumption/daily')
+        ) {
+          return jsonResponse({ items: [] });
+        }
+        if (url.endsWith('/api/admin/settings')) {
+          return jsonResponse({
+            circuitBreaker: {},
+            endpointHealth: {},
+            streaming: {},
+            contentLogging: {},
+            modelReference: { autoPreset: 'balanced', autoWeights: {}, autoTopN: 5 },
+            publicEndpoints: {
+              basePath: '/v1',
+              baseUrl: 'http://localhost:5420',
+              endpoints: {
+                messages: 'http://localhost:5420/v1/messages',
+                chatCompletions: 'http://localhost:5420/v1/chat/completions',
+                responses: 'http://localhost:5420/v1/responses',
+                models: 'http://localhost:5420/v1/models',
+              },
+            },
+          });
+        }
+        return jsonResponse({});
+      }),
+    );
+
+    const { wrapper } = mountOverview();
+    await flushPromises();
+    const text = wrapper.text();
+    const peIdx = text.indexOf('Public endpoints');
+    const reqIdx = text.indexOf('Requests (last 30 days)');
+    const tokIdx = text.indexOf('Token consumption (last 30 days)');
+    expect(peIdx).toBeGreaterThan(-1);
+    expect(reqIdx).toBeGreaterThan(-1);
+    expect(tokIdx).toBeGreaterThan(-1);
+    // Public Endpoints sits between the stat grid and the chart cards.
+    expect(peIdx).toBeLessThan(reqIdx);
+    expect(peIdx).toBeLessThan(tokIdx);
+  });
+
+  it('aggregates app / public-model / model-group counts on the stat cards', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (url: string) => {
+        if (url.endsWith('/apps')) {
+          return jsonResponse({
+            items: [
+              { id: 'a_1', name: 'A' },
+              { id: 'a_2', name: 'B' },
+            ],
+          });
+        }
         if (url.endsWith('/model-groups')) {
           return jsonResponse({
             items: [
               { id: 'mg_1', name: 'auto-coder', displayName: 'Auto Coder', memberCount: 4 },
-              { id: 'mg_2', name: 'fast', displayName: 'Fast', memberCount: 2 },
             ],
           });
         }
@@ -106,82 +188,21 @@ describe('Overview page', () => {
           return jsonResponse({
             items: [
               { id: 'pm_1', name: 'gpt-4o', displayName: 'GPT-4o', candidateCount: 3 },
-              { id: 'pm_2', name: 'claude-opus-4', displayName: 'Claude Opus 4', candidateCount: 2 },
             ],
           });
         }
         if (url.endsWith('/upstream-keys')) return jsonResponse({ items: [] });
-        return jsonResponse({});
+        return jsonResponse({ items: [] });
       }),
     );
 
     const { wrapper } = mountOverview();
     await flushPromises();
-    expect(wrapper.text()).toContain('gpt-4o');
-    expect(wrapper.text()).toContain('claude-opus-4');
-    expect(wrapper.text()).toContain('auto-coder');
-    expect(wrapper.text()).toContain('Fast');
-  });
-
-  it('navigates to /upstream-keys when the next-step button is clicked', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockImplementation(async (url: string) => {
-        if (
-          url.endsWith('/apps') ||
-          url.endsWith('/model-groups') ||
-          url.endsWith('/public-models') ||
-          url.endsWith('/upstream-keys') ||
-          url.includes('/consumption/daily')
-        ) {
-          return jsonResponse({ items: [] });
-        }
-        return jsonResponse({});
-      }),
-    );
-
-    const { wrapper, router } = mountOverview();
-    await flushPromises();
-
-    const button = wrapper.findAll('button').find((b) => /manage upstream keys/i.test(b.text()));
-    expect(button).toBeTruthy();
-    await button!.trigger('click');
-    await flushPromises();
-    expect(router.currentRoute.value.path).toBe('/upstream-keys');
-  });
-
-  it('navigates to /public-models and /apps via the next-step buttons', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockImplementation(async (url: string) => {
-        if (
-          url.endsWith('/apps') ||
-          url.endsWith('/model-groups') ||
-          url.endsWith('/public-models') ||
-          url.endsWith('/upstream-keys') ||
-          url.includes('/consumption/daily')
-        ) {
-          return jsonResponse({ items: [] });
-        }
-        return jsonResponse({});
-      }),
-    );
-
-    const { wrapper, router } = mountOverview();
-    await flushPromises();
-
-    const publicModelsBtn = wrapper.findAll('button').find((b) =>
-      /public models/i.test(b.text()),
-    );
-    expect(publicModelsBtn).toBeTruthy();
-    await publicModelsBtn!.trigger('click');
-    await flushPromises();
-    expect(router.currentRoute.value.path).toBe('/public-models');
-
-    const appsBtn = wrapper.findAll('button').find((b) => /^apps$/i.test(b.text().trim()));
-    expect(appsBtn).toBeTruthy();
-    await appsBtn!.trigger('click');
-    await flushPromises();
-    expect(router.currentRoute.value.path).toBe('/apps');
+    // Stat cards render their label + value. Pull the count by looking
+    // for the pattern "Apps<N>" / "Public models<N>" / "Model groups<N>".
+    const text = wrapper.text();
+    expect(text).toMatch(/Apps\s*2/);
+    expect(text).toMatch(/Public models\s*1/);
+    expect(text).toMatch(/Model groups\s*1/);
   });
 });

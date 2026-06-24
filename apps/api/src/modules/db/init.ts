@@ -40,10 +40,6 @@ const STATEMENTS: readonly string[] = [
      content_log_enabled INTEGER NOT NULL DEFAULT 0,
      content_log_retention_days INTEGER NOT NULL DEFAULT 7,
      content_log_max_payload_bytes INTEGER NOT NULL DEFAULT 100000,
-     model_reference_default_region TEXT NOT NULL DEFAULT 'global',
-     model_reference_auto_preset TEXT NOT NULL DEFAULT 'balanced',
-     model_reference_auto_weights_json TEXT,
-     model_reference_auto_top_n INTEGER NOT NULL DEFAULT 5,
      public_endpoints_base_path TEXT NOT NULL DEFAULT '/v1',
      created_at INTEGER NOT NULL,
      updated_at INTEGER NOT NULL
@@ -56,10 +52,6 @@ const STATEMENTS: readonly string[] = [
   `ALTER TABLE admin_settings ADD COLUMN endpoint_health_probe_timeout_ms INTEGER NOT NULL DEFAULT 10000`,
   `ALTER TABLE admin_settings ADD COLUMN endpoint_health_probe_degraded_latency_ms INTEGER NOT NULL DEFAULT 5000`,
   `ALTER TABLE admin_settings ADD COLUMN first_token_timeout_ms INTEGER NOT NULL DEFAULT 15000`,
-  `ALTER TABLE admin_settings ADD COLUMN model_reference_default_region TEXT NOT NULL DEFAULT 'global'`,
-  `ALTER TABLE admin_settings ADD COLUMN model_reference_auto_preset TEXT NOT NULL DEFAULT 'balanced'`,
-  `ALTER TABLE admin_settings ADD COLUMN model_reference_auto_weights_json TEXT`,
-  `ALTER TABLE admin_settings ADD COLUMN model_reference_auto_top_n INTEGER NOT NULL DEFAULT 5`,
   `ALTER TABLE admin_settings ADD COLUMN public_endpoints_base_path TEXT NOT NULL DEFAULT '/v1'`,
 
   // Apps
@@ -233,7 +225,6 @@ const STATEMENTS: readonly string[] = [
      mode TEXT NOT NULL DEFAULT 'manual',
      auto_preset TEXT,
      auto_reference_region TEXT,
-     auto_weights_json TEXT,
      auto_top_n INTEGER,
      auto_last_refreshed_at INTEGER,
      created_at INTEGER NOT NULL,
@@ -243,7 +234,6 @@ const STATEMENTS: readonly string[] = [
   `ALTER TABLE model_groups ADD COLUMN mode TEXT NOT NULL DEFAULT 'manual'`,
   `ALTER TABLE model_groups ADD COLUMN auto_preset TEXT`,
   `ALTER TABLE model_groups ADD COLUMN auto_reference_region TEXT`,
-  `ALTER TABLE model_groups ADD COLUMN auto_weights_json TEXT`,
   `ALTER TABLE model_groups ADD COLUMN auto_top_n INTEGER`,
   `ALTER TABLE model_groups ADD COLUMN auto_last_refreshed_at INTEGER`,
   `CREATE TABLE IF NOT EXISTS model_group_members (

@@ -3,12 +3,16 @@ import { computed, h, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   NAlert,
+  NAnchor,
+  NAnchorLink,
   NButton,
   NCard,
   NDataTable,
   NDivider,
   NForm,
   NFormItem,
+  NGrid,
+  NGi,
   NInput,
   NInputNumber,
   NSelect,
@@ -45,7 +49,6 @@ const savingCircuitBreaker = ref(false);
 const savingEndpointHealth = ref(false);
 const savingStreaming = ref(false);
 const savingContentLogging = ref(false);
-const savingModelReference = ref(false);
 const savingPublicEndpoints = ref(false);
 
 const profile = ref<AdminSummary | null>(null);
@@ -62,11 +65,6 @@ const circuitBreakerSettings = ref<CircuitBreakerSettings | null>(null);
 const endpointHealthSettings = ref<EndpointHealthSettings | null>(null);
 const streamingSettings = ref<StreamingSettings | null>(null);
 const contentLogSettings = ref<ContentLogSettings | null>(null);
-const modelReferenceSettings = ref<{
-  autoPreset: string;
-  autoWeights: Record<string, number>;
-  autoTopN: number;
-} | null>(null);
 const publicEndpointsSettings = ref<PublicEndpointsSettings | null>(null);
 // Editable mirror of `publicEndpointsSettings.basePath`. We bind the form
 // input to this local ref so the user can edit without immediately
@@ -106,7 +104,6 @@ async function refreshCircuitBreakerSettings(): Promise<void> {
     endpointHealthSettings.value = res.endpointHealth;
     streamingSettings.value = res.streaming;
     contentLogSettings.value = res.contentLogging;
-    modelReferenceSettings.value = res.modelReference;
     publicEndpointsSettings.value = res.publicEndpoints;
     publicEndpointsBasePathInput.value = res.publicEndpoints.basePath;
   } catch (err) {
@@ -179,22 +176,6 @@ async function saveContentLogSettings(): Promise<void> {
     error.value = err instanceof ApiClientError ? err.message : (err as Error).message;
   } finally {
     savingContentLogging.value = false;
-  }
-}
-
-async function saveModelReferenceSettings(): Promise<void> {
-  if (!modelReferenceSettings.value) return;
-  savingModelReference.value = true;
-  error.value = null;
-  message.value = null;
-  try {
-    const res = await settingsApi.update({ modelReference: modelReferenceSettings.value });
-    modelReferenceSettings.value = res.modelReference;
-    message.value = t('settings.modelReference.saved');
-  } catch (err) {
-    error.value = err instanceof ApiClientError ? err.message : (err as Error).message;
-  } finally {
-    savingModelReference.value = false;
   }
 }
 
@@ -388,34 +369,14 @@ const breakerColumns = computed<DataTableColumns<CircuitBreakerItem>>(() => [
 ]);
 
 const username = computed(() => profile.value?.username ?? '');
-
-const autoPresetOptions = computed(() => [
-  { label: t('modelGroups.drawer.presets.balanced'), value: 'balanced' },
-  { label: t('modelGroups.drawer.presets.chat'), value: 'chat' },
-  { label: t('modelGroups.drawer.presets.code'), value: 'code' },
-  { label: t('modelGroups.drawer.presets.plan'), value: 'plan' },
-  { label: t('modelGroups.drawer.presets.cheap'), value: 'cheap' },
-]);
-
-const autoWeightKeys = [
-  'intelligence',
-  'chat',
-  'knowledge',
-  'math',
-  'chinese',
-  'reasoning',
-  'coding',
-  'agentic',
-  'costEfficiency',
-  'price',
-  'context',
-] as const;
 </script>
 
 <template>
   <div class="settings-page">
-    <NSpace vertical size="large">
-      <NCard :title="t('settings.account.title')">
+    <NGrid :cols="24" :x-gap="24" responsive="screen" item-resizable>
+      <NGi :span="18" :xs="24" :sm="24" :md="18" :lg="18">
+        <NSpace vertical size="large">
+          <NCard :title="t('settings.account.title')" id="settings-account">
         <NForm label-placement="top" style="max-width: 480px">
           <NFormItem :label="t('settings.account.username')">
             <NInput :value="username" readonly />
@@ -431,7 +392,7 @@ const autoWeightKeys = [
         </NForm>
       </NCard>
 
-      <NCard :title="t('settings.password.title')">
+      <NCard :title="t('settings.password.title')" id="settings-password">
         <NForm label-placement="top" style="max-width: 480px">
           <NFormItem :label="t('settings.password.current')">
             <NInput v-model:value="currentPassword" type="password" show-password-on="click" />
@@ -450,7 +411,7 @@ const autoWeightKeys = [
         </NForm>
       </NCard>
 
-      <NCard :title="t('settings.circuitBreaker.title')">
+      <NCard :title="t('settings.circuitBreaker.title')" id="settings-circuit-breaker">
         <NSpin v-if="!circuitBreakerSettings" />
         <NForm v-else label-placement="top" style="max-width: 640px">
           <NFormItem :label="t('settings.circuitBreaker.enabled')">
@@ -476,7 +437,7 @@ const autoWeightKeys = [
         </NForm>
       </NCard>
 
-      <NCard :title="t('settings.endpointHealth.title')">
+      <NCard :title="t('settings.endpointHealth.title')" id="settings-endpoint-health">
         <NSpin v-if="!endpointHealthSettings" />
         <NForm v-else label-placement="top" style="max-width: 640px">
           <NFormItem :label="t('settings.endpointHealth.enabled')">
@@ -514,7 +475,7 @@ const autoWeightKeys = [
         </NForm>
       </NCard>
 
-      <NCard :title="t('settings.streaming.title')">
+      <NCard :title="t('settings.streaming.title')" id="settings-streaming">
         <NSpin v-if="!streamingSettings" />
         <NForm v-else label-placement="top" style="max-width: 640px">
           <NFormItem :label="t('settings.streaming.firstTokenTimeoutMs')">
@@ -533,7 +494,7 @@ const autoWeightKeys = [
         </NForm>
       </NCard>
 
-      <NCard :title="t('settings.contentLogging.title')">
+      <NCard :title="t('settings.contentLogging.title')" id="settings-content-logging">
         <NAlert type="warning" style="margin-bottom: 16px">
           {{ t('settings.contentLogging.warning') }}
         </NAlert>
@@ -566,51 +527,7 @@ const autoWeightKeys = [
         </NForm>
       </NCard>
 
-      <NCard :title="t('settings.modelReference.title')">
-        <NSpin v-if="!modelReferenceSettings" />
-        <NForm v-else label-placement="top" style="max-width: 640px">
-          <NFormItem :label="t('settings.modelReference.autoPreset')">
-            <NSelect
-              v-model:value="modelReferenceSettings.autoPreset"
-              :options="autoPresetOptions"
-              style="width: 220px"
-            />
-          </NFormItem>
-          <NFormItem :label="t('settings.modelReference.autoTopN')">
-            <NInputNumber
-              v-model:value="modelReferenceSettings.autoTopN"
-              :min="1"
-              :max="20"
-              style="width: 160px"
-            />
-          </NFormItem>
-          <NFormItem :label="t('settings.modelReference.autoWeights')">
-            <NSpace>
-              <NFormItem
-                v-for="key in autoWeightKeys"
-                :key="key"
-                :label="t(`modelReference.columns.${key}`)"
-                label-placement="top"
-                style="width: 118px"
-              >
-                <NInputNumber
-                  v-model:value="modelReferenceSettings.autoWeights[key]"
-                  :min="0"
-                  :step="0.05"
-                  style="width: 118px"
-                />
-              </NFormItem>
-            </NSpace>
-          </NFormItem>
-          <NSpace>
-            <NButton type="primary" :loading="savingModelReference" @click="saveModelReferenceSettings">
-              {{ t('settings.modelReference.save') }}
-            </NButton>
-          </NSpace>
-        </NForm>
-      </NCard>
-
-      <NCard :title="t('settings.publicEndpoints.title')">
+      <NCard :title="t('settings.publicEndpoints.title')" id="settings-public-endpoints">
         <NSpin v-if="!publicEndpointsSettings" />
         <template v-else>
           <NForm label-placement="top" style="max-width: 640px">
@@ -710,6 +627,40 @@ const autoWeightKeys = [
         {{ t('settings.secretsNote') }}
       </NText>
     </NSpace>
+      </NGi>
+      <NGi :span="6" :xs="0" :sm="0" :md="6" :lg="6">
+        <div class="settings-sidebar">
+          <NAnchor
+            :show-rail="true"
+            :show-background="false"
+            offset-target=".settings-page"
+            :top="80"
+            affix
+            style="z-index: 10"
+          >
+            <NAnchorLink :title="t('settings.account.title')" href="#settings-account" />
+            <NAnchorLink :title="t('settings.password.title')" href="#settings-password" />
+            <NAnchorLink
+              :title="t('settings.circuitBreaker.title')"
+              href="#settings-circuit-breaker"
+            />
+            <NAnchorLink
+              :title="t('settings.endpointHealth.title')"
+              href="#settings-endpoint-health"
+            />
+            <NAnchorLink :title="t('settings.streaming.title')" href="#settings-streaming" />
+            <NAnchorLink
+              :title="t('settings.contentLogging.title')"
+              href="#settings-content-logging"
+            />
+            <NAnchorLink
+              :title="t('settings.publicEndpoints.title')"
+              href="#settings-public-endpoints"
+            />
+          </NAnchor>
+        </div>
+      </NGi>
+    </NGrid>
   </div>
 </template>
 
@@ -717,5 +668,20 @@ const autoWeightKeys = [
 .settings-page {
   max-width: 1100px;
   margin: 0 auto;
+}
+
+.settings-sidebar {
+  /* The NAnchor uses Naive UI's <NAffix> internally when `affix` is
+     set, so the wrapper itself just provides the right-side column
+     layout. Hide on narrow viewports where the layout collapses to
+     single-column. */
+  padding: 8px 0;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .settings-sidebar {
+    display: none;
+  }
 }
 </style>

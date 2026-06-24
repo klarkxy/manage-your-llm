@@ -14,11 +14,6 @@ import {
   getContentLogSettings,
   type ContentLogSettings,
 } from '../observability/content-logs.js';
-import {
-  isAutoGroupPreset,
-  normalizeAutoWeights,
-  type AutoGroupWeights,
-} from './model-reference.js';
 import { createEnv, getPublicBaseUrl } from '../../config/env.js';
 
 export interface SettingsRouteDeps {
@@ -89,13 +84,6 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
         retentionDays: contentLog.retentionDays,
         maxPayloadBytes: contentLog.maxPayloadBytes,
       },
-      modelReference: {
-        autoPreset: row?.modelReferenceAutoPreset ?? 'balanced',
-        autoWeights: row?.modelReferenceAutoWeightsJson
-          ? JSON.parse(row.modelReferenceAutoWeightsJson) as AutoGroupWeights
-          : normalizeAutoWeights('balanced', undefined),
-        autoTopN: row?.modelReferenceAutoTopN ?? 5,
-      },
       publicEndpoints: buildPublicEndpoints(row?.publicEndpointsBasePath ?? '/v1'),
     };
   });
@@ -119,11 +107,6 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
         firstTokenTimeoutMs?: number;
       };
       contentLogging?: Partial<ContentLogSettings>;
-      modelReference?: {
-        autoPreset?: unknown;
-        autoWeights?: unknown;
-        autoTopN?: unknown;
-      };
       publicEndpoints?: {
         basePath?: string;
       };
@@ -132,7 +115,6 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
     const ehInput = body.endpointHealth ?? {};
     const streamInput = body.streaming ?? {};
     const clInput = body.contentLogging ?? {};
-    const mrInput = body.modelReference ?? {};
     const peInput = body.publicEndpoints ?? {};
 
     const values: Partial<typeof adminSettings.$inferInsert> = {};
@@ -168,20 +150,6 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
     }
     if (typeof clInput.maxPayloadBytes === 'number') {
       values.contentLogMaxPayloadBytes = Math.max(0, Math.round(clInput.maxPayloadBytes));
-    }
-    if (isAutoGroupPreset(mrInput.autoPreset)) {
-      values.modelReferenceAutoPreset = mrInput.autoPreset;
-    }
-    if (mrInput.autoWeights && typeof mrInput.autoWeights === 'object' && !Array.isArray(mrInput.autoWeights)) {
-      const preset = isAutoGroupPreset(mrInput.autoPreset)
-        ? mrInput.autoPreset
-        : isAutoGroupPreset(values.modelReferenceAutoPreset)
-          ? values.modelReferenceAutoPreset
-          : 'balanced';
-      values.modelReferenceAutoWeightsJson = JSON.stringify(normalizeAutoWeights(preset, mrInput.autoWeights));
-    }
-    if (typeof mrInput.autoTopN === 'number') {
-      values.modelReferenceAutoTopN = Math.max(1, Math.min(20, Math.round(mrInput.autoTopN)));
     }
     if (typeof peInput.basePath === 'string' && peInput.basePath.trim().length > 0) {
       const trimmed = peInput.basePath.trim();
@@ -225,13 +193,6 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: SettingsRoute
         enabled: contentLog.enabled,
         retentionDays: contentLog.retentionDays,
         maxPayloadBytes: contentLog.maxPayloadBytes,
-      },
-      modelReference: {
-        autoPreset: row?.modelReferenceAutoPreset ?? 'balanced',
-        autoWeights: row?.modelReferenceAutoWeightsJson
-          ? JSON.parse(row.modelReferenceAutoWeightsJson) as AutoGroupWeights
-          : normalizeAutoWeights('balanced', undefined),
-        autoTopN: row?.modelReferenceAutoTopN ?? 5,
       },
       publicEndpoints: buildPublicEndpoints(row?.publicEndpointsBasePath ?? '/v1'),
     };

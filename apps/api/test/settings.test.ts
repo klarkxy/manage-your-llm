@@ -21,8 +21,10 @@ describe('admin settings routes', () => {
     expect(body.circuitBreaker).toBeTruthy();
     expect(body.endpointHealth).toBeTruthy();
     expect(body.contentLogging).toBeTruthy();
-    expect(body.modelReference.autoPreset).toBe('balanced');
-    expect(body.modelReference.autoTopN).toBe(5);
+    // modelReference is no longer stored or surfaced — the auto-group
+    // machinery now reads weights from PRESET_WEIGHTS directly and the
+    // top-N is per-group, not a global setting.
+    expect(body.modelReference).toBeUndefined();
   });
 
   it('GET /api/admin/settings returns the publicEndpoints block with default /v1 prefix', async () => {
@@ -144,61 +146,6 @@ describe('admin settings routes', () => {
     expect(body.contentLogging.enabled).toBe(true);
     expect(body.contentLogging.retentionDays).toBe(30);
     expect(body.contentLogging.maxPayloadBytes).toBe(4096);
-  });
-
-  it('PUT /api/admin/settings updates model reference preset/weights/topN', async () => {
-    const res = await rig.app.inject({
-      method: 'PUT',
-      url: '/api/admin/settings',
-      headers: { cookie: rig.cookie },
-      payload: {
-        modelReference: {
-          autoPreset: 'code',
-          autoWeights: { chat: 0.5, total: 0.5 },
-          autoTopN: 10,
-        },
-      },
-    });
-    expect(res.statusCode).toBe(200);
-    const body = res.json();
-    expect(body.modelReference.autoPreset).toBe('code');
-    expect(body.modelReference.autoTopN).toBe(10);
-    // Weights are normalized to sum to 1; just sanity-check shape.
-    const weights = body.modelReference.autoWeights as Record<string, number>;
-    expect(typeof weights.chat).toBe('number');
-    expect(typeof weights.intelligence).toBe('number');
-  });
-
-  it('PUT /api/admin/settings rejects invalid autoPreset silently (keeps previous)', async () => {
-    const res = await rig.app.inject({
-      method: 'PUT',
-      url: '/api/admin/settings',
-      headers: { cookie: rig.cookie },
-      payload: {
-        modelReference: { autoPreset: 'invalid-preset' },
-      },
-    });
-    expect(res.statusCode).toBe(200);
-    const body = res.json();
-    expect(body.modelReference.autoPreset).toBe('balanced');
-  });
-
-  it('PUT /api/admin/settings clamps autoTopN to [1, 20]', async () => {
-    const tooBig = await rig.app.inject({
-      method: 'PUT',
-      url: '/api/admin/settings',
-      headers: { cookie: rig.cookie },
-      payload: { modelReference: { autoTopN: 999 } },
-    });
-    expect(tooBig.json().modelReference.autoTopN).toBe(20);
-
-    const tooSmall = await rig.app.inject({
-      method: 'PUT',
-      url: '/api/admin/settings',
-      headers: { cookie: rig.cookie },
-      payload: { modelReference: { autoTopN: -5 } },
-    });
-    expect(tooSmall.json().modelReference.autoTopN).toBe(1);
   });
 
   it('GET /api/admin/circuit-breakers lists breakers and filters by state', async () => {

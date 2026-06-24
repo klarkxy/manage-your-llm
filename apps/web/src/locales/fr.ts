@@ -114,6 +114,18 @@ const messages = {
       publicModels: 'Modèles publics',
       apps: 'Applications',
     },
+    chartsEmpty: "Aucun usage enregistré pour l'instant.",
+    requestsChart: {
+      title: 'Requêtes (30 derniers jours)',
+      series: 'Requêtes',
+    },
+    tokenChart: {
+      title: 'Consommation de tokens (30 derniers jours)',
+      input: 'Entrée',
+      output: 'Sortie',
+      cacheRead: 'Lecture du cache',
+      cacheWrite: 'Écriture du cache',
+    },
     publicEndpoints: {
       title: 'Endpoints publics',
       caption: 'Transmettez ces URL aux applications qui appelleront ModelHarbor :',
@@ -300,6 +312,14 @@ const messages = {
         name: 'coding',
         displayName: 'Coding',
         publicModel: 'modèle public',
+      },
+      presets: {
+        balanced: 'Équilibré',
+        code: 'Code',
+        chat: 'Chat',
+        writing: 'Rédaction',
+        reasoning: 'Raisonnement',
+        fast: 'Économique et rapide',
       },
     },
     validation: {

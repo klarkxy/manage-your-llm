@@ -15,6 +15,7 @@ import {
   NInputNumber,
   NSelect,
   NSpace,
+  NSwitch,
   NTag,
   NText,
   NPopconfirm,
@@ -26,10 +27,10 @@ import { ReorderFourOutline } from '@vicons/ionicons5';
 import {
   modelGroupsApi,
   publicModelsApi,
-  settingsApi,
   type AutoGroupRecommendation,
   type ModelGroup,
   type ModelGroupCreatePayload,
+  type ModelGroupMember,
   type PublicModel,
 } from '../api/admin.js';
 import { useDraggableList } from '../composables/useDraggableList.js';
@@ -44,9 +45,16 @@ const drawerOpen = ref(false);
 const submitting = ref(false);
 const previewLoading = ref(false);
 const autoPreview = ref<AutoGroupRecommendation[]>([]);
-const defaultAutoPreset = ref('balanced');
-const defaultAutoTopN = ref(5);
-const defaultAutoWeights = ref<Record<string, number>>({});
+
+// Detail drawer state — opened when a table row is clicked. The
+// drawer shows the existing members of the group with per-row
+// enable/disable toggles plus a "Load 5 more" button when the group
+// is in auto mode.
+const detailOpen = ref(false);
+const detailGroup = ref<ModelGroup | null>(null);
+const detailLoading = ref(false);
+const detailTogglingId = ref<string | null>(null);
+const detailLoadingMore = ref(false);
 
 const form = ref<ModelGroupCreatePayload>({
   name: '',
@@ -56,7 +64,6 @@ const form = ref<ModelGroupCreatePayload>({
   mode: 'manual',
   autoPreset: 'balanced',
   autoTopN: 5,
-  autoWeights: {},
 });
 const memberRows = ref<Array<{ publicModelId: string; priority: number; weight: number }>>([]);
 
@@ -74,9 +81,8 @@ function resetForm() {
     description: '',
     routingPolicy: 'priority',
     mode: 'manual',
-    autoPreset: defaultAutoPreset.value,
-    autoTopN: defaultAutoTopN.value,
-    autoWeights: { ...defaultAutoWeights.value },
+    autoPreset: 'balanced',
+    autoTopN: 5,
   };
   memberRows.value = [];
   autoPreview.value = [];
@@ -85,16 +91,12 @@ function resetForm() {
 async function refresh() {
   loading.value = true;
   try {
-    const [res, pmRes, settings] = await Promise.all([
+    const [res, pmRes] = await Promise.all([
       modelGroupsApi.list(),
       publicModelsApi.list(),
-      settingsApi.get(),
     ]);
     items.value = res.items;
     publicModelOptions.value = pmRes.items;
-    defaultAutoPreset.value = settings.modelReference.autoPreset;
-    defaultAutoTopN.value = settings.modelReference.autoTopN;
-    defaultAutoWeights.value = settings.modelReference.autoWeights;
   } catch (err) {
     message.error((err as Error).message);
   } finally {
@@ -142,7 +144,6 @@ async function onSubmit() {
         ? {
             autoPreset: form.value.autoPreset,
             autoTopN: form.value.autoTopN,
-            autoWeights: form.value.autoWeights,
           }
         : {
             members: memberRows.value.map((m, idx) => ({
@@ -169,10 +170,43 @@ async function previewAutoMembers() {
   try {
     const res = await modelGroupsApi.autoPreview({
       preset: form.value.autoPreset ?? 'balanced',
-      weights: form.value.autoWeights,
       topN: form.value.autoTopN ?? 5,
     });
     autoPreview.value = res.items;
+  } catch (err) {
+    message.error((err as Error).message);
+  } finally {
+    previewLoading.value = false;
+  }
+}
+
+/**
+ * Extend the auto-preview list in the create drawer by 5 more rows
+ * ranked under the same preset, skipping any public model ids that
+ * are already in the current preview. Used so the admin can "see
+ * further down the list" before committing to a top-N.
+ */
+async function previewAutoMore() {
+  if (form.value.mode !== 'auto_snapshot') return;
+  previewLoading.value = true;
+  try {
+    const exclude = new Set(autoPreview.value.map((r) => r.publicModelId));
+    const currentTop = autoPreview.value.length;
+    const res = await modelGroupsApi.autoPreview({
+      preset: form.value.autoPreset ?? 'balanced',
+      // Request current + 5 more; the API call here is non-exclusive
+      // (preview is informational), so we post-filter on the client
+      // for the "5 more after the current preview" UX.
+      topN: currentTop + 5 + exclude.size,
+    });
+    const fresh = res.items
+      .filter((r) => !exclude.has(r.publicModelId))
+      .slice(0, 5);
+    if (fresh.length === 0) {
+      message.info(t('modelGroups.toast.noMoreMatches'));
+      return;
+    }
+    autoPreview.value = [...autoPreview.value, ...fresh];
   } catch (err) {
     message.error((err as Error).message);
   } finally {
@@ -184,6 +218,9 @@ async function refreshAuto(row: ModelGroup) {
   try {
     const updated = await modelGroupsApi.refreshAuto(row.id);
     items.value = items.value.map((item) => (item.id === row.id ? updated : item));
+    if (detailGroup.value && detailGroup.value.id === row.id) {
+      detailGroup.value = updated;
+    }
     message.success(t('modelGroups.toast.refreshed'));
   } catch (err) {
     message.error((err as Error).message);
@@ -197,6 +234,84 @@ async function remove(row: ModelGroup) {
     message.success(t('modelGroups.toast.deleted'));
   } catch (err) {
     message.error((err as Error).message);
+  }
+}
+
+async function openDetail(row: ModelGroup) {
+  detailOpen.value = true;
+  detailGroup.value = row;
+  await loadDetail();
+}
+
+async function loadDetail() {
+  if (!detailGroup.value) return;
+  detailLoading.value = true;
+  try {
+    const full = await modelGroupsApi.get(detailGroup.value.id);
+    detailGroup.value = full;
+    // Keep the listing in sync (memberCount + autoLastRefreshedAt can
+    // change after the user toggles members / loads more).
+    items.value = items.value.map((i) => (i.id === full.id ? full : i));
+  } catch (err) {
+    message.error((err as Error).message);
+  } finally {
+    detailLoading.value = false;
+  }
+}
+
+async function toggleMember(member: ModelGroupMember, enabled: boolean) {
+  if (!detailGroup.value) return;
+  detailTogglingId.value = member.id;
+  try {
+    const res = await modelGroupsApi.toggleMember(detailGroup.value.id, member.id, enabled);
+    // Patch the in-memory list in place so the toggle is instant, then
+    // refresh the summary (member count, last-refreshed-at) from the
+    // server to keep the listing in sync.
+    if (detailGroup.value.members) {
+      detailGroup.value = {
+        ...detailGroup.value,
+        members: detailGroup.value.members.map((m) =>
+          m.id === member.id ? { ...m, enabled } : m,
+        ),
+      };
+    }
+    detailGroup.value = {
+      ...detailGroup.value,
+      memberCount: res.members.length,
+      members: res.members,
+    };
+    items.value = items.value.map((i) =>
+      i.id === detailGroup.value!.id ? detailGroup.value! : i,
+    );
+  } catch (err) {
+    message.error((err as Error).message);
+  } finally {
+    detailTogglingId.value = null;
+  }
+}
+
+async function loadMoreDetail() {
+  if (!detailGroup.value) return;
+  detailLoadingMore.value = true;
+  try {
+    const res = await modelGroupsApi.loadMoreAuto(detailGroup.value.id);
+    detailGroup.value = {
+      ...detailGroup.value,
+      memberCount: res.members.length,
+      members: res.members,
+    };
+    items.value = items.value.map((i) =>
+      i.id === detailGroup.value!.id ? detailGroup.value! : i,
+    );
+    if (res.added === 0) {
+      message.info(t('modelGroups.toast.noMoreMatches'));
+    } else {
+      message.success(t('modelGroups.toast.loadedMore', { count: res.added }));
+    }
+  } catch (err) {
+    message.error((err as Error).message);
+  } finally {
+    detailLoadingMore.value = false;
   }
 }
 
@@ -229,9 +344,14 @@ const columns = computed<DataTableColumns<ModelGroup>>(() => [
   {
     title: t('modelGroups.columns.actions'),
     key: 'actions',
-    width: 190,
+    width: 280,
     render: (row) =>
       h(NSpace, { size: 8 }, () => [
+        h(
+          NButton,
+          { size: 'small', secondary: true, onClick: () => openDetail(row) },
+          () => t('modelGroups.actions.view'),
+        ),
         row.mode === 'auto_snapshot'
           ? h(
               NButton,
@@ -249,6 +369,24 @@ const columns = computed<DataTableColumns<ModelGroup>>(() => [
           },
         ),
       ]),
+  },
+]);
+
+const detailMemberColumns = computed<DataTableColumns<ModelGroupMember>>(() => [
+  { title: t('modelGroups.drawer.members'), key: 'publicModelName' },
+  { title: t('modelGroups.columns.priority'), key: 'priority', width: 90, sorter: 'default' },
+  { title: t('modelGroups.columns.weight'), key: 'weight', width: 90 },
+  {
+    title: t('modelGroups.columns.enabled'),
+    key: 'enabled',
+    width: 100,
+    render: (row) =>
+      h(NSwitch, {
+        value: row.enabled,
+        loading: detailTogglingId.value === row.id,
+        disabled: !detailGroup.value || detailGroup.value.mode !== 'auto_snapshot',
+        onUpdateValue: (val: boolean) => toggleMember(row, val),
+      }),
   },
 ]);
 
@@ -270,10 +408,11 @@ const modeOptions = computed(() => [
 
 const presetOptions = computed(() => [
   { label: t('modelGroups.drawer.presets.balanced'), value: 'balanced' },
-  { label: t('modelGroups.drawer.presets.chat'), value: 'chat' },
   { label: t('modelGroups.drawer.presets.code'), value: 'code' },
-  { label: t('modelGroups.drawer.presets.plan'), value: 'plan' },
-  { label: t('modelGroups.drawer.presets.cheap'), value: 'cheap' },
+  { label: t('modelGroups.drawer.presets.chat'), value: 'chat' },
+  { label: t('modelGroups.drawer.presets.writing'), value: 'writing' },
+  { label: t('modelGroups.drawer.presets.reasoning'), value: 'reasoning' },
+  { label: t('modelGroups.drawer.presets.fast'), value: 'fast' },
 ]);
 
 const previewColumns = computed<DataTableColumns<AutoGroupRecommendation>>(() => [
@@ -337,9 +476,19 @@ const previewColumns = computed<DataTableColumns<AutoGroupRecommendation>>(() =>
             </NFormItem>
             <NFormItem :label="t('modelGroups.drawer.members')">
               <NSpace vertical style="width: 100%">
-                <NButton size="small" :loading="previewLoading" @click="previewAutoMembers">
-                  {{ t('modelGroups.drawer.preview') }}
-                </NButton>
+                <NSpace>
+                  <NButton size="small" :loading="previewLoading" @click="previewAutoMembers">
+                    {{ t('modelGroups.drawer.preview') }}
+                  </NButton>
+                  <NButton
+                    size="small"
+                    :disabled="autoPreview.length === 0"
+                    :loading="previewLoading"
+                    @click="previewAutoMore"
+                  >
+                    {{ t('modelGroups.drawer.loadMore5') }}
+                  </NButton>
+                </NSpace>
                 <NDataTable
                   size="small"
                   :columns="previewColumns"
@@ -395,6 +544,68 @@ const previewColumns = computed<DataTableColumns<AutoGroupRecommendation>>(() =>
             <NButton type="primary" :loading="submitting" @click="onSubmit">{{
               t('common.create')
             }}</NButton>
+          </NSpace>
+        </template>
+      </NDrawerContent>
+    </NDrawer>
+
+    <NDrawer v-model:show="detailOpen" :width="640">
+      <NDrawerContent
+        :title="detailGroup ? detailGroup.name : t('modelGroups.detail.title')"
+        closable
+      >
+        <NSpin v-if="detailLoading && !detailGroup" />
+        <template v-else-if="detailGroup">
+          <NSpace vertical size="medium">
+            <NSpace align="center" :size="8">
+              <NTag
+                size="small"
+                :type="detailGroup.mode === 'auto_snapshot' ? 'info' : 'default'"
+              >
+                {{
+                  detailGroup.mode === 'auto_snapshot'
+                    ? t('modelGroups.status.autoSnapshot')
+                    : t('modelGroups.status.manual')
+                }}
+              </NTag>
+              <NText depth="3" style="font-size: 12px">
+                {{ t('modelGroups.detail.preset', { preset: detailGroup.autoPreset ?? '—' }) }}
+              </NText>
+              <NText depth="3" style="font-size: 12px">
+                {{ t('modelGroups.detail.lastRefreshed', {
+                  at: detailGroup.autoLastRefreshedAt
+                    ? new Date(detailGroup.autoLastRefreshedAt).toLocaleString()
+                    : '—',
+                }) }}
+              </NText>
+            </NSpace>
+
+            <NSpace v-if="detailGroup.mode === 'auto_snapshot'">
+              <NButton
+                size="small"
+                :loading="detailLoadingMore"
+                @click="loadMoreDetail"
+              >
+                {{ t('modelGroups.detail.loadMore5') }}
+              </NButton>
+              <NButton
+                size="small"
+                secondary
+                :loading="detailLoading"
+                @click="loadDetail"
+              >
+                {{ t('modelGroups.actions.refreshAuto') }}
+              </NButton>
+            </NSpace>
+
+            <NDataTable
+              size="small"
+              :columns="detailMemberColumns"
+              :data="detailGroup.members ?? []"
+              :bordered="false"
+              :row-key="(row) => row.id"
+              :empty="h(NEmpty, { description: t('modelGroups.detail.noMembers') })"
+            />
           </NSpace>
         </template>
       </NDrawerContent>

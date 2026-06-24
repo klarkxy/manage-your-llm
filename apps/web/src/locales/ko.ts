@@ -114,6 +114,18 @@ const messages = {
       publicModels: '공개 모델',
       apps: '앱',
     },
+    chartsEmpty: '사용량 기록이 아직 없습니다.',
+    requestsChart: {
+      title: '요청 수 (최근 30일)',
+      series: '요청 수',
+    },
+    tokenChart: {
+      title: '토큰 소비 (최근 30일)',
+      input: '입력',
+      output: '출력',
+      cacheRead: '캐시 읽기',
+      cacheWrite: '캐시 쓰기',
+    },
     publicEndpoints: {
       title: '공개 엔드포인트',
       caption: 'ModelHarbor를 호출할 앱에 이 URL을 전달하세요:',
@@ -300,6 +312,14 @@ const messages = {
         name: 'coding',
         displayName: 'Coding',
         publicModel: '공개 모델',
+      },
+      presets: {
+        balanced: '균형',
+        code: '코딩',
+        chat: '채팅',
+        writing: '글쓰기',
+        reasoning: '추론',
+        fast: '저렴하고 빠름',
       },
     },
     validation: {

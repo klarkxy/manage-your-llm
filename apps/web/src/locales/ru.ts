@@ -114,6 +114,18 @@ const messages = {
       publicModels: 'Публичные модели',
       apps: 'Приложения',
     },
+    chartsEmpty: 'Записей об использовании пока нет.',
+    requestsChart: {
+      title: 'Запросы (последние 30 дней)',
+      series: 'Запросы',
+    },
+    tokenChart: {
+      title: 'Расход токенов (последние 30 дней)',
+      input: 'Вход',
+      output: 'Выход',
+      cacheRead: 'Чтение кэша',
+      cacheWrite: 'Запись в кэш',
+    },
     publicEndpoints: {
       title: 'Публичные эндпоинты',
       caption: 'Передайте эти URL приложениям, которые будут вызывать ModelHarbor:',
@@ -300,6 +312,14 @@ const messages = {
         name: 'coding',
         displayName: 'Coding',
         publicModel: 'публичная модель',
+      },
+      presets: {
+        balanced: 'Сбалансированный',
+        code: 'Программирование',
+        chat: 'Чат',
+        writing: 'Письмо',
+        reasoning: 'Рассуждение',
+        fast: 'Дёшево и быстро',
       },
     },
     validation: {
