@@ -5,7 +5,6 @@ import {
   ProviderError,
   ProviderQuotaError,
   ProviderRateLimitError,
-  ProviderStreamError,
   ProviderTimeoutError,
   type ChatRequestIR,
   type NormalizedChatResponse,
@@ -26,6 +25,7 @@ import { UpstreamAuthResolver } from '../gateway/upstream-auth-resolver.js';
 import { UpstreamSender } from '../gateway/upstream-sender.js';
 import { getProviderAdapter } from '../gateway/providers/registry.js';
 import { mapResponseToSourceProtocol } from '../gateway/response-mappers.js';
+import { createStreamTransformer } from '../gateway/streaming.js';
 import {
   GatewaySideEffectsService,
   type ExecutionBaseInfo,
@@ -55,6 +55,12 @@ export interface ModelListItem {
   owned_by?: string;
 }
 
+export interface StreamExecutionResult {
+  status: number;
+  headers: Record<string, string>;
+  stream: ReadableStream<Uint8Array>;
+}
+
 function toNormalizedError(err: unknown): NormalizedError {
   if (isNormalizedError(err)) return err;
   if (err instanceof Error) return new ProviderError(err.message);
@@ -70,10 +76,21 @@ function isRetriable(err: NormalizedError): boolean {
     return true;
   }
   if (err instanceof ProviderError) {
-    const status = err.details && typeof err.details === 'object' ? (err.details as Record<string, unknown>).status : undefined;
+    const status =
+      err.details && typeof err.details === 'object'
+        ? (err.details as Record<string, unknown>).status
+        : undefined;
     if (typeof status === 'number' && status >= 500) return true;
   }
   return false;
+}
+
+interface ExecutionPrepareResult {
+  resolved: Awaited<ReturnType<TargetResolutionService['resolve']>>;
+  settings: Awaited<ReturnType<SettingsService['getSettings']>>;
+  decision: RoutingDecision;
+  base: ExecutionBaseInfo;
+  sideEffects: GatewaySideEffectsService;
 }
 
 export class GatewayExecutionService {
@@ -87,11 +104,14 @@ export class GatewayExecutionService {
     this.db = deps.db;
     this.secretKey = deps.secretKey;
     this.sender = deps.sender ?? new UpstreamSender();
-    this.authResolver = deps.authResolver ?? new UpstreamAuthResolver({ secretKey: deps.secretKey });
+    this.authResolver =
+      deps.authResolver ?? new UpstreamAuthResolver({ secretKey: deps.secretKey });
     this.deps = deps;
   }
 
-  async listModels(ctx: GatewayExecutionContext): Promise<{ object: 'list'; data: ModelListItem[] }> {
+  async listModels(
+    ctx: GatewayExecutionContext,
+  ): Promise<{ object: 'list'; data: ModelListItem[] }> {
     const publicModelRepo = new PublicModelRepository(ctx.db);
     const modelGroupRepo = new ModelGroupRepository(ctx.db);
 
@@ -107,7 +127,9 @@ export class GatewayExecutionService {
     let allowedGroups = enabledGroups;
 
     if (ctx.consumerKey.accessMode === 'restricted') {
-      const accessList = await new ConsumerKeyRepository(ctx.db).listAccessByKey(ctx.consumerKey.id);
+      const accessList = await new ConsumerKeyRepository(ctx.db).listAccessByKey(
+        ctx.consumerKey.id,
+      );
       const allowedModelIds = new Set(
         accessList.filter((a) => a.targetType === 'public_model').map((a) => a.targetId),
       );
@@ -137,11 +159,103 @@ export class GatewayExecutionService {
     return { object: 'list', data };
   }
 
-  async executeChat(ctx: GatewayExecutionContext, ir: ChatRequestIR): Promise<{ status: number; body: unknown }> {
-    if (ir.stream) {
-      throw new ProviderStreamError('流式请求暂未实现');
+  async executeChat(
+    ctx: GatewayExecutionContext,
+    ir: ChatRequestIR,
+  ): Promise<{ status: number; body: unknown }> {
+    const { decision, base, sideEffects, settings } = await this.prepareExecution(ctx, ir);
+    await sideEffects.recordDecisionTraceEvents(base, decision.traceEvents);
+
+    if (decision.candidates.length === 0) {
+      throw new NoRouteAvailableError('当前没有可用的上游路由');
     }
 
+    let lastError: NormalizedError | undefined;
+
+    for (let index = 0; index < decision.candidates.length; index++) {
+      const candidate = decision.candidates[index];
+      if (!candidate) continue;
+
+      const attemptResult = await this.attemptCandidate(
+        ir,
+        candidate,
+        decision,
+        base,
+        sideEffects,
+        settings,
+        index,
+      );
+      if (attemptResult.ok) {
+        return {
+          status: 200,
+          body: mapResponseToSourceProtocol(
+            ir.sourceProtocol,
+            ir.requestedModel,
+            attemptResult.normalized,
+          ),
+        };
+      }
+
+      lastError = attemptResult.error;
+      if (!attemptResult.retriable) {
+        throw attemptResult.error;
+      }
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
+
+    throw new NoRouteAvailableError('所有上游路由均不可用');
+  }
+
+  async executeStream(
+    ctx: GatewayExecutionContext,
+    ir: ChatRequestIR,
+  ): Promise<StreamExecutionResult> {
+    const { decision, base, sideEffects, settings } = await this.prepareExecution(ctx, ir);
+    await sideEffects.recordDecisionTraceEvents(base, decision.traceEvents);
+
+    if (decision.candidates.length === 0) {
+      throw new NoRouteAvailableError('当前没有可用的上游路由');
+    }
+
+    let lastError: NormalizedError | undefined;
+
+    for (let index = 0; index < decision.candidates.length; index++) {
+      const candidate = decision.candidates[index];
+      if (!candidate) continue;
+
+      const attemptResult = await this.attemptStream(
+        ir,
+        candidate,
+        decision,
+        base,
+        sideEffects,
+        settings,
+        index,
+      );
+      if (attemptResult.ok) {
+        return attemptResult.result;
+      }
+
+      lastError = attemptResult.error;
+      if (!attemptResult.retriable) {
+        throw attemptResult.error;
+      }
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
+
+    throw new NoRouteAvailableError('所有上游路由均不可用');
+  }
+
+  private async prepareExecution(
+    ctx: GatewayExecutionContext,
+    ir: ChatRequestIR,
+  ): Promise<ExecutionPrepareResult> {
     const targetResolution = new TargetResolutionService(this.db);
     const accessPolicy = new AccessPolicyService(this.db);
     const settingsService = new SettingsService(this.db);
@@ -164,38 +278,7 @@ export class GatewayExecutionService {
       resolvedTargetId: resolved.id,
     };
 
-    const sideEffects = this.getSideEffectsService();
-    await sideEffects.recordDecisionTraceEvents(base, decision.traceEvents);
-
-    if (decision.candidates.length === 0) {
-      throw new NoRouteAvailableError('当前没有可用的上游路由');
-    }
-
-    let lastError: NormalizedError | undefined;
-
-    for (let index = 0; index < decision.candidates.length; index++) {
-      const candidate = decision.candidates[index];
-      if (!candidate) continue;
-
-      const attemptResult = await this.attemptCandidate(ctx, ir, candidate, decision, settings, base, sideEffects, index);
-      if (attemptResult.ok) {
-        return {
-          status: 200,
-          body: mapResponseToSourceProtocol(ir.sourceProtocol, ir.requestedModel, attemptResult.normalized),
-        };
-      }
-
-      lastError = attemptResult.error;
-      if (!attemptResult.retriable) {
-        throw attemptResult.error;
-      }
-    }
-
-    if (lastError) {
-      throw lastError;
-    }
-
-    throw new NoRouteAvailableError('所有上游路由均不可用');
+    return { resolved, settings, decision, base, sideEffects: this.getSideEffectsService() };
   }
 
   private async makeRoutingDecision(
@@ -224,15 +307,17 @@ export class GatewayExecutionService {
   }
 
   private async attemptCandidate(
-    ctx: GatewayExecutionContext,
     ir: ChatRequestIR,
     candidate: RoutingCandidate,
     decision: RoutingDecision,
-    settings: Awaited<ReturnType<SettingsService['getSettings']>>,
     base: ExecutionBaseInfo,
     sideEffects: GatewaySideEffectsService,
+    settings: Awaited<ReturnType<SettingsService['getSettings']>>,
     index: number,
-  ): Promise<{ ok: true; normalized: NormalizedChatResponse } | { ok: false; error: NormalizedError; retriable: boolean }> {
+  ): Promise<
+    | { ok: true; normalized: NormalizedChatResponse }
+    | { ok: false; error: NormalizedError; retriable: boolean }
+  > {
     try {
       const adapter = getProviderAdapter(candidate.providerType);
       const authHeaders = await this.authResolver.resolveAuthHeaders(candidate.upstreamKey);
@@ -258,20 +343,25 @@ export class GatewayExecutionService {
           body: upstreamResponse.body,
         });
 
-        await sideEffects.recordOutcome(base, candidate, {
-          ...base,
-          upstreamKeyId: candidate.upstreamKey.id,
-          realModelName: candidate.realModelName,
-          sourceProtocol: ir.sourceProtocol,
-          providerType: candidate.providerType,
-          stream: ir.stream,
-          stickyHit: decision.stickyHit,
-          sessionStickyHit: decision.sessionStickyHit,
-          conversationFingerprint: decision.conversationFingerprint,
-          latencyMs: upstreamResponse.latencyMs,
-          success: true,
-          usage: normalized.usage,
-        }, settings);
+        await sideEffects.recordOutcome(
+          base,
+          candidate,
+          {
+            ...base,
+            upstreamKeyId: candidate.upstreamKey.id,
+            realModelName: candidate.realModelName,
+            sourceProtocol: ir.sourceProtocol,
+            providerType: candidate.providerType,
+            stream: ir.stream,
+            stickyHit: decision.stickyHit,
+            sessionStickyHit: decision.sessionStickyHit,
+            conversationFingerprint: decision.conversationFingerprint,
+            latencyMs: upstreamResponse.latencyMs,
+            success: true,
+            usage: normalized.usage,
+          },
+          settings,
+        );
 
         return { ok: true, normalized };
       }
@@ -283,63 +373,189 @@ export class GatewayExecutionService {
         body: upstreamResponse.body,
       });
 
-      await sideEffects.recordTraceEvent(base, {
-        step: 'upstream_attempt_failed',
-        stepIndex: 1000 + index,
-        upstreamKeyId: candidate.upstreamKey.id,
-        realModelName: candidate.realModelName,
-        status: 'fail',
-        errorCode: error.code,
-        errorMessage: error.message,
-      });
-
-      await sideEffects.recordOutcome(base, candidate, {
-        ...base,
-        upstreamKeyId: candidate.upstreamKey.id,
-        realModelName: candidate.realModelName,
-        sourceProtocol: ir.sourceProtocol,
-        providerType: candidate.providerType,
-        stream: ir.stream,
-        stickyHit: decision.stickyHit,
-        sessionStickyHit: decision.sessionStickyHit,
-        conversationFingerprint: decision.conversationFingerprint,
-        latencyMs: upstreamResponse.latencyMs,
-        success: false,
-        usage: null,
+      await this.recordAttemptFailure(
+        base,
+        sideEffects,
+        candidate,
+        decision,
+        ir.sourceProtocol,
+        ir.stream,
         error,
-      }, settings);
-
+        index,
+        upstreamResponse.latencyMs,
+        settings,
+      );
       return { ok: false, error, retriable: isRetriable(error) };
     } catch (err) {
       const error = toNormalizedError(err);
-      await sideEffects.recordTraceEvent(base, {
-        step: 'upstream_attempt_failed',
-        stepIndex: 1000 + index,
-        upstreamKeyId: candidate.upstreamKey.id,
+      await this.recordAttemptFailure(
+        base,
+        sideEffects,
+        candidate,
+        decision,
+        ir.sourceProtocol,
+        ir.stream,
+        error,
+        index,
+        0,
+        settings,
+      );
+      return { ok: false, error, retriable: isRetriable(error) };
+    }
+  }
+
+  private async attemptStream(
+    ir: ChatRequestIR,
+    candidate: RoutingCandidate,
+    decision: RoutingDecision,
+    base: ExecutionBaseInfo,
+    sideEffects: GatewaySideEffectsService,
+    settings: Awaited<ReturnType<SettingsService['getSettings']>>,
+    index: number,
+  ): Promise<
+    | { ok: true; result: StreamExecutionResult }
+    | { ok: false; error: NormalizedError; retriable: boolean }
+  > {
+    try {
+      const adapter = getProviderAdapter(candidate.providerType);
+      const authHeaders = await this.authResolver.resolveAuthHeaders(candidate.upstreamKey);
+      const upstreamRequest = adapter.buildRequest({
+        upstreamKey: candidate.upstreamKey,
         realModelName: candidate.realModelName,
-        status: 'fail',
-        errorCode: error.code,
-        errorMessage: error.message,
+        ir,
+        authHeaders,
       });
 
-      await sideEffects.recordOutcome(base, candidate, {
+      const upstreamResponse = await this.sender.sendStream({
+        ...upstreamRequest,
+        timeoutMs: settings.defaultRequestTimeoutMs ?? 30_000,
+        firstTokenTimeoutMs: settings.firstTokenTimeoutMs ?? 15_000,
+      });
+
+      if (!upstreamResponse.ok) {
+        const error = adapter.normalizeError({
+          upstreamKey: candidate.upstreamKey,
+          realModelName: candidate.realModelName,
+          status: upstreamResponse.status,
+          body: upstreamResponse.body,
+        });
+        await this.recordAttemptFailure(
+          base,
+          sideEffects,
+          candidate,
+          decision,
+          ir.sourceProtocol,
+          ir.stream,
+          error,
+          index,
+          0,
+          settings,
+        );
+        return { ok: false, error, retriable: isRetriable(error) };
+      }
+
+      const transformer = createStreamTransformer({
+        requestedModel: ir.requestedModel,
+        sourceProtocol: ir.sourceProtocol,
+        onUsage: (usage) => {
+          sideEffects
+            .recordOutcome(
+              base,
+              candidate,
+              {
+                ...base,
+                upstreamKeyId: candidate.upstreamKey.id,
+                realModelName: candidate.realModelName,
+                sourceProtocol: ir.sourceProtocol,
+                providerType: candidate.providerType,
+                stream: ir.stream,
+                stickyHit: decision.stickyHit,
+                sessionStickyHit: decision.sessionStickyHit,
+                conversationFingerprint: decision.conversationFingerprint,
+                latencyMs: 0,
+                success: true,
+                usage,
+              },
+              settings,
+            )
+            .catch(() => {});
+        },
+      });
+
+      const stream = upstreamResponse.body.pipeThrough(transformer);
+
+      return {
+        ok: true,
+        result: {
+          status: 200,
+          headers: {
+            'content-type': 'text/event-stream; charset=utf-8',
+            'cache-control': 'no-cache',
+            connection: 'keep-alive',
+          },
+          stream,
+        },
+      };
+    } catch (err) {
+      const error = toNormalizedError(err);
+      await this.recordAttemptFailure(
+        base,
+        sideEffects,
+        candidate,
+        decision,
+        ir.sourceProtocol,
+        ir.stream,
+        error,
+        index,
+        0,
+        settings,
+      );
+      return { ok: false, error, retriable: isRetriable(error) };
+    }
+  }
+
+  private async recordAttemptFailure(
+    base: ExecutionBaseInfo,
+    sideEffects: GatewaySideEffectsService,
+    candidate: RoutingCandidate,
+    decision: RoutingDecision,
+    sourceProtocol: ChatRequestIR['sourceProtocol'],
+    stream: boolean,
+    error: NormalizedError,
+    index: number,
+    latencyMs: number,
+    settings: Awaited<ReturnType<SettingsService['getSettings']>>,
+  ): Promise<void> {
+    await sideEffects.recordTraceEvent(base, {
+      step: 'upstream_attempt_failed',
+      stepIndex: 1000 + index,
+      upstreamKeyId: candidate.upstreamKey.id,
+      realModelName: candidate.realModelName,
+      status: 'fail',
+      errorCode: error.code,
+      errorMessage: error.message,
+    });
+
+    await sideEffects.recordOutcome(
+      base,
+      candidate,
+      {
         ...base,
         upstreamKeyId: candidate.upstreamKey.id,
         realModelName: candidate.realModelName,
-        sourceProtocol: ir.sourceProtocol,
+        sourceProtocol,
         providerType: candidate.providerType,
-        stream: ir.stream,
+        stream,
         stickyHit: decision.stickyHit,
         sessionStickyHit: decision.sessionStickyHit,
         conversationFingerprint: decision.conversationFingerprint,
-        latencyMs: 0,
+        latencyMs,
         success: false,
         usage: null,
         error,
-      }, settings);
-
-      return { ok: false, error, retriable: isRetriable(error) };
-    }
+      },
+      settings,
+    );
   }
 
   private getSideEffectsService(): GatewaySideEffectsService {

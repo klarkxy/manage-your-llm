@@ -1,4 +1,8 @@
-import type { ChatRequestIR, OpenAIChatCompletionsRequest, OpenAIChatMessage } from '@manageyourllm/shared';
+import type {
+  ChatRequestIR,
+  OpenAIChatCompletionsRequest,
+  OpenAIChatMessage,
+} from '@manageyourllm/shared';
 import { ValidationError } from '@manageyourllm/shared';
 
 function extractTextContent(content: OpenAIChatMessage['content']): string {

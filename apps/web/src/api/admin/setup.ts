@@ -17,12 +17,16 @@ export async function getSetupStatus(): Promise<SetupStatusResponse['data']> {
   return res.data;
 }
 
-export async function verifySetupSecurity(body: SetupSecurityRequest): Promise<SetupSecurityResponse['data']> {
+export async function verifySetupSecurity(
+  body: SetupSecurityRequest,
+): Promise<SetupSecurityResponse['data']> {
   const res = await api.post<SetupSecurityResponse>('/api/admin/setup/security', body);
   return res.data;
 }
 
-export async function setupUpstream(body: SetupUpstreamRequest): Promise<SetupUpstreamResponse['data']> {
+export async function setupUpstream(
+  body: SetupUpstreamRequest,
+): Promise<SetupUpstreamResponse['data']> {
   const res = await api.post<SetupUpstreamResponse>('/api/admin/setup/upstream', body);
   return res.data;
 }
@@ -37,8 +41,12 @@ export async function setupConsumerKey(): Promise<SetupConsumerKeyResponse['data
   return res.data;
 }
 
-export async function getSetupTestRequest(query: SetupTestRequestQuery): Promise<SetupTestRequestResponse['data']> {
+export async function getSetupTestRequest(
+  query: SetupTestRequestQuery,
+): Promise<SetupTestRequestResponse['data']> {
   const params = new URLSearchParams({ model: query.model });
-  const res = await api.get<SetupTestRequestResponse>(`/api/admin/setup/test-request?${params.toString()}`);
+  const res = await api.get<SetupTestRequestResponse>(
+    `/api/admin/setup/test-request?${params.toString()}`,
+  );
   return res.data;
 }

@@ -34,9 +34,7 @@ describe('gateway parsers', () => {
     it('extracts text from content blocks', () => {
       const ir = parseAnthropicMessages({
         model: 'claude-3-5-sonnet',
-        messages: [
-          { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
-        ],
+        messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
         max_tokens: 100,
       });
       expect(ir.messages[0].content).toBe('Hello');
@@ -101,9 +99,7 @@ describe('gateway parsers', () => {
     it('preserves tool messages and tool call id', () => {
       const ir = parseOpenAIChatCompletions({
         model: 'gpt-4o',
-        messages: [
-          { role: 'tool', content: 'result', tool_call_id: 'call-1' },
-        ],
+        messages: [{ role: 'tool', content: 'result', tool_call_id: 'call-1' }],
       });
       expect(ir.messages[0].role).toBe('tool');
       expect(ir.messages[0].toolCallId).toBe('call-1');

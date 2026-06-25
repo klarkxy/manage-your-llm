@@ -1,16 +1,38 @@
-import type { ChatRequestIR, NormalizedChatResponse, AnthropicMessagesResponse, AnthropicMessagesRequest } from '@manageyourllm/shared';
-import { ProviderError, ProviderQuotaError, ProviderRateLimitError, ProviderTimeoutError, type NormalizedError } from '@manageyourllm/shared';
-import type { BuildRequestContext, NormalizeResponseContext, NormalizeErrorContext, ProviderHttpRequest, ProviderAdapter } from './adapter.js';
+import type {
+  ChatRequestIR,
+  NormalizedChatResponse,
+  AnthropicMessagesResponse,
+  AnthropicMessagesRequest,
+} from '@manageyourllm/shared';
+import {
+  ProviderError,
+  ProviderQuotaError,
+  ProviderRateLimitError,
+  ProviderTimeoutError,
+  type NormalizedError,
+} from '@manageyourllm/shared';
+import type {
+  BuildRequestContext,
+  NormalizeResponseContext,
+  NormalizeErrorContext,
+  ProviderHttpRequest,
+  ProviderAdapter,
+} from './adapter.js';
 
 function buildMessagesBody(ir: ChatRequestIR, realModelName: string): AnthropicMessagesRequest {
   const messages = ir.messages.map((msg) => ({
-    role: msg.role === 'tool' ? ('user' as const) : msg.role === 'system' ? ('user' as const) : msg.role,
+    role:
+      msg.role === 'tool'
+        ? ('user' as const)
+        : msg.role === 'system'
+          ? ('user' as const)
+          : msg.role,
     content: msg.content,
   }));
   const body: AnthropicMessagesRequest = {
     model: realModelName,
     messages,
-    stream: false,
+    stream: ir.stream,
   };
   if (ir.system) body.system = ir.system;
   if (ir.maxTokens != null) body.max_tokens = ir.maxTokens;

@@ -19,13 +19,21 @@ export async function getModelGroup(id: string): Promise<ModelGroupWithMembers> 
   return res.data;
 }
 
-export async function createModelGroup(body: CreateModelGroupRequest): Promise<ModelGroupWithMembers> {
+export async function createModelGroup(
+  body: CreateModelGroupRequest,
+): Promise<ModelGroupWithMembers> {
   const res = await api.post<{ data: ModelGroupWithMembers }>('/api/admin/model-groups', body);
   return res.data;
 }
 
-export async function updateModelGroup(id: string, body: UpdateModelGroupRequest): Promise<ModelGroupWithMembers> {
-  const res = await api.patch<{ data: ModelGroupWithMembers }>(`/api/admin/model-groups/${id}`, body);
+export async function updateModelGroup(
+  id: string,
+  body: UpdateModelGroupRequest,
+): Promise<ModelGroupWithMembers> {
+  const res = await api.patch<{ data: ModelGroupWithMembers }>(
+    `/api/admin/model-groups/${id}`,
+    body,
+  );
   return res.data;
 }
 
@@ -33,7 +41,13 @@ export async function deleteModelGroup(id: string): Promise<void> {
   await api.delete(`/api/admin/model-groups/${id}`);
 }
 
-export async function replaceMembers(id: string, body: ReplaceMembersRequest): Promise<ModelGroupWithMembers> {
-  const res = await api.post<{ data: ModelGroupWithMembers }>(`/api/admin/model-groups/${id}/members/replace`, body);
+export async function replaceMembers(
+  id: string,
+  body: ReplaceMembersRequest,
+): Promise<ModelGroupWithMembers> {
+  const res = await api.post<{ data: ModelGroupWithMembers }>(
+    `/api/admin/model-groups/${id}/members/replace`,
+    body,
+  );
   return res.data;
 }

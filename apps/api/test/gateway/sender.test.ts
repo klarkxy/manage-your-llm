@@ -13,7 +13,11 @@ function makeRequest(): ProviderHttpRequest & { timeoutMs: number } {
   };
 }
 
-function mockFetch(response: { status: number; headers?: Record<string, string>; body: unknown }): typeof fetch {
+function mockFetch(response: {
+  status: number;
+  headers?: Record<string, string>;
+  body: unknown;
+}): typeof fetch {
   return (async () => {
     const headers = new Headers(response.headers ?? {});
     return {
@@ -65,7 +69,9 @@ describe('UpstreamSender', () => {
         }) as never,
     });
 
-    await expect(sender.send({ ...makeRequest(), timeoutMs: 1 })).rejects.toBeInstanceOf(ProviderTimeoutError);
+    await expect(sender.send({ ...makeRequest(), timeoutMs: 1 })).rejects.toBeInstanceOf(
+      ProviderTimeoutError,
+    );
   });
 
   it('passes correct fetch arguments', async () => {

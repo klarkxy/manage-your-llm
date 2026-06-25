@@ -1,4 +1,8 @@
-import type { ChatRequestIR, OpenAIResponsesRequest, OpenAIResponsesInputItem } from '@manageyourllm/shared';
+import type {
+  ChatRequestIR,
+  OpenAIResponsesRequest,
+  OpenAIResponsesInputItem,
+} from '@manageyourllm/shared';
 import { ValidationError } from '@manageyourllm/shared';
 
 function extractText(content: unknown): string {
@@ -23,7 +27,11 @@ function extractSystem(instructions: OpenAIResponsesRequest['instructions']): st
   return String(instructions);
 }
 
-function inputItemToMessage(item: OpenAIResponsesInputItem): { role: 'user' | 'assistant' | 'system' | 'tool'; content: string; toolCallId?: string } {
+function inputItemToMessage(item: OpenAIResponsesInputItem): {
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+  toolCallId?: string;
+} {
   const role = item.role ?? 'user';
   if (role === 'system' || role === 'developer') {
     return { role: 'system', content: extractText(item.content) };
@@ -58,7 +66,11 @@ export function parseOpenAIResponses(body: unknown): ChatRequestIR {
       if (mapped.role === 'system') {
         systemParts.push(mapped.content);
       } else {
-        messages.push({ role: mapped.role, content: mapped.content, toolCallId: mapped.toolCallId });
+        messages.push({
+          role: mapped.role,
+          content: mapped.content,
+          toolCallId: mapped.toolCallId,
+        });
       }
     }
   } else {

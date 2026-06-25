@@ -1,4 +1,8 @@
-import type { ChatRequestIR, AnthropicMessagesRequest, AnthropicContentBlock } from '@manageyourllm/shared';
+import type {
+  ChatRequestIR,
+  AnthropicMessagesRequest,
+  AnthropicContentBlock,
+} from '@manageyourllm/shared';
 import { ValidationError } from '@manageyourllm/shared';
 
 function extractText(content: string | AnthropicContentBlock[]): string {

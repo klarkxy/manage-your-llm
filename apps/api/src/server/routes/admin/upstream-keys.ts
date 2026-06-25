@@ -37,7 +37,10 @@ async function buildUpstreamResponse(
   return stripUpstreamKeySecrets({ ...upstream, quota: quota ?? null });
 }
 
-export async function upstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKeyRouteDeps): Promise<void> {
+export async function upstreamKeyRoutes(
+  app: FastifyInstance,
+  deps: UpstreamKeyRouteDeps,
+): Promise<void> {
   const service = new UpstreamKeyService(deps.db, deps.secretKey);
   const repo = new UpstreamKeyRepository(deps.db);
 
@@ -53,13 +56,17 @@ export async function upstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKeyR
     if (!key) {
       return upstreamKeyResponseSchema.parse({ data: null });
     }
-    return upstreamKeyResponseSchema.parse({ data: serializeForContract(await buildUpstreamResponse(key, repo)) });
+    return upstreamKeyResponseSchema.parse({
+      data: serializeForContract(await buildUpstreamResponse(key, repo)),
+    });
   });
 
   app.post('/', async (req) => {
     const body = createUpstreamKeyRequestSchema.parse(req.body);
     const key = await service.createUpstreamKey(body as never);
-    return upstreamKeyResponseSchema.parse({ data: serializeForContract(await buildUpstreamResponse(key, repo)) });
+    return upstreamKeyResponseSchema.parse({
+      data: serializeForContract(await buildUpstreamResponse(key, repo)),
+    });
   });
 
   app.patch('/:id', async (req) => {
@@ -69,7 +76,9 @@ export async function upstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKeyR
     if (!key) {
       return upstreamKeyResponseSchema.parse({ data: null });
     }
-    return upstreamKeyResponseSchema.parse({ data: serializeForContract(await buildUpstreamResponse(key, repo)) });
+    return upstreamKeyResponseSchema.parse({
+      data: serializeForContract(await buildUpstreamResponse(key, repo)),
+    });
   });
 
   app.delete('/:id', async (req) => {
@@ -96,7 +105,9 @@ export async function upstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKeyR
     if (!key) {
       return upstreamKeyResponseSchema.parse({ data: null });
     }
-    return upstreamKeyResponseSchema.parse({ data: serializeForContract(await buildUpstreamResponse(key, repo)) });
+    return upstreamKeyResponseSchema.parse({
+      data: serializeForContract(await buildUpstreamResponse(key, repo)),
+    });
   });
 
   app.post('/:id/unfreeze', async (req) => {
@@ -105,7 +116,9 @@ export async function upstreamKeyRoutes(app: FastifyInstance, deps: UpstreamKeyR
     if (!key) {
       return upstreamKeyResponseSchema.parse({ data: null });
     }
-    return upstreamKeyResponseSchema.parse({ data: serializeForContract(await buildUpstreamResponse(key, repo)) });
+    return upstreamKeyResponseSchema.parse({
+      data: serializeForContract(await buildUpstreamResponse(key, repo)),
+    });
   });
 
   app.post('/reorder', async (req) => {

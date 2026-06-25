@@ -169,9 +169,12 @@ const columns: DataTableColumns<UpstreamKeyWithQuota> = [
     key: 'status',
     render(row) {
       const tags: ReturnType<typeof h>[] = [];
-      if (row.frozen) tags.push(h(NTag, { type: 'warning' }, { default: () => t('upstreamKeys.frozen') }));
-      if (!row.enabled) tags.push(h(NTag, { type: 'default' }, { default: () => t('upstreamKeys.disabled') }));
-      if (tags.length === 0) tags.push(h(NTag, { type: 'success' }, { default: () => t('upstreamKeys.active') }));
+      if (row.frozen)
+        tags.push(h(NTag, { type: 'warning' }, { default: () => t('upstreamKeys.frozen') }));
+      if (!row.enabled)
+        tags.push(h(NTag, { type: 'default' }, { default: () => t('upstreamKeys.disabled') }));
+      if (tags.length === 0)
+        tags.push(h(NTag, { type: 'success' }, { default: () => t('upstreamKeys.active') }));
       return h(NSpace, { size: 4 }, { default: () => tags });
     },
   },
@@ -179,24 +182,60 @@ const columns: DataTableColumns<UpstreamKeyWithQuota> = [
     title: t('common.actions'),
     key: 'actions',
     render(row) {
-      return h(NSpace, { size: 'small' }, {
-        default: () => [
-          h(NButton, { size: 'small', onClick: () => openEdit(row) }, { default: () => t('common.edit') }),
-          h(NButton, { size: 'small', onClick: () => { rotateModal.value = { show: true, id: row.id, apiKey: '' }; } }, { default: () => t('upstreamKeys.rotate') }),
-          row.frozen
-            ? h(NButton, { size: 'small', onClick: () => onUnfreeze(row) }, { default: () => t('upstreamKeys.unfreeze') })
-            : h(NButton, { size: 'small', onClick: () => onFreeze(row) }, { default: () => t('upstreamKeys.freeze') }),
-          h(NPopconfirm, { onPositiveClick: () => onDelete(row) }, {
-            trigger: () => h(NButton, { size: 'small', type: 'error' }, { default: () => t('common.delete') }),
-            default: () => t('upstreamKeys.confirmDelete'),
-          }),
-        ],
-      });
+      return h(
+        NSpace,
+        { size: 'small' },
+        {
+          default: () => [
+            h(
+              NButton,
+              { size: 'small', onClick: () => openEdit(row) },
+              { default: () => t('common.edit') },
+            ),
+            h(
+              NButton,
+              {
+                size: 'small',
+                onClick: () => {
+                  rotateModal.value = { show: true, id: row.id, apiKey: '' };
+                },
+              },
+              { default: () => t('upstreamKeys.rotate') },
+            ),
+            row.frozen
+              ? h(
+                  NButton,
+                  { size: 'small', onClick: () => onUnfreeze(row) },
+                  { default: () => t('upstreamKeys.unfreeze') },
+                )
+              : h(
+                  NButton,
+                  { size: 'small', onClick: () => onFreeze(row) },
+                  { default: () => t('upstreamKeys.freeze') },
+                ),
+            h(
+              NPopconfirm,
+              { onPositiveClick: () => onDelete(row) },
+              {
+                trigger: () =>
+                  h(
+                    NButton,
+                    { size: 'small', type: 'error' },
+                    { default: () => t('common.delete') },
+                  ),
+                default: () => t('upstreamKeys.confirmDelete'),
+              },
+            ),
+          ],
+        },
+      );
     },
   },
 ];
 
-const presetOptions = computed(() => presets.value.map((p) => ({ label: `${p.name} (${p.source})`, value: p.id })));
+const presetOptions = computed(() =>
+  presets.value.map((p) => ({ label: `${p.name} (${p.source})`, value: p.id })),
+);
 
 onMounted(load);
 </script>
@@ -210,13 +249,23 @@ onMounted(load);
       <NDataTable :columns="columns" :data="keys" :loading="loading" :row-key="(row) => row.id" />
     </NSpace>
 
-    <NModal v-model:show="showModal" :title="editingKey ? t('upstreamKeys.edit') : t('upstreamKeys.create')" preset="card" style="width: 560px">
+    <NModal
+      v-model:show="showModal"
+      :title="editingKey ? t('upstreamKeys.edit') : t('upstreamKeys.create')"
+      preset="card"
+      style="width: 560px"
+    >
       <NForm label-placement="left" label-width="100px">
         <NFormItem :label="t('upstreamKeys.name')">
           <NInput v-model:value="form.name" />
         </NFormItem>
         <NFormItem :label="t('upstreamKeys.providerPreset')">
-          <NSelect v-model:value="form.providerPresetId" :options="presetOptions" clearable @update:value="onPresetChange" />
+          <NSelect
+            v-model:value="form.providerPresetId"
+            :options="presetOptions"
+            clearable
+            @update:value="onPresetChange"
+          />
         </NFormItem>
         <NFormItem :label="t('upstreamKeys.providerType')">
           <NInput v-model:value="form.providerType" />
@@ -237,7 +286,12 @@ onMounted(load);
       </NSpace>
     </NModal>
 
-    <NModal v-model:show="rotateModal.show" :title="t('upstreamKeys.rotate')" preset="card" style="width: 480px">
+    <NModal
+      v-model:show="rotateModal.show"
+      :title="t('upstreamKeys.rotate')"
+      preset="card"
+      style="width: 480px"
+    >
       <NFormItem :label="t('upstreamKeys.newApiKey')">
         <NInput v-model:value="rotateModal.apiKey" type="password" />
       </NFormItem>

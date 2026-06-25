@@ -16,7 +16,9 @@ export async function listConsumerKeys(): Promise<ConsumerKeyContract[]> {
 }
 
 export async function listConsumerKeysByApp(appId: string): Promise<ConsumerKeyContract[]> {
-  const res = await api.get<{ data: ConsumerKeyContract[] }>(`/api/admin/consumer-keys?appId=${encodeURIComponent(appId)}`);
+  const res = await api.get<{ data: ConsumerKeyContract[] }>(
+    `/api/admin/consumer-keys?appId=${encodeURIComponent(appId)}`,
+  );
   return res.data;
 }
 
@@ -25,23 +27,39 @@ export async function getConsumerKey(id: string): Promise<ConsumerKeyWithAccess>
   return res.data;
 }
 
-export async function createConsumerKey(body: CreateConsumerKeyRequest): Promise<CreateConsumerKeyResponse> {
+export async function createConsumerKey(
+  body: CreateConsumerKeyRequest,
+): Promise<CreateConsumerKeyResponse> {
   const res = await api.post<{ data: CreateConsumerKeyResponse }>('/api/admin/consumer-keys', body);
   return res.data;
 }
 
-export async function updateConsumerKey(id: string, body: UpdateConsumerKeyRequest): Promise<ConsumerKeyWithAccess> {
-  const res = await api.patch<{ data: ConsumerKeyWithAccess }>(`/api/admin/consumer-keys/${id}`, body);
+export async function updateConsumerKey(
+  id: string,
+  body: UpdateConsumerKeyRequest,
+): Promise<ConsumerKeyWithAccess> {
+  const res = await api.patch<{ data: ConsumerKeyWithAccess }>(
+    `/api/admin/consumer-keys/${id}`,
+    body,
+  );
   return res.data;
 }
 
 export async function rotateConsumerKey(id: string): Promise<RotateConsumerKeyResponse> {
-  const res = await api.post<{ data: RotateConsumerKeyResponse }>(`/api/admin/consumer-keys/${id}/rotate`, {});
+  const res = await api.post<{ data: RotateConsumerKeyResponse }>(
+    `/api/admin/consumer-keys/${id}/rotate`,
+    {},
+  );
   return res.data;
 }
 
-export async function revokeConsumerKey(id: string): Promise<{ consumerKey: ConsumerKeyWithAccess }> {
-  const res = await api.post<{ data: { consumerKey: ConsumerKeyWithAccess } }>(`/api/admin/consumer-keys/${id}/revoke`, {});
+export async function revokeConsumerKey(
+  id: string,
+): Promise<{ consumerKey: ConsumerKeyWithAccess }> {
+  const res = await api.post<{ data: { consumerKey: ConsumerKeyWithAccess } }>(
+    `/api/admin/consumer-keys/${id}/revoke`,
+    {},
+  );
   return res.data;
 }
 

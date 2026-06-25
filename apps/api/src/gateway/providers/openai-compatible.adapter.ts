@@ -1,4 +1,11 @@
-import type { ChatRequestIR, NormalizedChatResponse, OpenAIChatCompletionsResponse, OpenAIResponsesResponse, OpenAIChatMessage, OpenAIResponsesInputItem } from '@manageyourllm/shared';
+import type {
+  ChatRequestIR,
+  NormalizedChatResponse,
+  OpenAIChatCompletionsResponse,
+  OpenAIResponsesResponse,
+  OpenAIChatMessage,
+  OpenAIResponsesInputItem,
+} from '@manageyourllm/shared';
 import {
   ProviderError,
   ProviderQuotaError,
@@ -6,7 +13,13 @@ import {
   ProviderTimeoutError,
   type NormalizedError,
 } from '@manageyourllm/shared';
-import type { BuildRequestContext, NormalizeResponseContext, NormalizeErrorContext, ProviderHttpRequest, ProviderAdapter } from './adapter.js';
+import type {
+  BuildRequestContext,
+  NormalizeResponseContext,
+  NormalizeErrorContext,
+  ProviderHttpRequest,
+  ProviderAdapter,
+} from './adapter.js';
 
 function buildChatCompletionBody(ir: ChatRequestIR): Record<string, unknown> {
   const messages: OpenAIChatMessage[] = [];
@@ -23,11 +36,12 @@ function buildChatCompletionBody(ir: ChatRequestIR): Record<string, unknown> {
   const body: Record<string, unknown> = {
     model: ir.requestedModel,
     messages,
-    stream: false,
+    stream: ir.stream,
   };
   if (ir.maxTokens != null) body.max_tokens = ir.maxTokens;
   if (ir.temperature != null) body.temperature = ir.temperature;
   if (ir.topP != null) body.top_p = ir.topP;
+  if (ir.stream) body.stream_options = { include_usage: true };
   return body;
 }
 
@@ -43,11 +57,12 @@ function buildResponsesBody(ir: ChatRequestIR): Record<string, unknown> {
       return { type: 'message', role: msg.role, content: msg.content };
     });
   }
-  const body: Record<string, unknown> = { model: ir.requestedModel, input, stream: false };
+  const body: Record<string, unknown> = { model: ir.requestedModel, input, stream: ir.stream };
   if (ir.system) body.instructions = ir.system;
   if (ir.maxTokens != null) body.max_output_tokens = ir.maxTokens;
   if (ir.temperature != null) body.temperature = ir.temperature;
   if (ir.topP != null) body.top_p = ir.topP;
+  if (ir.stream) body.stream_options = { include_usage: true };
   return body;
 }
 
@@ -91,7 +106,10 @@ function normalizeResponsesResponse(body: OpenAIResponsesResponse): NormalizedCh
   };
 }
 
-function normalizeErrorBody(status: number, body: unknown): { message: string; code?: string | null } {
+function normalizeErrorBody(
+  status: number,
+  body: unknown,
+): { message: string; code?: string | null } {
   if (body && typeof body === 'object') {
     const err = (body as Record<string, unknown>)['error'];
     if (err && typeof err === 'object') {
@@ -110,7 +128,9 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
     const isResponses = ir.sourceProtocol === 'codex';
     const path = isResponses ? '/v1/responses' : '/v1/chat/completions';
     const baseUrl = upstreamKey.baseUrl.replace(/\/$/, '');
-    const body = isResponses ? buildResponsesBody({ ...ir, requestedModel: realModelName }) : buildChatCompletionBody({ ...ir, requestedModel: realModelName });
+    const body = isResponses
+      ? buildResponsesBody({ ...ir, requestedModel: realModelName })
+      : buildChatCompletionBody({ ...ir, requestedModel: realModelName });
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',

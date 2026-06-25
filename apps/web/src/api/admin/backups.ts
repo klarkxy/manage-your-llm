@@ -1,5 +1,9 @@
 import { api } from '../client.js';
-import type { BackupContract, CreateBackupRequest, RestoreBackupRequest } from '@manageyourllm/contracts';
+import type {
+  BackupContract,
+  CreateBackupRequest,
+  RestoreBackupRequest,
+} from '@manageyourllm/contracts';
 
 export async function listBackups(): Promise<BackupContract[]> {
   const res = await api.get<{ data: BackupContract[] }>('/api/admin/backups');
@@ -11,7 +15,10 @@ export async function createBackup(body: CreateBackupRequest): Promise<BackupCon
   return res.data;
 }
 
-export async function restoreBackup(id: string, body: RestoreBackupRequest): Promise<{ ok: boolean }> {
+export async function restoreBackup(
+  id: string,
+  body: RestoreBackupRequest,
+): Promise<{ ok: boolean }> {
   const res = await api.post<{ data: { ok: boolean } }>(`/api/admin/backups/${id}/restore`, body);
   return res.data;
 }

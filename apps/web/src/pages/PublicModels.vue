@@ -42,13 +42,22 @@ const form = ref({
   displayName: '',
   description: '',
   enabled: true,
-  candidates: [] as { upstreamKeyId: string; realModelName: string; priority: number; weight: number; enabled: boolean }[],
+  candidates: [] as {
+    upstreamKeyId: string;
+    realModelName: string;
+    priority: number;
+    weight: number;
+    enabled: boolean;
+  }[],
 });
 
 async function load() {
   loading.value = true;
   try {
-    [models.value, upstreamKeys.value] = await Promise.all([listPublicModels(), listUpstreamKeys()]);
+    [models.value, upstreamKeys.value] = await Promise.all([
+      listPublicModels(),
+      listUpstreamKeys(),
+    ]);
   } finally {
     loading.value = false;
   }
@@ -84,7 +93,13 @@ async function openEdit(row: PublicModelContract) {
 }
 
 function addCandidate() {
-  form.value.candidates.push({ upstreamKeyId: '', realModelName: '', priority: 100, weight: 1, enabled: true });
+  form.value.candidates.push({
+    upstreamKeyId: '',
+    realModelName: '',
+    priority: 100,
+    weight: 1,
+    enabled: true,
+  });
 }
 
 function removeCandidate(index: number) {
@@ -138,20 +153,39 @@ const columns: DataTableColumns<PublicModelContract> = [
     title: t('common.actions'),
     key: 'actions',
     render(row) {
-      return h(NSpace, { size: 'small' }, {
-        default: () => [
-          h(NButton, { size: 'small', onClick: () => openEdit(row) }, { default: () => t('common.edit') }),
-          h(NPopconfirm, { onPositiveClick: () => onDelete(row) }, {
-            trigger: () => h(NButton, { size: 'small', type: 'error' }, { default: () => t('common.delete') }),
-            default: () => t('publicModels.confirmDelete'),
-          }),
-        ],
-      });
+      return h(
+        NSpace,
+        { size: 'small' },
+        {
+          default: () => [
+            h(
+              NButton,
+              { size: 'small', onClick: () => openEdit(row) },
+              { default: () => t('common.edit') },
+            ),
+            h(
+              NPopconfirm,
+              { onPositiveClick: () => onDelete(row) },
+              {
+                trigger: () =>
+                  h(
+                    NButton,
+                    { size: 'small', type: 'error' },
+                    { default: () => t('common.delete') },
+                  ),
+                default: () => t('publicModels.confirmDelete'),
+              },
+            ),
+          ],
+        },
+      );
     },
   },
 ];
 
-const upstreamOptions = computed(() => upstreamKeys.value.map((k) => ({ label: `${k.name} (${k.providerType})`, value: k.id })));
+const upstreamOptions = computed(() =>
+  upstreamKeys.value.map((k) => ({ label: `${k.name} (${k.providerType})`, value: k.id })),
+);
 
 onMounted(load);
 </script>
@@ -165,7 +199,12 @@ onMounted(load);
       <NDataTable :columns="columns" :data="models" :loading="loading" :row-key="(row) => row.id" />
     </NSpace>
 
-    <NModal v-model:show="showModal" :title="editingModel ? t('publicModels.edit') : t('publicModels.create')" preset="card" style="width: 680px">
+    <NModal
+      v-model:show="showModal"
+      :title="editingModel ? t('publicModels.edit') : t('publicModels.create')"
+      preset="card"
+      style="width: 680px"
+    >
       <NForm label-placement="left" label-width="100px">
         <NFormItem :label="t('publicModels.name')">
           <NInput v-model:value="form.name" />
@@ -184,12 +223,31 @@ onMounted(load);
       <NCard :title="t('publicModels.candidates')" size="small">
         <NSpace vertical :size="12">
           <NSpace v-for="(c, index) in form.candidates" :key="index" align="center">
-            <NSelect v-model:value="c.upstreamKeyId" :options="upstreamOptions" :placeholder="t('publicModels.upstreamKey')" style="width: 220px" />
-            <NInput v-model:value="c.realModelName" :placeholder="t('publicModels.realModelName')" style="width: 160px" />
-            <NInputNumber v-model:value="c.priority" :placeholder="t('publicModels.priority')" style="width: 90px" />
-            <NInputNumber v-model:value="c.weight" :placeholder="t('publicModels.weight')" style="width: 90px" />
+            <NSelect
+              v-model:value="c.upstreamKeyId"
+              :options="upstreamOptions"
+              :placeholder="t('publicModels.upstreamKey')"
+              style="width: 220px"
+            />
+            <NInput
+              v-model:value="c.realModelName"
+              :placeholder="t('publicModels.realModelName')"
+              style="width: 160px"
+            />
+            <NInputNumber
+              v-model:value="c.priority"
+              :placeholder="t('publicModels.priority')"
+              style="width: 90px"
+            />
+            <NInputNumber
+              v-model:value="c.weight"
+              :placeholder="t('publicModels.weight')"
+              style="width: 90px"
+            />
             <NSwitch v-model:value="c.enabled" />
-            <NButton size="small" type="error" @click="removeCandidate(index)">{{ t('common.delete') }}</NButton>
+            <NButton size="small" type="error" @click="removeCandidate(index)">{{
+              t('common.delete')
+            }}</NButton>
           </NSpace>
           <NButton size="small" @click="addCandidate">{{ t('publicModels.addCandidate') }}</NButton>
         </NSpace>

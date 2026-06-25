@@ -23,14 +23,15 @@ const stats = ref({
 async function loadStats() {
   loading.value = true;
   try {
-    const [upstreamKeys, publicModels, modelGroups, apps, consumerKeys, backups] = await Promise.all([
-      listUpstreamKeys(),
-      listPublicModels(),
-      listModelGroups(),
-      listApps(),
-      listConsumerKeys(),
-      listBackups(),
-    ]);
+    const [upstreamKeys, publicModels, modelGroups, apps, consumerKeys, backups] =
+      await Promise.all([
+        listUpstreamKeys(),
+        listPublicModels(),
+        listModelGroups(),
+        listApps(),
+        listConsumerKeys(),
+        listBackups(),
+      ]);
     stats.value = {
       upstreamKeys: upstreamKeys.length,
       publicModels: publicModels.length,

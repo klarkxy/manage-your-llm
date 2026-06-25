@@ -96,7 +96,12 @@ describe('gateway e2e smoke', () => {
     await app.close();
     globalThis.fetch = originalFetch;
     await new Promise((r) => setTimeout(r, 100));
-    await rm(dirname(dbFilePath), { force: true, recursive: true, maxRetries: 10, retryDelay: 100 });
+    await rm(dirname(dbFilePath), {
+      force: true,
+      recursive: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    });
   });
 
   it('proxies an OpenAI chat completion through the gateway', async () => {
@@ -111,5 +116,46 @@ describe('gateway e2e smoke', () => {
     const body = JSON.parse(res.payload);
     expect(body.choices[0].message.content).toBe('Hello from e2e');
     expect(body.usage.prompt_tokens).toBe(5);
+  });
+
+  it('proxies a streaming chat completion with SSE rewriting', async () => {
+    const encoder = new TextEncoder();
+    try {
+      globalThis.fetch = async () =>
+        ({
+          status: 200,
+          ok: true,
+          headers: new Headers({ 'content-type': 'text/event-stream' }),
+          body: new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                encoder.encode(
+                  'data: {"id":"chatcmpl-stream","object":"chat.completion.chunk","model":"gpt-4o-real","choices":[{"delta":{"content":"Hello"}}]}\n\ndata: [DONE]\n\n',
+                ),
+              );
+              controller.close();
+            },
+          }),
+        }) as Response;
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: { authorization: `Bearer ${rawKey}`, 'content-type': 'application/json' },
+        payload: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: 'hi' }],
+          stream: true,
+        }),
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['content-type']).toContain('text/event-stream');
+      expect(res.payload).toContain('data: [DONE]');
+      expect(res.payload).toContain('"model":"gpt-4o"');
+      expect(res.payload).toContain('"content":"Hello"');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

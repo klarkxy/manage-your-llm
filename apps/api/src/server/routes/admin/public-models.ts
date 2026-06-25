@@ -17,7 +17,10 @@ export interface PublicModelRouteDeps {
   db: Db;
 }
 
-export async function publicModelRoutes(app: FastifyInstance, deps: PublicModelRouteDeps): Promise<void> {
+export async function publicModelRoutes(
+  app: FastifyInstance,
+  deps: PublicModelRouteDeps,
+): Promise<void> {
   const service = new PublicModelService(deps.db);
   const repo = new PublicModelRepository(deps.db);
 

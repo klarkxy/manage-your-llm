@@ -6,7 +6,9 @@ import type {
   UpdatePublicModelRequest,
 } from '@manageyourllm/contracts';
 
-export type PublicModelWithCandidates = PublicModelContract & { candidates: PublicModelCandidateContract[] };
+export type PublicModelWithCandidates = PublicModelContract & {
+  candidates: PublicModelCandidateContract[];
+};
 
 export async function listPublicModels(): Promise<PublicModelContract[]> {
   const res = await api.get<{ data: PublicModelContract[] }>('/api/admin/public-models');
@@ -18,13 +20,21 @@ export async function getPublicModel(id: string): Promise<PublicModelWithCandida
   return res.data;
 }
 
-export async function createPublicModel(body: CreatePublicModelRequest): Promise<PublicModelWithCandidates> {
+export async function createPublicModel(
+  body: CreatePublicModelRequest,
+): Promise<PublicModelWithCandidates> {
   const res = await api.post<{ data: PublicModelWithCandidates }>('/api/admin/public-models', body);
   return res.data;
 }
 
-export async function updatePublicModel(id: string, body: UpdatePublicModelRequest): Promise<PublicModelWithCandidates> {
-  const res = await api.patch<{ data: PublicModelWithCandidates }>(`/api/admin/public-models/${id}`, body);
+export async function updatePublicModel(
+  id: string,
+  body: UpdatePublicModelRequest,
+): Promise<PublicModelWithCandidates> {
+  const res = await api.patch<{ data: PublicModelWithCandidates }>(
+    `/api/admin/public-models/${id}`,
+    body,
+  );
   return res.data;
 }
 

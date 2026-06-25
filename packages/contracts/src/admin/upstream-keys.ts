@@ -70,18 +70,22 @@ export const createUpstreamKeyRequestSchema = z.object({
     .optional(),
 });
 
-export const updateUpstreamKeyRequestSchema = createUpstreamKeyRequestSchema.partial().omit({ apiKey: true });
+export const updateUpstreamKeyRequestSchema = createUpstreamKeyRequestSchema
+  .partial()
+  .omit({ apiKey: true });
 
 export const rotateApiKeyRequestSchema = z.object({
   apiKey: z.string().min(1, 'API Key 不能为空'),
 });
 
-export const reorderUpstreamKeysRequestSchema = z.array(
-  z.object({
-    id: z.string(),
-    displayOrder: z.number().int(),
-  }),
-).min(1, '至少提供一个 upstream key 排序项');
+export const reorderUpstreamKeysRequestSchema = z
+  .array(
+    z.object({
+      id: z.string(),
+      displayOrder: z.number().int(),
+    }),
+  )
+  .min(1, '至少提供一个 upstream key 排序项');
 
 export const freezeUpstreamKeyRequestSchema = z.object({
   frozen: z.boolean().optional().default(true),

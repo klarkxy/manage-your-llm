@@ -99,7 +99,16 @@ const currentLanguage = computed({
             size="small"
             style="width: 120px"
           />
-          <NButton size="small" quaternary @click="async () => { await auth.logout(); await router.push({ name: 'login' }); }">
+          <NButton
+            size="small"
+            quaternary
+            @click="
+              async () => {
+                await auth.logout();
+                await router.push({ name: 'login' });
+              }
+            "
+          >
             <template #icon>
               <NIcon><LogOutOutline /></NIcon>
             </template>

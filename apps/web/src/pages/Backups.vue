@@ -26,7 +26,11 @@ const backups = ref<BackupContract[]>([]);
 const loading = ref(false);
 const showCreate = ref(false);
 const createForm = ref({ type: 'full' as 'full' | 'config', note: '' });
-const restoreForm = ref<{ show: boolean; id: string; confirm: boolean }>({ show: false, id: '', confirm: false });
+const restoreForm = ref<{ show: boolean; id: string; confirm: boolean }>({
+  show: false,
+  id: '',
+  confirm: false,
+});
 
 async function load() {
   loading.value = true;
@@ -77,11 +81,19 @@ const columns: DataTableColumns<BackupContract> = [
     title: t('common.actions'),
     key: 'actions',
     render(row) {
-      return h(NSpace, { size: 'small' }, {
-        default: () => [
-          h(NButton, { size: 'small', onClick: () => openRestore(row) }, { default: () => t('backups.restore') }),
-        ],
-      });
+      return h(
+        NSpace,
+        { size: 'small' },
+        {
+          default: () => [
+            h(
+              NButton,
+              { size: 'small', onClick: () => openRestore(row) },
+              { default: () => t('backups.restore') },
+            ),
+          ],
+        },
+      );
     },
   },
 ];
@@ -95,16 +107,29 @@ onMounted(load);
       <NSpace justify="end">
         <NButton type="primary" @click="showCreate = true">{{ t('backups.create') }}</NButton>
       </NSpace>
-      <NDataTable :columns="columns" :data="backups" :loading="loading" :row-key="(row) => row.id" />
+      <NDataTable
+        :columns="columns"
+        :data="backups"
+        :loading="loading"
+        :row-key="(row) => row.id"
+      />
     </NSpace>
 
-    <NModal v-model:show="showCreate" :title="t('backups.create')" preset="card" style="width: 480px">
+    <NModal
+      v-model:show="showCreate"
+      :title="t('backups.create')"
+      preset="card"
+      style="width: 480px"
+    >
       <NForm label-placement="left" label-width="80px">
         <NFormItem :label="t('backups.type')">
-          <NSelect v-model:value="createForm.type" :options="[
-            { label: t('backups.full'), value: 'full' },
-            { label: t('backups.config'), value: 'config' },
-          ]" />
+          <NSelect
+            v-model:value="createForm.type"
+            :options="[
+              { label: t('backups.full'), value: 'full' },
+              { label: t('backups.config'), value: 'config' },
+            ]"
+          />
         </NFormItem>
         <NFormItem :label="t('backups.note')">
           <NInput v-model:value="createForm.note" />
@@ -116,7 +141,12 @@ onMounted(load);
       </NSpace>
     </NModal>
 
-    <NModal v-model:show="restoreForm.show" :title="t('backups.restore')" preset="card" style="width: 480px">
+    <NModal
+      v-model:show="restoreForm.show"
+      :title="t('backups.restore')"
+      preset="card"
+      style="width: 480px"
+    >
       <NForm label-placement="left" label-width="100px">
         <NFormItem :label="t('backups.confirm')">
           <NSwitch v-model:value="restoreForm.confirm" />

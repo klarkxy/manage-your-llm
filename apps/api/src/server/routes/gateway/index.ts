@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { Readable } from 'node:stream';
 import { GatewayExecutionService } from '../../../application/gateway-execution.service.js';
 import { parseAnthropicMessages } from '../../../gateway/parsers/anthropic.js';
 import { parseOpenAIChatCompletions } from '../../../gateway/parsers/openai-chat.js';
@@ -12,9 +13,11 @@ export interface GatewayRouteDeps {
   prefix?: string;
 }
 
-function assertAuthenticated(
-  req: FastifyRequest,
-): { consumerKey: NonNullable<FastifyRequest['consumerKey']>; app: NonNullable<FastifyRequest['app']>; requestTraceId: string } {
+function assertAuthenticated(req: FastifyRequest): {
+  consumerKey: NonNullable<FastifyRequest['consumerKey']>;
+  app: NonNullable<FastifyRequest['app']>;
+  requestTraceId: string;
+} {
   if (!req.consumerKey || !req.app || !req.requestTraceId) {
     throw new Error('网关认证信息缺失');
   }
@@ -35,6 +38,13 @@ export async function gatewayRoutes(app: FastifyInstance, deps: GatewayRouteDeps
   app.post('/messages', async (req, reply) => {
     const ctx = assertAuthenticated(req);
     const ir = parseAnthropicMessages(req.body);
+    if (ir.stream) {
+      const result = await executionService.executeStream({ db: deps.db, ...ctx }, ir);
+      return reply
+        .status(result.status)
+        .headers(result.headers)
+        .send(Readable.fromWeb(result.stream));
+    }
     const { status, body } = await executionService.executeChat({ db: deps.db, ...ctx }, ir);
     return reply.status(status).send(body);
   });
@@ -42,6 +52,13 @@ export async function gatewayRoutes(app: FastifyInstance, deps: GatewayRouteDeps
   app.post('/chat/completions', async (req, reply) => {
     const ctx = assertAuthenticated(req);
     const ir = parseOpenAIChatCompletions(req.body);
+    if (ir.stream) {
+      const result = await executionService.executeStream({ db: deps.db, ...ctx }, ir);
+      return reply
+        .status(result.status)
+        .headers(result.headers)
+        .send(Readable.fromWeb(result.stream));
+    }
     const { status, body } = await executionService.executeChat({ db: deps.db, ...ctx }, ir);
     return reply.status(status).send(body);
   });
@@ -49,6 +66,13 @@ export async function gatewayRoutes(app: FastifyInstance, deps: GatewayRouteDeps
   app.post('/responses', async (req, reply) => {
     const ctx = assertAuthenticated(req);
     const ir = parseOpenAIResponses(req.body);
+    if (ir.stream) {
+      const result = await executionService.executeStream({ db: deps.db, ...ctx }, ir);
+      return reply
+        .status(result.status)
+        .headers(result.headers)
+        .send(Readable.fromWeb(result.stream));
+    }
     const { status, body } = await executionService.executeChat({ db: deps.db, ...ctx }, ir);
     return reply.status(status).send(body);
   });

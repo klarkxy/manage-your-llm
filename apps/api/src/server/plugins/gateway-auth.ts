@@ -18,7 +18,9 @@ function extractBearerToken(header: unknown): string | undefined {
 function extractRawKey(req: FastifyRequest): string | undefined {
   const authHeader = req.headers['authorization'];
   const apiKeyHeader = req.headers['x-api-key'];
-  return extractBearerToken(authHeader) ?? (typeof apiKeyHeader === 'string' ? apiKeyHeader : undefined);
+  return (
+    extractBearerToken(authHeader) ?? (typeof apiKeyHeader === 'string' ? apiKeyHeader : undefined)
+  );
 }
 
 export async function gatewayAuthGuardHook(

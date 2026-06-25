@@ -19,7 +19,10 @@ export interface ConsumerKeyRouteDeps {
   db: Db;
 }
 
-export async function consumerKeyRoutes(app: FastifyInstance, deps: ConsumerKeyRouteDeps): Promise<void> {
+export async function consumerKeyRoutes(
+  app: FastifyInstance,
+  deps: ConsumerKeyRouteDeps,
+): Promise<void> {
   const service = new ConsumerKeyService(deps.db);
   const repo = new ConsumerKeyRepository(deps.db);
 

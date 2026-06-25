@@ -3,7 +3,11 @@ import { randomUUID } from 'node:crypto';
 import type { Db } from '../infrastructure/db/client.js';
 import { RoutingStateRepository } from '../infrastructure/db/repositories/routing-state.repository.js';
 import { UpstreamKeyRepository } from '../infrastructure/db/repositories/upstream-key.repository.js';
-import { dailyConsumptionStats, requestTraceLogs, usageRecords } from '../infrastructure/db/schema.js';
+import {
+  dailyConsumptionStats,
+  requestTraceLogs,
+  usageRecords,
+} from '../infrastructure/db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import type { NormalizedError, ChatUsageIR } from '@manageyourllm/shared';
 import type { RoutingCandidate } from '../domain/gateway/routing.types.js';
@@ -48,7 +52,10 @@ function dayDateString(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function periodBounds(period: Exclude<QuotaPeriod, 'total'>, now: Date): { startedAt: Date; endsAt: Date } {
+function periodBounds(
+  period: Exclude<QuotaPeriod, 'total'>,
+  now: Date,
+): { startedAt: Date; endsAt: Date } {
   const year = now.getUTCFullYear();
   const month = now.getUTCMonth();
   const date = now.getUTCDate();
@@ -139,8 +146,8 @@ export class GatewaySideEffectsService {
     now = new Date(),
   ): Promise<void> {
     const usage = info.usage;
-    const status = info.success ? 'success' : info.error?.code ?? 'provider_error';
-    const errorCode = info.success ? null : info.error?.code ?? null;
+    const status = info.success ? 'success' : (info.error?.code ?? 'provider_error');
+    const errorCode = info.success ? null : (info.error?.code ?? null);
 
     await this.db.insert(usageRecords).values({
       id: generateId('usageRecord'),
@@ -183,22 +190,20 @@ export class GatewaySideEffectsService {
     await this.upsertEndpointHealth(candidate, info.success, info.latencyMs, info.error, now);
   }
 
-  private async incrementCounters(upstreamKeyId: string, usage: ChatUsageIR | null, now: Date): Promise<void> {
+  private async incrementCounters(
+    upstreamKeyId: string,
+    usage: ChatUsageIR | null,
+    now: Date,
+  ): Promise<void> {
     const periods: Exclude<QuotaPeriod, 'total'>[] = ['hour', 'day', 'week', 'month'];
     for (const period of periods) {
       const { startedAt, endsAt } = periodBounds(period, now);
-      await this.upstreamKeyRepo.incrementCounter(
-        upstreamKeyId,
-        period,
-        startedAt,
-        endsAt,
-        {
-          requests: 1,
-          inputTokens: usage?.inputTokens ?? 0,
-          outputTokens: usage?.outputTokens ?? 0,
-          totalTokens: usage?.totalTokens ?? 0,
-        },
-      );
+      await this.upstreamKeyRepo.incrementCounter(upstreamKeyId, period, startedAt, endsAt, {
+        requests: 1,
+        inputTokens: usage?.inputTokens ?? 0,
+        outputTokens: usage?.outputTokens ?? 0,
+        totalTokens: usage?.totalTokens ?? 0,
+      });
     }
   }
 
@@ -309,7 +314,10 @@ export class GatewaySideEffectsService {
   }
 
   private async handleBreakerSuccess(candidate: RoutingCandidate): Promise<void> {
-    const existing = await this.routingStateRepo.findBreaker(candidate.upstreamKey.id, candidate.realModelName);
+    const existing = await this.routingStateRepo.findBreaker(
+      candidate.upstreamKey.id,
+      candidate.realModelName,
+    );
     if (!existing) return;
     if (existing.state === 'closed') return;
     await this.routingStateRepo.updateBreakerState(
@@ -332,7 +340,10 @@ export class GatewaySideEffectsService {
     settings: AdminSettingsRow,
     now: Date,
   ): Promise<void> {
-    const existing = await this.routingStateRepo.findBreaker(candidate.upstreamKey.id, candidate.realModelName);
+    const existing = await this.routingStateRepo.findBreaker(
+      candidate.upstreamKey.id,
+      candidate.realModelName,
+    );
     const failureCount = (existing?.failureCount ?? 0) + 1;
     const threshold = settings.circuitBreakerFailureThreshold;
 
@@ -405,8 +416,8 @@ export class GatewaySideEffectsService {
       delayMs: latencyMs,
       lastCheckedAt: now,
       degraded: !success || latencyMs > 5000,
-      errorCode: success ? null : error?.code ?? 'error',
-      errorMessage: success ? null : error?.message ?? 'unknown error',
+      errorCode: success ? null : (error?.code ?? 'error'),
+      errorMessage: success ? null : (error?.message ?? 'unknown error'),
     });
   }
 }

@@ -21,7 +21,10 @@ describe('gateway auth', () => {
     const appRepo = new AppRepository(testDb.db);
     const createdApp = await appRepo.createApp({ name: 'Gateway Test App', enabled: true });
     const consumerService = new ConsumerKeyService(testDb.db);
-    const result = await consumerService.createConsumerKey({ appId: createdApp.id, name: 'test-key' });
+    const result = await consumerService.createConsumerKey({
+      appId: createdApp.id,
+      name: 'test-key',
+    });
     rawKey = result.rawKey;
   });
 
@@ -82,7 +85,10 @@ describe('gateway auth', () => {
     const appRepo = new AppRepository(testDb.db);
     const createdApp = await appRepo.createApp({ name: 'Revoked App', enabled: true });
     const consumerService = new ConsumerKeyService(testDb.db);
-    const result = await consumerService.createConsumerKey({ appId: createdApp.id, name: 'revoked-key' });
+    const result = await consumerService.createConsumerKey({
+      appId: createdApp.id,
+      name: 'revoked-key',
+    });
 
     await consumerService.revokeConsumerKey(result.consumerKey.id);
 
@@ -98,7 +104,10 @@ describe('gateway auth', () => {
     const appRepo = new AppRepository(testDb.db);
     const createdApp = await appRepo.createApp({ name: 'Disabled App', enabled: false });
     const consumerService = new ConsumerKeyService(testDb.db);
-    const result = await consumerService.createConsumerKey({ appId: createdApp.id, name: 'disabled-app-key' });
+    const result = await consumerService.createConsumerKey({
+      appId: createdApp.id,
+      name: 'disabled-app-key',
+    });
 
     const res = await app.inject({
       method: 'GET',

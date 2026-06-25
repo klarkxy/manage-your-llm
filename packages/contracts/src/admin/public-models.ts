@@ -47,12 +47,14 @@ export const createPublicModelRequestSchema = z.object({
 
 export const updatePublicModelRequestSchema = createPublicModelRequestSchema.partial();
 
-export const reorderCandidatesRequestSchema = z.array(
-  z.object({
-    candidateId: z.string(),
-    priority: z.number().int().min(0),
-  }),
-).min(1, '至少提供一个 candidate 排序项');
+export const reorderCandidatesRequestSchema = z
+  .array(
+    z.object({
+      candidateId: z.string(),
+      priority: z.number().int().min(0),
+    }),
+  )
+  .min(1, '至少提供一个 candidate 排序项');
 
 export const listPublicModelsResponseSchema = listEnvelope(publicModelSchema);
 export const publicModelResponseSchema = successEnvelope(publicModelWithCandidatesSchema);

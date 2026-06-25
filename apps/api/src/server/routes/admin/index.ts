@@ -30,9 +30,12 @@ export async function adminRoutes(app: FastifyInstance, deps: AdminRoutesDeps): 
   await app.register(async (subApp) => subApp.register(setupRoutes, deps.setup), {
     prefix: '/setup',
   });
-  await app.register(async (subApp) => subApp.register(providerPresetRoutes, deps.providerPresets), {
-    prefix: '/provider-presets',
-  });
+  await app.register(
+    async (subApp) => subApp.register(providerPresetRoutes, deps.providerPresets),
+    {
+      prefix: '/provider-presets',
+    },
+  );
   await app.register(async (subApp) => subApp.register(upstreamKeyRoutes, deps.upstreamKeys), {
     prefix: '/upstream-keys',
   });

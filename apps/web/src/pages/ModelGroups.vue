@@ -136,20 +136,39 @@ const columns: DataTableColumns<ModelGroupContract> = [
     title: t('common.actions'),
     key: 'actions',
     render(row) {
-      return h(NSpace, { size: 'small' }, {
-        default: () => [
-          h(NButton, { size: 'small', onClick: () => openEdit(row) }, { default: () => t('common.edit') }),
-          h(NPopconfirm, { onPositiveClick: () => onDelete(row) }, {
-            trigger: () => h(NButton, { size: 'small', type: 'error' }, { default: () => t('common.delete') }),
-            default: () => t('modelGroups.confirmDelete'),
-          }),
-        ],
-      });
+      return h(
+        NSpace,
+        { size: 'small' },
+        {
+          default: () => [
+            h(
+              NButton,
+              { size: 'small', onClick: () => openEdit(row) },
+              { default: () => t('common.edit') },
+            ),
+            h(
+              NPopconfirm,
+              { onPositiveClick: () => onDelete(row) },
+              {
+                trigger: () =>
+                  h(
+                    NButton,
+                    { size: 'small', type: 'error' },
+                    { default: () => t('common.delete') },
+                  ),
+                default: () => t('modelGroups.confirmDelete'),
+              },
+            ),
+          ],
+        },
+      );
     },
   },
 ];
 
-const modelOptions = computed(() => publicModels.value.map((m) => ({ label: m.displayName || m.name, value: m.id })));
+const modelOptions = computed(() =>
+  publicModels.value.map((m) => ({ label: m.displayName || m.name, value: m.id })),
+);
 
 onMounted(load);
 </script>
@@ -163,7 +182,12 @@ onMounted(load);
       <NDataTable :columns="columns" :data="groups" :loading="loading" :row-key="(row) => row.id" />
     </NSpace>
 
-    <NModal v-model:show="showModal" :title="editingGroup ? t('modelGroups.edit') : t('modelGroups.create')" preset="card" style="width: 680px">
+    <NModal
+      v-model:show="showModal"
+      :title="editingGroup ? t('modelGroups.edit') : t('modelGroups.create')"
+      preset="card"
+      style="width: 680px"
+    >
       <NForm label-placement="left" label-width="100px">
         <NFormItem :label="t('modelGroups.name')">
           <NInput v-model:value="form.name" />
@@ -182,11 +206,26 @@ onMounted(load);
       <NCard :title="t('modelGroups.members')" size="small">
         <NSpace vertical :size="12">
           <NSpace v-for="(m, index) in form.members" :key="index" align="center">
-            <NSelect v-model:value="m.publicModelId" :options="modelOptions" :placeholder="t('modelGroups.publicModel')" style="width: 240px" />
-            <NInputNumber v-model:value="m.priority" :placeholder="t('modelGroups.priority')" style="width: 90px" />
-            <NInputNumber v-model:value="m.weight" :placeholder="t('modelGroups.weight')" style="width: 90px" />
+            <NSelect
+              v-model:value="m.publicModelId"
+              :options="modelOptions"
+              :placeholder="t('modelGroups.publicModel')"
+              style="width: 240px"
+            />
+            <NInputNumber
+              v-model:value="m.priority"
+              :placeholder="t('modelGroups.priority')"
+              style="width: 90px"
+            />
+            <NInputNumber
+              v-model:value="m.weight"
+              :placeholder="t('modelGroups.weight')"
+              style="width: 90px"
+            />
             <NSwitch v-model:value="m.enabled" />
-            <NButton size="small" type="error" @click="removeMember(index)">{{ t('common.delete') }}</NButton>
+            <NButton size="small" type="error" @click="removeMember(index)">{{
+              t('common.delete')
+            }}</NButton>
           </NSpace>
           <NButton size="small" @click="addMember">{{ t('modelGroups.addMember') }}</NButton>
         </NSpace>

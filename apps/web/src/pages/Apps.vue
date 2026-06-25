@@ -60,7 +60,12 @@ const keyModal = ref<{
   show: boolean;
   appId: string;
   editing: ConsumerKeyContract | null;
-  form: { name: string; accessMode: 'all' | 'restricted'; enabled: boolean; selectedTargets: string[] };
+  form: {
+    name: string;
+    accessMode: 'all' | 'restricted';
+    enabled: boolean;
+    selectedTargets: string[];
+  };
   loading: boolean;
 }>({
   show: false,
@@ -169,9 +174,7 @@ async function openKeyEdit(appId: string, key: ConsumerKeyContract) {
   };
   try {
     const detail: ConsumerKeyWithAccess = await getConsumerKey(key.id);
-    keyModal.value.form.selectedTargets = detail.access.map(
-      (a) => `${a.targetType}:${a.targetId}`,
-    );
+    keyModal.value.form.selectedTargets = detail.access.map((a) => `${a.targetType}:${a.targetId}`);
   } finally {
     keyModal.value.loading = false;
   }
@@ -238,23 +241,48 @@ const columns: DataTableColumns<AppContract> = [
     title: t('apps.enabled'),
     key: 'enabled',
     render(row) {
-      return h(NTag, { type: row.enabled ? 'success' : 'default' }, { default: () => (row.enabled ? t('common.yes') : t('common.no')) });
+      return h(
+        NTag,
+        { type: row.enabled ? 'success' : 'default' },
+        { default: () => (row.enabled ? t('common.yes') : t('common.no')) },
+      );
     },
   },
   {
     title: t('common.actions'),
     key: 'actions',
     render(row) {
-      return h(NSpace, { size: 'small' }, {
-        default: () => [
-          h(NButton, { size: 'small', onClick: () => openEdit(row) }, { default: () => t('common.edit') }),
-          h(NButton, { size: 'small', onClick: () => createKey(row) }, { default: () => t('apps.createKey') }),
-          h(NPopconfirm, { onPositiveClick: () => onDelete(row) }, {
-            trigger: () => h(NButton, { size: 'small', type: 'error' }, { default: () => t('common.delete') }),
-            default: () => t('apps.confirmDelete'),
-          }),
-        ],
-      });
+      return h(
+        NSpace,
+        { size: 'small' },
+        {
+          default: () => [
+            h(
+              NButton,
+              { size: 'small', onClick: () => openEdit(row) },
+              { default: () => t('common.edit') },
+            ),
+            h(
+              NButton,
+              { size: 'small', onClick: () => createKey(row) },
+              { default: () => t('apps.createKey') },
+            ),
+            h(
+              NPopconfirm,
+              { onPositiveClick: () => onDelete(row) },
+              {
+                trigger: () =>
+                  h(
+                    NButton,
+                    { size: 'small', type: 'error' },
+                    { default: () => t('common.delete') },
+                  ),
+                default: () => t('apps.confirmDelete'),
+              },
+            ),
+          ],
+        },
+      );
     },
   },
 ];
@@ -273,7 +301,12 @@ onMounted(async () => {
       </NSpace>
       <NDataTable :columns="columns" :data="apps" :loading="loading" :row-key="(row) => row.id" />
 
-      <NModal v-model:show="showModal" :title="editingApp ? t('apps.edit') : t('apps.create')" preset="card" style="width: 480px">
+      <NModal
+        v-model:show="showModal"
+        :title="editingApp ? t('apps.edit') : t('apps.create')"
+        preset="card"
+        style="width: 480px"
+      >
         <NForm label-placement="left" label-width="80px">
           <NFormItem :label="t('apps.name')">
             <NInput v-model:value="form.name" />
@@ -291,7 +324,12 @@ onMounted(async () => {
         </NSpace>
       </NModal>
 
-      <NModal v-model:show="rawKeyModal.show" :title="rawKeyModal.title" preset="card" style="width: 520px">
+      <NModal
+        v-model:show="rawKeyModal.show"
+        :title="rawKeyModal.title"
+        preset="card"
+        style="width: 520px"
+      >
         <NSpin :show="false">
           <NFormItem :label="t('apps.rawKey')">
             <NInput :value="rawKeyModal.rawKey" readonly />
@@ -305,7 +343,12 @@ onMounted(async () => {
         </template>
       </NModal>
 
-      <NModal v-model:show="keyModal.show" :title="t('consumerKeys.edit')" preset="card" style="width: 560px">
+      <NModal
+        v-model:show="keyModal.show"
+        :title="t('consumerKeys.edit')"
+        preset="card"
+        style="width: 560px"
+      >
         <NSpin :show="keyModal.loading">
           <NForm label-placement="left" label-width="120px">
             <NFormItem :label="t('consumerKeys.name')">
@@ -323,7 +366,10 @@ onMounted(async () => {
                 ]"
               />
             </NFormItem>
-            <NFormItem v-if="keyModal.form.accessMode === 'restricted'" :label="t('consumerKeys.accessTargets')">
+            <NFormItem
+              v-if="keyModal.form.accessMode === 'restricted'"
+              :label="t('consumerKeys.accessTargets')"
+            >
               <NSelect
                 v-model:value="keyModal.form.selectedTargets"
                 multiple
@@ -335,11 +381,18 @@ onMounted(async () => {
         </NSpin>
         <NSpace justify="end">
           <NButton @click="keyModal.show = false">{{ t('common.cancel') }}</NButton>
-          <NButton type="primary" :loading="keyModal.loading" @click="onSaveKey">{{ t('common.save') }}</NButton>
+          <NButton type="primary" :loading="keyModal.loading" @click="onSaveKey">{{
+            t('common.save')
+          }}</NButton>
         </NSpace>
       </NModal>
 
-      <NCard v-for="app in apps" :key="`keys-${app.id}`" :title="`${app.name} - ${t('apps.consumerKeys')}`" size="small">
+      <NCard
+        v-for="app in apps"
+        :key="`keys-${app.id}`"
+        :title="`${app.name} - ${t('apps.consumerKeys')}`"
+        size="small"
+      >
         <NDataTable
           :data="consumerKeyMap[app.id] ?? []"
           :loading="consumerKeyLoading[app.id]"
@@ -352,17 +405,42 @@ onMounted(async () => {
               title: t('common.actions'),
               key: 'actions',
               render(row) {
-                return h(NSpace, { size: 'small' }, {
-                  default: () => [
-                    h(NButton, { size: 'small', onClick: () => openKeyEdit(app.id, row) }, { default: () => t('common.edit') }),
-                    h(NButton, { size: 'small', onClick: () => rotateKey(app.id, row) }, { default: () => t('consumerKeys.rotate') }),
-                    h(NButton, { size: 'small', onClick: () => revokeKey(app.id, row) }, { default: () => t('consumerKeys.revoke') }),
-                    h(NPopconfirm, { onPositiveClick: () => removeKey(app.id, row) }, {
-                      trigger: () => h(NButton, { size: 'small', type: 'error' }, { default: () => t('common.delete') }),
-                      default: () => t('consumerKeys.confirmDelete'),
-                    }),
-                  ],
-                });
+                return h(
+                  NSpace,
+                  { size: 'small' },
+                  {
+                    default: () => [
+                      h(
+                        NButton,
+                        { size: 'small', onClick: () => openKeyEdit(app.id, row) },
+                        { default: () => t('common.edit') },
+                      ),
+                      h(
+                        NButton,
+                        { size: 'small', onClick: () => rotateKey(app.id, row) },
+                        { default: () => t('consumerKeys.rotate') },
+                      ),
+                      h(
+                        NButton,
+                        { size: 'small', onClick: () => revokeKey(app.id, row) },
+                        { default: () => t('consumerKeys.revoke') },
+                      ),
+                      h(
+                        NPopconfirm,
+                        { onPositiveClick: () => removeKey(app.id, row) },
+                        {
+                          trigger: () =>
+                            h(
+                              NButton,
+                              { size: 'small', type: 'error' },
+                              { default: () => t('common.delete') },
+                            ),
+                          default: () => t('consumerKeys.confirmDelete'),
+                        },
+                      ),
+                    ],
+                  },
+                );
               },
             },
           ]"

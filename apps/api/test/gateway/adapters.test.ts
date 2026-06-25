@@ -10,9 +10,16 @@ import {
 } from '@manageyourllm/shared';
 import type { UpstreamKeyRow } from '../../src/infrastructure/db/schema.js';
 import type { ChatRequestIR } from '@manageyourllm/shared';
-import type { BuildRequestContext, NormalizeResponseContext, NormalizeErrorContext } from '../../src/gateway/providers/adapter.js';
+import type {
+  BuildRequestContext,
+  NormalizeResponseContext,
+  NormalizeErrorContext,
+} from '../../src/gateway/providers/adapter.js';
 
-function makeUpstreamKey(providerType: UpstreamKeyRow['providerType'], overrides: Partial<UpstreamKeyRow> = {}): UpstreamKeyRow {
+function makeUpstreamKey(
+  providerType: UpstreamKeyRow['providerType'],
+  overrides: Partial<UpstreamKeyRow> = {},
+): UpstreamKeyRow {
   const now = new Date();
   return {
     id: 'uk',
@@ -111,6 +118,19 @@ describe('OpenAICompatibleAdapter', () => {
     expect((req.body as Record<string, unknown>).max_output_tokens).toBe(512);
   });
 
+  it('sets stream: true and include_usage when ir.stream is true', () => {
+    const adapter = new OpenAICompatibleAdapter();
+    const ctx: BuildRequestContext = {
+      upstreamKey: makeUpstreamKey('openai_compatible'),
+      realModelName: 'real-gpt-4o',
+      ir: makeIR({ stream: true }),
+      authHeaders: { Authorization: 'Bearer sk-test' },
+    };
+    const req = adapter.buildRequest(ctx);
+    expect((req.body as Record<string, unknown>).stream).toBe(true);
+    expect((req.body as Record<string, unknown>).stream_options).toEqual({ include_usage: true });
+  });
+
   it('normalizes chat completion response', () => {
     const adapter = new OpenAICompatibleAdapter();
     const ctx: NormalizeResponseContext = {
@@ -197,7 +217,9 @@ describe('AnthropicCompatibleAdapter', () => {
   it('builds messages request', () => {
     const adapter = new AnthropicCompatibleAdapter();
     const ctx: BuildRequestContext = {
-      upstreamKey: makeUpstreamKey('anthropic_compatible', { baseUrl: 'https://anthropic.example/' }),
+      upstreamKey: makeUpstreamKey('anthropic_compatible', {
+        baseUrl: 'https://anthropic.example/',
+      }),
       realModelName: 'claude-3',
       ir: makeIR({ sourceProtocol: 'anthropic' }),
       authHeaders: { 'x-api-key': 'ak-test' },
@@ -216,6 +238,18 @@ describe('AnthropicCompatibleAdapter', () => {
       max_tokens: 512,
       store: true,
     });
+  });
+
+  it('sets stream: true when ir.stream is true', () => {
+    const adapter = new AnthropicCompatibleAdapter();
+    const ctx: BuildRequestContext = {
+      upstreamKey: makeUpstreamKey('anthropic_compatible'),
+      realModelName: 'claude-3',
+      ir: makeIR({ sourceProtocol: 'anthropic', stream: true }),
+      authHeaders: { 'x-api-key': 'ak-test' },
+    };
+    const req = adapter.buildRequest(ctx);
+    expect((req.body as Record<string, unknown>).stream).toBe(true);
   });
 
   it('normalizes messages response with cache usage', () => {
@@ -306,6 +340,8 @@ describe('provider adapter registry', () => {
   });
 
   it('throws on unsupported provider type', () => {
-    expect(() => getProviderAdapter('unknown' as UpstreamKeyRow['providerType'])).toThrow(ProviderError);
+    expect(() => getProviderAdapter('unknown' as UpstreamKeyRow['providerType'])).toThrow(
+      ProviderError,
+    );
   });
 });

@@ -18,7 +18,14 @@ import {
   NSpin,
 } from 'naive-ui';
 import { useI18n } from 'vue-i18n';
-import { getSetupStatus, verifySetupSecurity, setupUpstream, setupModels, setupConsumerKey, getSetupTestRequest } from '../api/admin/setup.js';
+import {
+  getSetupStatus,
+  verifySetupSecurity,
+  setupUpstream,
+  setupModels,
+  setupConsumerKey,
+  getSetupTestRequest,
+} from '../api/admin/setup.js';
 import { listProviderPresets } from '../api/admin/provider-presets.js';
 import type { ProviderPresetContract } from '@manageyourllm/contracts';
 
@@ -54,16 +61,27 @@ const models = ref<Array<{ name: string; displayName: string; realModelName: str
 ]);
 const createdModelNames = ref<string[]>([]);
 
-const consumerKeyResult = ref<{ consumerKeyId: string; rawKey: string; appId: string } | null>(null);
+const consumerKeyResult = ref<{ consumerKeyId: string; rawKey: string; appId: string } | null>(
+  null,
+);
 const testModel = ref('');
 const testCurl = ref('');
 
-const presetOptions = computed(() => presets.value.map((p) => ({ label: `${p.name} (${p.source})`, value: p.id })));
+const presetOptions = computed(() =>
+  presets.value.map((p) => ({ label: `${p.name} (${p.source})`, value: p.id })),
+);
 
 function onPresetChange(presetId: string | null) {
   const preset = presets.value.find((p) => p.id === presetId);
-  if (preset && preset.descriptorJson && typeof preset.descriptorJson === 'object' && 'endpoints' in preset.descriptorJson) {
-    const endpoints = (preset.descriptorJson as Record<string, unknown>).endpoints as Array<{ baseUrl?: string }> | undefined;
+  if (
+    preset &&
+    preset.descriptorJson &&
+    typeof preset.descriptorJson === 'object' &&
+    'endpoints' in preset.descriptorJson
+  ) {
+    const endpoints = (preset.descriptorJson as Record<string, unknown>).endpoints as
+      | Array<{ baseUrl?: string }>
+      | undefined;
     upstream.value.baseUrl = endpoints?.[0]?.baseUrl ?? upstream.value.baseUrl;
   }
   if (preset) {
@@ -105,7 +123,10 @@ async function nextUpstream() {
       baseUrl: upstream.value.baseUrl,
       apiKey: upstream.value.apiKey,
       supportedModels: upstream.value.supportedModels
-        ? upstream.value.supportedModels.split(',').map((s) => s.trim()).filter(Boolean)
+        ? upstream.value.supportedModels
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
         : undefined,
     });
     createdUpstreamKeyId.value = res.upstreamKeyId;
@@ -166,7 +187,10 @@ async function nextConsumerKey() {
 async function generateTestRequest() {
   try {
     const res = await getSetupTestRequest({ model: testModel.value });
-    testCurl.value = res.curl.replace('<your-consumer-key>', consumerKeyResult.value?.rawKey ?? '<your-consumer-key>');
+    testCurl.value = res.curl.replace(
+      '<your-consumer-key>',
+      consumerKeyResult.value?.rawKey ?? '<your-consumer-key>',
+    );
   } catch (err) {
     message.error(err instanceof Error ? err.message : t('common.saveFailed'));
   }
@@ -193,7 +217,9 @@ onMounted(load);
       <div style="margin-top: 24px">
         <!-- Step 0: Security -->
         <NSpace v-if="current === 0" vertical :size="16">
-          <NAlert v-if="status && !status.hasSafeSecret" type="warning">{{ t('setup.unsafeSecret') }}</NAlert>
+          <NAlert v-if="status && !status.hasSafeSecret" type="warning">{{
+            t('setup.unsafeSecret')
+          }}</NAlert>
           <NForm label-placement="left" label-width="100px">
             <NFormItem :label="t('login.username')">
               <NInput v-model:value="security.username" />
@@ -214,7 +240,12 @@ onMounted(load);
               <NInput v-model:value="upstream.name" />
             </NFormItem>
             <NFormItem :label="t('upstreamKeys.providerPreset')">
-              <NSelect v-model:value="upstream.providerPresetId" :options="presetOptions" clearable @update:value="onPresetChange" />
+              <NSelect
+                v-model:value="upstream.providerPresetId"
+                :options="presetOptions"
+                clearable
+                @update:value="onPresetChange"
+              />
             </NFormItem>
             <NFormItem :label="t('upstreamKeys.providerType')">
               <NInput v-model:value="upstream.providerType" />
@@ -226,7 +257,10 @@ onMounted(load);
               <NInput v-model:value="upstream.apiKey" type="password" />
             </NFormItem>
             <NFormItem :label="t('setup.supportedModels')">
-              <NInput v-model:value="upstream.supportedModels" :placeholder="t('setup.supportedModelsPlaceholder')" />
+              <NInput
+                v-model:value="upstream.supportedModels"
+                :placeholder="t('setup.supportedModelsPlaceholder')"
+              />
             </NFormItem>
           </NForm>
           <NSpace justify="end">
@@ -237,7 +271,12 @@ onMounted(load);
 
         <!-- Step 2: Models -->
         <NSpace v-else-if="current === 2" vertical :size="16">
-          <NCard v-for="(m, index) in models" :key="index" :title="`${t('publicModels.title')} #${index + 1}`" size="small">
+          <NCard
+            v-for="(m, index) in models"
+            :key="index"
+            :title="`${t('publicModels.title')} #${index + 1}`"
+            size="small"
+          >
             <NForm label-placement="left" label-width="100px">
               <NFormItem :label="t('publicModels.name')">
                 <NInput v-model:value="m.name" />
@@ -250,7 +289,9 @@ onMounted(load);
               </NFormItem>
             </NForm>
             <NSpace justify="end">
-              <NButton size="small" type="error" @click="removeModel(index)">{{ t('common.delete') }}</NButton>
+              <NButton size="small" type="error" @click="removeModel(index)">{{
+                t('common.delete')
+              }}</NButton>
             </NSpace>
           </NCard>
           <NButton size="small" @click="addModel">{{ t('setup.addModel') }}</NButton>
@@ -265,7 +306,9 @@ onMounted(load);
           <p>{{ t('setup.consumerKeyHint') }}</p>
           <NSpace justify="end">
             <NButton @click="current = 2">{{ t('common.prev') }}</NButton>
-            <NButton type="primary" @click="nextConsumerKey">{{ t('setup.createConsumerKey') }}</NButton>
+            <NButton type="primary" @click="nextConsumerKey">{{
+              t('setup.createConsumerKey')
+            }}</NButton>
           </NSpace>
         </NSpace>
 
@@ -273,16 +316,23 @@ onMounted(load);
         <NSpace v-else-if="current === 4" vertical :size="16">
           <NAlert v-if="consumerKeyResult" type="success">
             {{ t('setup.consumerKeyCreated') }}
-            <div><strong>{{ t('apps.rawKey') }}:</strong> {{ consumerKeyResult.rawKey }}</div>
+            <div>
+              <strong>{{ t('apps.rawKey') }}:</strong> {{ consumerKeyResult.rawKey }}
+            </div>
           </NAlert>
           <NForm label-placement="left" label-width="100px">
             <NFormItem :label="t('setup.testModel')">
-              <NSelect v-model:value="testModel" :options="createdModelNames.map((n) => ({ label: n, value: n }))" />
+              <NSelect
+                v-model:value="testModel"
+                :options="createdModelNames.map((n) => ({ label: n, value: n }))"
+              />
             </NFormItem>
           </NForm>
           <NSpace justify="end">
             <NButton @click="current = 3">{{ t('common.prev') }}</NButton>
-            <NButton type="primary" @click="generateTestRequest">{{ t('setup.generateCurl') }}</NButton>
+            <NButton type="primary" @click="generateTestRequest">{{
+              t('setup.generateCurl')
+            }}</NButton>
           </NSpace>
           <NInput v-if="testCurl" :value="testCurl" type="textarea" rows="6" readonly />
           <NSpace justify="end">

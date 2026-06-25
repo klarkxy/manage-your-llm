@@ -149,7 +149,11 @@ export class UpstreamKeyService {
     });
   }
 
-  async freezeUpstreamKey(id: string, frozen: boolean, reason?: string): Promise<UpstreamKeyRow | undefined> {
+  async freezeUpstreamKey(
+    id: string,
+    frozen: boolean,
+    reason?: string,
+  ): Promise<UpstreamKeyRow | undefined> {
     return this.repo().updateFreeze(id, frozen, reason);
   }
 }

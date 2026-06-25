@@ -64,7 +64,8 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
   let dbFilePath = databaseUrl;
   if (databaseUrl.startsWith('file:')) {
     const rawPath = databaseUrl.slice('file:'.length);
-    dbFilePath = rawPath === ':memory:' ? rawPath : isAbsolute(rawPath) ? rawPath : resolve(rawPath);
+    dbFilePath =
+      rawPath === ':memory:' ? rawPath : isAbsolute(rawPath) ? rawPath : resolve(rawPath);
   }
   const backupsDir = options.backupsDir ?? './backups';
   await initSchema(db);

@@ -119,7 +119,10 @@ function createService(mocks: {
   members?: ModelGroupMemberRow[];
   group?: { id: string; routingPolicy: string };
   quotas?: Record<string, { requestLimit: number | null; requestCount: number }>;
-  breakers?: Record<string, { state: 'closed' | 'open' | 'half_open'; cooldownUntil: Date | null; realModelName?: string }>;
+  breakers?: Record<
+    string,
+    { state: 'closed' | 'open' | 'half_open'; cooldownUntil: Date | null; realModelName?: string }
+  >;
   stickyBinding?: { upstreamKeyId: string; realModelName: string } | null;
   stickySession?: { upstreamKeyId: string; realModelName: string } | null;
 }) {
@@ -129,16 +132,22 @@ function createService(mocks: {
     listCandidates: async (publicModelId: string) =>
       mocks.candidates?.filter((c) => c.publicModelId === publicModelId) ?? [],
     findById: async () =>
-      ({ id: 'pm', name: 'gpt-4o', enabled: true, createdAt: new Date(), updatedAt: new Date() }) as ReturnType<
-        PublicModelRepository['findById']
-      >,
+      ({
+        id: 'pm',
+        name: 'gpt-4o',
+        enabled: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }) as ReturnType<PublicModelRepository['findById']>,
   } as unknown as PublicModelRepository;
 
   const modelGroupRepo = {
     listMembers: async () => mocks.members ?? [],
     findById: async () =>
       mocks.group
-        ? ({ id: mocks.group.id, routingPolicy: mocks.group.routingPolicy } as ReturnType<ModelGroupRepository['findById']>)
+        ? ({ id: mocks.group.id, routingPolicy: mocks.group.routingPolicy } as ReturnType<
+            ModelGroupRepository['findById']
+          >)
         : undefined,
   } as unknown as ModelGroupRepository;
 
@@ -146,7 +155,11 @@ function createService(mocks: {
     findById: async (id: string) => upstreamMap.get(id),
     findQuotaByUpstreamKey: async (upstreamKeyId: string) => {
       const q = mocks.quotas?.[upstreamKeyId];
-      return q ? ({ requestLimit: q.requestLimit, enabled: true } as ReturnType<UpstreamKeyRepository['findQuotaByUpstreamKey']>) : undefined;
+      return q
+        ? ({ requestLimit: q.requestLimit, enabled: true } as ReturnType<
+            UpstreamKeyRepository['findQuotaByUpstreamKey']
+          >)
+        : undefined;
     },
     findCounter: async (upstreamKeyId: string, period: string, periodStartedAt: Date) => {
       const q = mocks.quotas?.[upstreamKeyId];
@@ -163,7 +176,9 @@ function createService(mocks: {
       const b = mocks.breakers?.[upstreamKeyId];
       if (!b) return undefined;
       if (b.realModelName && b.realModelName !== realModelName) return undefined;
-      return { state: b.state, cooldownUntil: b.cooldownUntil } as ReturnType<RoutingStateRepository['findBreaker']>;
+      return { state: b.state, cooldownUntil: b.cooldownUntil } as ReturnType<
+        RoutingStateRepository['findBreaker']
+      >;
     },
     findStickyBinding: async () =>
       mocks.stickyBinding
@@ -176,7 +191,12 @@ function createService(mocks: {
     listEndpointHealthByUpstream: async () => [],
   } as unknown as RoutingStateRepository;
 
-  return new RoutingDecisionService(publicModelRepo, modelGroupRepo, upstreamKeyRepo, routingStateRepo);
+  return new RoutingDecisionService(
+    publicModelRepo,
+    modelGroupRepo,
+    upstreamKeyRepo,
+    routingStateRepo,
+  );
 }
 
 describe('RoutingDecisionService', () => {
@@ -210,7 +230,10 @@ describe('RoutingDecisionService', () => {
   it('drops frozen upstream keys', async () => {
     const service = createService({
       upstreamKeys: [makeUpstreamKey('uk1', { frozen: true }), makeUpstreamKey('uk2')],
-      candidates: [makeCandidate({ upstreamKeyId: 'uk1' }), makeCandidate({ upstreamKeyId: 'uk2' })],
+      candidates: [
+        makeCandidate({ upstreamKeyId: 'uk1' }),
+        makeCandidate({ upstreamKeyId: 'uk2' }),
+      ],
     });
 
     const decision = await service.decide(makeInput());
@@ -223,7 +246,10 @@ describe('RoutingDecisionService', () => {
         makeUpstreamKey('uk1', { cooldownUntil: new Date(Date.now() + 60000) }),
         makeUpstreamKey('uk2'),
       ],
-      candidates: [makeCandidate({ upstreamKeyId: 'uk1' }), makeCandidate({ upstreamKeyId: 'uk2' })],
+      candidates: [
+        makeCandidate({ upstreamKeyId: 'uk1' }),
+        makeCandidate({ upstreamKeyId: 'uk2' }),
+      ],
     });
 
     const decision = await service.decide(makeInput());
@@ -233,7 +259,10 @@ describe('RoutingDecisionService', () => {
   it('drops open circuit breakers still in cooldown', async () => {
     const service = createService({
       upstreamKeys: [makeUpstreamKey('uk1'), makeUpstreamKey('uk2')],
-      candidates: [makeCandidate({ upstreamKeyId: 'uk1' }), makeCandidate({ upstreamKeyId: 'uk2' })],
+      candidates: [
+        makeCandidate({ upstreamKeyId: 'uk1' }),
+        makeCandidate({ upstreamKeyId: 'uk2' }),
+      ],
       breakers: { uk1: { state: 'open', cooldownUntil: new Date(Date.now() + 60000) } },
     });
 
@@ -259,7 +288,10 @@ describe('RoutingDecisionService', () => {
         makeUpstreamKey('uk1', { providerType: 'anthropic_compatible' }),
         makeUpstreamKey('uk2'),
       ],
-      candidates: [makeCandidate({ upstreamKeyId: 'uk1' }), makeCandidate({ upstreamKeyId: 'uk2' })],
+      candidates: [
+        makeCandidate({ upstreamKeyId: 'uk1' }),
+        makeCandidate({ upstreamKeyId: 'uk2' }),
+      ],
     });
 
     const decision = await service.decide(makeInput());
@@ -269,7 +301,10 @@ describe('RoutingDecisionService', () => {
   it('drops candidates that lack required capabilities', async () => {
     const service = createService({
       upstreamKeys: [makeUpstreamKey('uk1', { providerType: 'deepseek' }), makeUpstreamKey('uk2')],
-      candidates: [makeCandidate({ upstreamKeyId: 'uk1' }), makeCandidate({ upstreamKeyId: 'uk2' })],
+      candidates: [
+        makeCandidate({ upstreamKeyId: 'uk1' }),
+        makeCandidate({ upstreamKeyId: 'uk2' }),
+      ],
     });
 
     const input = makeInput({
@@ -283,7 +318,10 @@ describe('RoutingDecisionService', () => {
         topP: null,
         stream: false,
         metadata: {},
-        rawRequest: { model: 'gpt-4o', messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'x' } }] }] },
+        rawRequest: {
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'x' } }] }],
+        },
       },
     });
 
@@ -294,7 +332,10 @@ describe('RoutingDecisionService', () => {
   it('drops candidates whose quota is exhausted', async () => {
     const service = createService({
       upstreamKeys: [makeUpstreamKey('uk1'), makeUpstreamKey('uk2')],
-      candidates: [makeCandidate({ upstreamKeyId: 'uk1' }), makeCandidate({ upstreamKeyId: 'uk2' })],
+      candidates: [
+        makeCandidate({ upstreamKeyId: 'uk1' }),
+        makeCandidate({ upstreamKeyId: 'uk2' }),
+      ],
       quotas: { uk1: { requestLimit: 10, requestCount: 10 } },
     });
 
@@ -321,13 +362,41 @@ describe('RoutingDecisionService', () => {
     const service = createService({
       upstreamKeys: [makeUpstreamKey('uk1'), makeUpstreamKey('uk2')],
       members: [
-        { id: 'm2', modelGroupId: 'mg', publicModelId: 'pm2', enabled: true, priority: 200, weight: 1, createdAt: new Date(), updatedAt: new Date() } as ModelGroupMemberRow,
-        { id: 'm1', modelGroupId: 'mg', publicModelId: 'pm1', enabled: true, priority: 50, weight: 1, createdAt: new Date(), updatedAt: new Date() } as ModelGroupMemberRow,
+        {
+          id: 'm2',
+          modelGroupId: 'mg',
+          publicModelId: 'pm2',
+          enabled: true,
+          priority: 200,
+          weight: 1,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as ModelGroupMemberRow,
+        {
+          id: 'm1',
+          modelGroupId: 'mg',
+          publicModelId: 'pm1',
+          enabled: true,
+          priority: 50,
+          weight: 1,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as ModelGroupMemberRow,
       ],
       group: { id: 'mg', routingPolicy: 'priority' },
       candidates: [
-        makeCandidate({ id: 'c2', upstreamKeyId: 'uk2', publicModelId: 'pm2', realModelName: 'real-2' }),
-        makeCandidate({ id: 'c1', upstreamKeyId: 'uk1', publicModelId: 'pm1', realModelName: 'real-1' }),
+        makeCandidate({
+          id: 'c2',
+          upstreamKeyId: 'uk2',
+          publicModelId: 'pm2',
+          realModelName: 'real-2',
+        }),
+        makeCandidate({
+          id: 'c1',
+          upstreamKeyId: 'uk1',
+          publicModelId: 'pm1',
+          realModelName: 'real-1',
+        }),
       ],
     });
 

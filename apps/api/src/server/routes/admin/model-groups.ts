@@ -17,7 +17,10 @@ export interface ModelGroupRouteDeps {
   db: Db;
 }
 
-export async function modelGroupRoutes(app: FastifyInstance, deps: ModelGroupRouteDeps): Promise<void> {
+export async function modelGroupRoutes(
+  app: FastifyInstance,
+  deps: ModelGroupRouteDeps,
+): Promise<void> {
   const service = new ModelGroupService(deps.db);
   const repo = new ModelGroupRepository(deps.db);
 
