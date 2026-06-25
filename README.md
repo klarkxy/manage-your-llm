@@ -107,3 +107,12 @@ packages/
 docs/           架构与阶段文档
 e2e/            Playwright 端到端测试
 ```
+
+## 文档
+
+- [架构设计](docs/architecture-rebuild.md)
+- [部署指南](docs/deployment.md)
+- [备份与恢复](docs/backup-restore.md)
+- [客户端配置](docs/client-setup.md)
+- [排障指南](docs/troubleshooting.md)
+- [阶段 TODO](docs/plans/todos/)

@@ -180,22 +180,22 @@
 
 ## Documentation and Deployment
 
-- [ ] P5-080 Write Docker deployment guide
+- [x] P5-080 Write Docker deployment guide
   - Depends on: P0-053, P2-070
   - Deliverables: docs for volume layout, env vars, reverse proxy, HTTPS
   - Acceptance: guide includes backup directory and secret key warnings.
 
-- [ ] P5-081 Write backup/restore guide
+- [x] P5-081 Write backup/restore guide
   - Depends on: P2-070
   - Deliverables: docs for full DB backup and non-sensitive export
   - Acceptance: guide explains same-secret requirement.
 
-- [ ] P5-082 Write client setup guide
+- [x] P5-082 Write client setup guide
   - Depends on: P5-070
   - Deliverables: docs for supported clients
   - Acceptance: docs match snippet templates.
 
-- [ ] P5-083 Write troubleshooting guide
+- [x] P5-083 Write troubleshooting guide
   - Depends on: P5-012, P5-020
   - Deliverables: trace-based troubleshooting guide
   - Acceptance: guide maps common errors to UI locations.
