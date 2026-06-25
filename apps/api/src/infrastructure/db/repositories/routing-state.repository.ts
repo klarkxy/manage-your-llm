@@ -266,4 +266,17 @@ export class RoutingStateRepository {
       .from(upstreamEndpointHealth)
       .where(eq(upstreamEndpointHealth.upstreamKeyId, upstreamKeyId));
   }
+
+  async deleteStaleBreakers(at = new Date()): Promise<void> {
+    const staleBefore = new Date(at.getTime() - 24 * 60 * 60 * 1000);
+    await this.db
+      .delete(circuitBreakers)
+      .where(
+        and(
+          eq(circuitBreakers.state, 'open'),
+          lt(circuitBreakers.cooldownUntil, at),
+          lt(circuitBreakers.updatedAt, staleBefore),
+        ),
+      );
+  }
 }

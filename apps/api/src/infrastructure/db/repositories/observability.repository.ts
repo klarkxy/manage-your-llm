@@ -43,12 +43,12 @@ export class ObservabilityRepository {
   // --- Trace logs ---
 
   async insertTraceLog(
-    data: Omit<RequestTraceLogInsert, 'id' | 'createdAt'>,
+    data: Omit<RequestTraceLogInsert, 'id' | 'createdAt'> & { createdAt?: Date },
   ): Promise<RequestTraceLogRow> {
     const row: RequestTraceLogInsert = {
       id: generateId('trace'),
       ...data,
-      createdAt: new Date(),
+      createdAt: data.createdAt ?? new Date(),
     };
     await this.db.insert(requestTraceLogs).values(row);
     return row as RequestTraceLogRow;
@@ -88,6 +88,14 @@ export class ObservabilityRepository {
     await this.db.delete(debugContentLogs).where(lt(debugContentLogs.createdAt, before));
   }
 
+  async deleteOldTraceLogs(before: Date): Promise<void> {
+    await this.db.delete(requestTraceLogs).where(lt(requestTraceLogs.createdAt, before));
+  }
+
+  async deleteOldAuditEvents(before: Date): Promise<void> {
+    await this.db.delete(auditEvents).where(lt(auditEvents.createdAt, before));
+  }
+
   // --- Audit events ---
 
   async insertAuditEvent(data: Omit<AuditEventInsert, 'id' | 'createdAt'>): Promise<AuditEventRow> {
@@ -102,6 +110,10 @@ export class ObservabilityRepository {
 
   async listRecentAuditEvents(limit = 100): Promise<AuditEventRow[]> {
     return this.db.select().from(auditEvents).orderBy(desc(auditEvents.createdAt)).limit(limit);
+  }
+
+  async deleteOldDailyStats(before: Date): Promise<void> {
+    await this.db.delete(dailyConsumptionStats).where(lt(dailyConsumptionStats.updatedAt, before));
   }
 
   // --- Daily consumption stats ---

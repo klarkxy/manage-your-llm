@@ -95,6 +95,13 @@ export class UpstreamKeyRepository {
     return this.updateUpstreamKey(id, { cooldownUntil });
   }
 
+  async clearExpiredCooldowns(at = new Date()): Promise<void> {
+    await this.db
+      .update(upstreamKeys)
+      .set({ cooldownUntil: null })
+      .where(lt(upstreamKeys.cooldownUntil, at));
+  }
+
   async touchLastUsed(id: string, at = new Date()): Promise<void> {
     await this.db
       .update(upstreamKeys)

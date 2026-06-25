@@ -15,6 +15,7 @@ import {
 } from '@manageyourllm/contracts';
 import { UpstreamKeyService } from '../../../application/upstream-key.service.js';
 import { UpstreamProbeService } from '../../../application/upstream-probe.service.js';
+import { EndpointHealthWorker } from '../../../application/endpoint-health-worker.js';
 import { UpstreamKeyRepository } from '../../../infrastructure/db/repositories/upstream-key.repository.js';
 import { serializeForContract } from '../../helpers/contract-serializer.js';
 import { stripUpstreamKeySecrets } from './upstream-key-strip.js';
@@ -45,6 +46,7 @@ export async function upstreamKeyRoutes(
 ): Promise<void> {
   const service = new UpstreamKeyService(deps.db, deps.secretKey);
   const probe = new UpstreamProbeService({ db: deps.db, secretKey: deps.secretKey });
+  const healthWorker = new EndpointHealthWorker({ db: deps.db, secretKey: deps.secretKey });
   const repo = new UpstreamKeyRepository(deps.db);
 
   app.get('/', async () => {
@@ -142,6 +144,10 @@ export async function upstreamKeyRoutes(
     const { id } = req.params as { id: string };
     const body = pingUpstreamRequestSchema.parse(req.body ?? {});
     const result = await probe.ping(id, body.model);
+    const upstream = await repo.findById(id);
+    if (upstream) {
+      await healthWorker.recordPingResult(upstream, result);
+    }
     return pingUpstreamResponseSchema.parse({ data: serializeForContract(result) });
   });
 }

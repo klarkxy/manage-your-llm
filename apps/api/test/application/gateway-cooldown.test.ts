@@ -12,7 +12,7 @@ import { SettingsRepository } from '../../src/infrastructure/db/repositories/set
 import { UpstreamKeyRepository } from '../../src/infrastructure/db/repositories/upstream-key.repository.js';
 import { resetEnvForTests } from '../../src/config/env.js';
 
-describe('gateway default retries', () => {
+describe('gateway upstream cooldown', () => {
   const originalFetch = globalThis.fetch;
   let app: Awaited<ReturnType<typeof buildServer>>;
   let rawKey: string;
@@ -34,7 +34,7 @@ describe('gateway default retries', () => {
     const { client } = testDb;
     dbFilePath = testDb.filePath;
 
-    const appRow = await new AppRepository(db).createApp({ name: 'retry-app', enabled: true });
+    const appRow = await new AppRepository(db).createApp({ name: 'cooldown-app', enabled: true });
     const consumer = await new ConsumerKeyService(db).createConsumerKey({
       appId: appRow.id,
       name: 'default',
@@ -44,23 +44,23 @@ describe('gateway default retries', () => {
 
     const upstreamService = new UpstreamKeyService(db, process.env.MYLLM_SECRET_KEY);
     const upstream1 = await upstreamService.createUpstreamKey({
-      name: 'upstream-1',
+      name: 'cooldown-upstream-1',
       providerType: 'openai_compatible',
-      baseUrl: 'https://upstream-1.example.com',
+      baseUrl: 'https://cooldown-1.example.com',
       apiKey: 'sk-1',
     });
     upstream1Id = upstream1.id;
     const upstream2 = await upstreamService.createUpstreamKey({
-      name: 'upstream-2',
+      name: 'cooldown-upstream-2',
       providerType: 'openai_compatible',
-      baseUrl: 'https://upstream-2.example.com',
+      baseUrl: 'https://cooldown-2.example.com',
       apiKey: 'sk-2',
     });
     upstream2Id = upstream2.id;
 
     const publicModel = await new PublicModelRepository(db).createPublicModel({
-      name: 'gpt-retry',
-      displayName: 'GPT Retry',
+      name: 'gpt-cooldown',
+      displayName: 'GPT Cooldown',
     });
     await new PublicModelRepository(db).createCandidate({
       publicModelId: publicModel.id,
@@ -79,13 +79,12 @@ describe('gateway default retries', () => {
       weight: 1,
     });
     await new TargetRepository(db).createTargetName({
-      name: 'gpt-retry',
+      name: 'gpt-cooldown',
       targetType: 'public_model',
       targetId: publicModel.id,
     });
 
     await new SettingsRepository(db).seedDefaultSettings();
-    await new SettingsRepository(db).updateSettings({ defaultRetries: 1 });
 
     app = await buildServer({
       db,
@@ -96,8 +95,10 @@ describe('gateway default retries', () => {
   });
 
   beforeEach(async () => {
-    await new UpstreamKeyRepository(db).updateCooldown(upstream1Id, null);
-    await new UpstreamKeyRepository(db).updateCooldown(upstream2Id, null);
+    const repo = new UpstreamKeyRepository(db);
+    for (const id of [upstream1Id, upstream2Id]) {
+      await repo.updateCooldown(id, null);
+    }
   });
 
   afterAll(async () => {
@@ -112,25 +113,49 @@ describe('gateway default retries', () => {
     });
   });
 
-  it('retries up to defaultRetries + 1 candidates and succeeds on the second', async () => {
-    let callCount = 0;
-    globalThis.fetch = async () => {
-      callCount += 1;
-      if (callCount === 1) {
-        return {
-          status: 500,
-          ok: false,
-          headers: new Headers({ 'content-type': 'application/json' }),
-          text: async () => JSON.stringify({ error: { message: 'first upstream down' } }),
-        } as Response;
-      }
+  it('sets upstream cooldown after a retriable failure', async () => {
+    globalThis.fetch = async () =>
+      ({
+        status: 503,
+        ok: false,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: async () => JSON.stringify({ error: { message: 'rate limited' } }),
+      }) as Response;
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: { authorization: `Bearer ${rawKey}`, 'content-type': 'application/json' },
+      payload: JSON.stringify({
+        model: 'gpt-cooldown',
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
+    });
+
+    expect(res.statusCode).toBe(502);
+
+    const repo = new UpstreamKeyRepository(db);
+    const upstream = await repo.findById(upstream1Id);
+    expect(upstream?.cooldownUntil).toBeDefined();
+    expect(upstream!.cooldownUntil!.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('filters out upstream in cooldown on the next request', async () => {
+    const repo = new UpstreamKeyRepository(db);
+    const now = new Date();
+    await repo.updateCooldown(upstream1Id, new Date(now.getTime() + 60_000));
+
+    let attemptedUrl: string | undefined;
+    globalThis.fetch = async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      attemptedUrl = url;
       return {
         status: 200,
         ok: true,
         headers: new Headers({ 'content-type': 'application/json' }),
         text: async () =>
           JSON.stringify({
-            id: 'chatcmpl-retry',
+            id: 'chatcmpl-cooldown',
             object: 'chat.completion',
             created: Math.floor(Date.now() / 1000),
             model: 'model-2',
@@ -150,35 +175,13 @@ describe('gateway default retries', () => {
       method: 'POST',
       url: '/v1/chat/completions',
       headers: { authorization: `Bearer ${rawKey}`, 'content-type': 'application/json' },
-      payload: JSON.stringify({ model: 'gpt-retry', messages: [{ role: 'user', content: 'hi' }] }),
+      payload: JSON.stringify({
+        model: 'gpt-cooldown',
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
     });
 
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.payload);
-    expect(body.choices[0].message.content).toBe('from second upstream');
-    expect(callCount).toBe(2);
-  });
-
-  it('stops after defaultRetries + 1 attempts and returns the last error', async () => {
-    let callCount = 0;
-    globalThis.fetch = async () => {
-      callCount += 1;
-      return {
-        status: 500,
-        ok: false,
-        headers: new Headers({ 'content-type': 'application/json' }),
-        text: async () => JSON.stringify({ error: { message: `upstream ${callCount} down` } }),
-      } as Response;
-    };
-
-    const res = await app.inject({
-      method: 'POST',
-      url: '/v1/chat/completions',
-      headers: { authorization: `Bearer ${rawKey}`, 'content-type': 'application/json' },
-      payload: JSON.stringify({ model: 'gpt-retry', messages: [{ role: 'user', content: 'hi' }] }),
-    });
-
-    expect(res.statusCode).toBe(502);
-    expect(callCount).toBe(2);
+    expect(attemptedUrl).toContain('cooldown-2.example.com');
   });
 });

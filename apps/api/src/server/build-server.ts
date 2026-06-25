@@ -20,6 +20,8 @@ import { createDb, initSchema, type Db } from '../infrastructure/db/index.js';
 import { AdminUserRepository } from '../infrastructure/db/repositories/admin-user.repository.js';
 import { AdminAuthService } from '../application/admin-auth.service.js';
 import { SettingsService } from '../domain/settings/settings.service.js';
+import { EndpointHealthWorker } from '../application/endpoint-health-worker.js';
+import { MaintenanceService } from '../application/maintenance.service.js';
 
 export const BackgroundJobsSymbol = Symbol.for('manageyourllm.backgroundJobs');
 
@@ -109,6 +111,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     apps: { db },
     consumerKeys: { db },
     backups: { db, client, dbFilePath, backupsDir },
+    maintenance: { db },
     settings: { db },
   });
   await app.register(gatewayRoutes, { prefix: gatewayBasePath, db, secretKey: env.SECRET_KEY });
@@ -154,12 +157,25 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     });
   }
 
-  // Phase 0：后台任务占位符，仅在不显式禁用时挂上一个空句柄。
+  // 启动后台任务：健康探测与维护清理。
   if (!options.disableBackgroundJobs) {
-    const placeholder: BackgroundJobsHandle = { stop() {} };
-    (app as FastifyWithJobs)[BackgroundJobsSymbol] = placeholder;
+    const maintenanceService = new MaintenanceService({ db });
+    const healthWorker = settings.endpointHealthProbeEnabled
+      ? new EndpointHealthWorker({ db, secretKey: env.SECRET_KEY })
+      : null;
+
+    maintenanceService.start();
+    healthWorker?.start(settings.endpointHealthProbeIntervalMs);
+
+    const handle: BackgroundJobsHandle = {
+      stop() {
+        maintenanceService.stop();
+        healthWorker?.stop();
+      },
+    };
+    (app as FastifyWithJobs)[BackgroundJobsSymbol] = handle;
     app.addHook('onClose', async () => {
-      placeholder.stop();
+      handle.stop();
     });
   }
 

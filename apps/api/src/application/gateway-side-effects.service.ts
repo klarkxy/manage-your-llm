@@ -183,8 +183,11 @@ export class GatewaySideEffectsService {
       await this.ensureStickyBinding(base, candidate, info, now);
       await this.ensureStickySession(base, candidate, info, now);
       await this.handleBreakerSuccess(candidate);
-    } else if (settings.enableCircuitBreaker && isRetriableFailure(info.error)) {
-      await this.handleBreakerFailure(candidate, info.error, settings, now);
+    } else if (isRetriableFailure(info.error)) {
+      if (settings.enableCircuitBreaker) {
+        await this.handleBreakerFailure(candidate, info.error, settings, now);
+      }
+      await this.setUpstreamCooldown(base, candidate, now);
     }
 
     await this.upsertEndpointHealth(candidate, info.success, info.latencyMs, info.error, now);
@@ -418,6 +421,31 @@ export class GatewaySideEffectsService {
       degraded: !success || latencyMs > 5000,
       errorCode: success ? null : (error?.code ?? 'error'),
       errorMessage: success ? null : (error?.message ?? 'unknown error'),
+    });
+  }
+
+  private async setUpstreamCooldown(
+    base: ExecutionBaseInfo,
+    candidate: RoutingCandidate,
+    now: Date,
+  ): Promise<void> {
+    const BASE_MS = 30_000;
+    const MAX_MS = 300_000;
+    const currentRemainingMs =
+      candidate.upstreamKey.cooldownUntil && candidate.upstreamKey.cooldownUntil > now
+        ? candidate.upstreamKey.cooldownUntil.getTime() - now.getTime()
+        : 0;
+    const durationMs = Math.min(currentRemainingMs ? currentRemainingMs * 2 : BASE_MS, MAX_MS);
+    const cooldownUntil = new Date(now.getTime() + durationMs);
+
+    await this.upstreamKeyRepo.updateCooldown(candidate.upstreamKey.id, cooldownUntil);
+    await this.recordTraceEvent(base, {
+      step: 'upstream_cooldown_set',
+      stepIndex: 900,
+      upstreamKeyId: candidate.upstreamKey.id,
+      realModelName: candidate.realModelName,
+      status: 'ok',
+      details: { cooldownUntil: cooldownUntil.toISOString(), durationMs },
     });
   }
 }

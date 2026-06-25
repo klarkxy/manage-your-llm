@@ -8,6 +8,7 @@ import { modelGroupRoutes, type ModelGroupRouteDeps } from './model-groups.js';
 import { appRoutes, type AppRouteDeps } from './apps.js';
 import { consumerKeyRoutes, type ConsumerKeyRouteDeps } from './consumer-keys.js';
 import { backupRoutes, type BackupRouteDeps } from './backups.js';
+import { maintenanceRoutes, type MaintenanceRouteDeps } from './maintenance.js';
 import { settingsRoutes, type SettingsRouteDeps } from './settings.js';
 
 export interface AdminRoutesDeps {
@@ -20,6 +21,7 @@ export interface AdminRoutesDeps {
   apps: AppRouteDeps;
   consumerKeys: ConsumerKeyRouteDeps;
   backups: BackupRouteDeps;
+  maintenance: MaintenanceRouteDeps;
   settings: SettingsRouteDeps;
 }
 
@@ -53,6 +55,9 @@ export async function adminRoutes(app: FastifyInstance, deps: AdminRoutesDeps): 
   });
   await app.register(async (subApp) => subApp.register(backupRoutes, deps.backups), {
     prefix: '/backups',
+  });
+  await app.register(async (subApp) => subApp.register(maintenanceRoutes, deps.maintenance), {
+    prefix: '/maintenance',
   });
   await app.register(async (subApp) => subApp.register(settingsRoutes, deps.settings), {
     prefix: '/settings',
