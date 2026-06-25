@@ -35,7 +35,10 @@ const planTypeOptions = [
   { label: t('plans.typeCoding'), value: 'coding' },
 ];
 const providerOptions = ALL_PROVIDER_TYPES.map((type) => ({ label: type, value: type }));
-const periodOptions = ['monthly', 'yearly', 'one_time'].map((p) => ({ label: t(`plans.period.${p}`), value: p }));
+const periodOptions = ['monthly', 'yearly', 'one_time'].map((p) => ({
+  label: t(`plans.period.${p}`),
+  value: p,
+}));
 
 const defaultForm: CreatePlanRequest = {
   planType: 'token',
@@ -181,7 +184,11 @@ const columns = computed<DataTableColumns<PlanContract>>(() => [
   { title: t('plans.remainingAmount'), key: 'remainingAmount' },
   { title: t('plans.unit'), key: 'unit' },
   { title: t('plans.period'), key: 'period' },
-  { title: t('plans.validity'), key: 'validity', render: (row) => formatRange(row.validFrom, row.validUntil) },
+  {
+    title: t('plans.validity'),
+    key: 'validity',
+    render: (row) => formatRange(row.validFrom, row.validUntil),
+  },
   {
     title: t('common.actions'),
     key: 'actions',
@@ -191,12 +198,21 @@ const columns = computed<DataTableColumns<PlanContract>>(() => [
         { size: 'small' },
         {
           default: () => [
-            h(NButton, { size: 'small', onClick: () => openEdit(row) }, { default: () => t('common.edit') }),
+            h(
+              NButton,
+              { size: 'small', onClick: () => openEdit(row) },
+              { default: () => t('common.edit') },
+            ),
             h(
               NPopconfirm,
               { onPositiveClick: () => onDelete(row) },
               {
-                trigger: () => h(NButton, { size: 'small', type: 'error' }, { default: () => t('common.delete') }),
+                trigger: () =>
+                  h(
+                    NButton,
+                    { size: 'small', type: 'error' },
+                    { default: () => t('common.delete') },
+                  ),
                 default: () => t('plans.confirmDelete'),
               },
             ),

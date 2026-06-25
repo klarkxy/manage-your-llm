@@ -12,6 +12,8 @@ export async function getTraces(since?: string, limit = 100): Promise<TraceSumma
 }
 
 export async function getTrace(id: string): Promise<TraceDetailContract> {
-  const res = await api.get<{ data: TraceDetailContract }>(`/api/admin/traces/${encodeURIComponent(id)}`);
+  const res = await api.get<{ data: TraceDetailContract }>(
+    `/api/admin/traces/${encodeURIComponent(id)}`,
+  );
   return res.data;
 }

@@ -64,14 +64,18 @@ describe('admin model reference routes', () => {
     });
     expect(response.statusCode).toBe(200);
     const body = response.json();
-    expect(body.data.some((e: { normalizedModelName: string }) => e.normalizedModelName === 'route-model')).toBe(true);
+    expect(
+      body.data.some(
+        (e: { normalizedModelName: string }) => e.normalizedModelName === 'route-model',
+      ),
+    ).toBe(true);
   });
 
   it('refreshes model reference entries with mocked client', async () => {
     const module = await import('../../../src/infrastructure/model-reference/arena-client.js');
-    const fetchSpy = vi.spyOn(module.ArenaModelReferenceClient.prototype, 'fetch').mockResolvedValue([
-      makeEntry('mock-model'),
-    ]);
+    const fetchSpy = vi
+      .spyOn(module.ArenaModelReferenceClient.prototype, 'fetch')
+      .mockResolvedValue([makeEntry('mock-model')]);
 
     const response = await app.inject({
       method: 'POST',

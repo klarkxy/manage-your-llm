@@ -153,12 +153,28 @@ function formatRange(from: string, until: string | null): string {
 
 const columns = computed<DataTableColumns<PricingEntryContract>>(() => [
   { title: t('pricing.providerType'), key: 'providerType' },
-  { title: t('pricing.upstream'), key: 'upstreamKeyId', render: (row) => upstreamLabel(row.upstreamKeyId) },
+  {
+    title: t('pricing.upstream'),
+    key: 'upstreamKeyId',
+    render: (row) => upstreamLabel(row.upstreamKeyId),
+  },
   { title: t('pricing.realModelName'), key: 'realModelName' },
-  { title: t('pricing.inputPrice'), key: 'inputPricePer1k', render: (row) => `${row.inputPricePer1k} / 1k` },
-  { title: t('pricing.outputPrice'), key: 'outputPricePer1k', render: (row) => `${row.outputPricePer1k} / 1k` },
+  {
+    title: t('pricing.inputPrice'),
+    key: 'inputPricePer1k',
+    render: (row) => `${row.inputPricePer1k} / 1k`,
+  },
+  {
+    title: t('pricing.outputPrice'),
+    key: 'outputPricePer1k',
+    render: (row) => `${row.outputPricePer1k} / 1k`,
+  },
   { title: t('pricing.currency'), key: 'currency' },
-  { title: t('pricing.effectiveRange'), key: 'effectiveRange', render: (row) => formatRange(row.effectiveFrom, row.effectiveUntil) },
+  {
+    title: t('pricing.effectiveRange'),
+    key: 'effectiveRange',
+    render: (row) => formatRange(row.effectiveFrom, row.effectiveUntil),
+  },
   {
     title: t('common.actions'),
     key: 'actions',
@@ -168,12 +184,21 @@ const columns = computed<DataTableColumns<PricingEntryContract>>(() => [
         { size: 'small' },
         {
           default: () => [
-            h(NButton, { size: 'small', onClick: () => openEdit(row) }, { default: () => t('common.edit') }),
+            h(
+              NButton,
+              { size: 'small', onClick: () => openEdit(row) },
+              { default: () => t('common.edit') },
+            ),
             h(
               NPopconfirm,
               { onPositiveClick: () => onDelete(row) },
               {
-                trigger: () => h(NButton, { size: 'small', type: 'error' }, { default: () => t('common.delete') }),
+                trigger: () =>
+                  h(
+                    NButton,
+                    { size: 'small', type: 'error' },
+                    { default: () => t('common.delete') },
+                  ),
                 default: () => t('pricing.confirmDelete'),
               },
             ),
@@ -193,7 +218,12 @@ onMounted(load);
       <NSpace justify="end">
         <NButton type="primary" @click="openCreate">{{ t('pricing.create') }}</NButton>
       </NSpace>
-      <NDataTable :columns="columns" :data="entries" :loading="loading" :row-key="(row) => row.id" />
+      <NDataTable
+        :columns="columns"
+        :data="entries"
+        :loading="loading"
+        :row-key="(row) => row.id"
+      />
     </NSpace>
 
     <NModal

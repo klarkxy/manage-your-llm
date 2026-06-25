@@ -39,9 +39,10 @@ export class SnippetService {
   }
 }
 
-const templates: Record<SnippetClient, (baseUrl: string, apiKey: string, model: string) => string> = {
-  generic_openai: (baseUrl, apiKey, model) =>
-    `# Generic OpenAI-compatible client
+const templates: Record<SnippetClient, (baseUrl: string, apiKey: string, model: string) => string> =
+  {
+    generic_openai: (baseUrl, apiKey, model) =>
+      `# Generic OpenAI-compatible client
 # Base URL: ${baseUrl}
 # API Key:  ${apiKey}
 # Model:    ${model}
@@ -57,8 +58,8 @@ curl -X POST ${baseUrl}/chat/completions \\
 # response = client.chat.completions.create(model="${model}", messages=[{"role": "user", "content": "Hello"}])
 `,
 
-  claude_code: (baseUrl, apiKey, model) =>
-    `# Claude Code (claude-code CLI)
+    claude_code: (baseUrl, apiKey, model) =>
+      `# Claude Code (claude-code CLI)
 # Use Anthropic-compatible endpoint on ManageYourLLM gateway.
 
 export ANTHROPIC_BASE_URL="${baseUrl}"
@@ -66,16 +67,16 @@ export ANTHROPIC_API_KEY="${apiKey}"
 # Optional: claude-code --model "${model}"
 `,
 
-  codex_cli: (baseUrl, apiKey, model) =>
-    `# Codex CLI (OpenAI-based)
+    codex_cli: (baseUrl, apiKey, model) =>
+      `# Codex CLI (OpenAI-based)
 
 export OPENAI_BASE_URL="${baseUrl}"
 export OPENAI_API_KEY="${apiKey}"
 codex --model "${model}"
 `,
 
-  opencode: (baseUrl, apiKey, model) =>
-    `# OpenCode / Continue / other OpenAI-compatible IDE plugin
+    opencode: (baseUrl, apiKey, model) =>
+      `# OpenCode / Continue / other OpenAI-compatible IDE plugin
 # Configure the provider with the fields below:
 
 Base URL: ${baseUrl}
@@ -83,8 +84,8 @@ API Key:  ${apiKey}
 Model:    ${model}
 `,
 
-  hermes: (baseUrl, apiKey, model) =>
-    `# Hermes (OpenAI-compatible)
+    hermes: (baseUrl, apiKey, model) =>
+      `# Hermes (OpenAI-compatible)
 # Set the following in your Hermes config:
 
 base_url = "${baseUrl}"
@@ -92,8 +93,8 @@ api_key = "${apiKey}"
 model = "${model}"
 `,
 
-  cherry_studio: (baseUrl, apiKey, model) =>
-    `# Cherry Studio
+    cherry_studio: (baseUrl, apiKey, model) =>
+      `# Cherry Studio
 # Add a custom provider with these fields:
 
 Provider Name: ManageYourLLM
@@ -101,4 +102,4 @@ Base URL:      ${baseUrl}
 API Key:       ${apiKey}
 Model Name:    ${model}
 `,
-};
+  };

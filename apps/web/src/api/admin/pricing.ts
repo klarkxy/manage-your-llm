@@ -10,7 +10,9 @@ export async function listPricingEntries(): Promise<PricingEntryContract[]> {
   return res.data;
 }
 
-export async function createPricingEntry(body: CreatePricingEntryRequest): Promise<PricingEntryContract> {
+export async function createPricingEntry(
+  body: CreatePricingEntryRequest,
+): Promise<PricingEntryContract> {
   const res = await api.post<{ data: PricingEntryContract }>('/api/admin/pricing', body);
   return res.data;
 }

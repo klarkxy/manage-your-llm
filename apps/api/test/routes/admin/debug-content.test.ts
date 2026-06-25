@@ -50,7 +50,9 @@ describe('admin debug content routes', () => {
     });
     expect(response.statusCode).toBe(200);
     const body = response.json();
-    expect(body.data.some((row: { requestTraceId: string }) => row.requestTraceId === 'trace_list_1')).toBe(true);
+    expect(
+      body.data.some((row: { requestTraceId: string }) => row.requestTraceId === 'trace_list_1'),
+    ).toBe(true);
   });
 
   it('returns a debug content log by trace id', async () => {

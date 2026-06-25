@@ -49,7 +49,8 @@ export async function planRoutes(app: FastifyInstance, deps: PlanRouteDeps): Pro
     const body = updatePlanRequestSchema.parse(req.body);
     const plan = await service.updatePlan(id, {
       ...body,
-      providerType: body.providerType === undefined ? undefined : (body.providerType as ProviderType),
+      providerType:
+        body.providerType === undefined ? undefined : (body.providerType as ProviderType),
       upstreamKeyId: body.upstreamKeyId === undefined ? undefined : body.upstreamKeyId,
       notes: body.notes === undefined ? undefined : body.notes,
       purchasedAt: body.purchasedAt ? new Date(body.purchasedAt) : undefined,

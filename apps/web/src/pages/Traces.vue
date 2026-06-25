@@ -15,7 +15,11 @@ import {
 } from 'naive-ui';
 import { useI18n } from 'vue-i18n';
 import { getTraces, getTrace } from '../api/admin/traces.js';
-import type { TraceSummaryContract, TraceDetailContract, TraceEventContract } from '@manageyourllm/contracts';
+import type {
+  TraceSummaryContract,
+  TraceDetailContract,
+  TraceEventContract,
+} from '@manageyourllm/contracts';
 import type { DataTableColumns } from 'naive-ui';
 
 const { t } = useI18n();
@@ -83,7 +87,11 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleString('zh-CN');
 }
 
-function tokens(row: { inputTokens: number | null; outputTokens: number | null; totalTokens: number | null }): string {
+function tokens(row: {
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+}): string {
   return `${row.inputTokens ?? 0} / ${row.outputTokens ?? 0} / ${row.totalTokens ?? 0}`;
 }
 
@@ -96,7 +104,12 @@ function statusTag(status: string) {
 }
 
 const columns = computed<DataTableColumns<TraceSummaryContract>>(() => [
-  { title: t('trace.time'), key: 'createdAt', width: 170, render: (row) => formatTime(row.createdAt) },
+  {
+    title: t('trace.time'),
+    key: 'createdAt',
+    width: 170,
+    render: (row) => formatTime(row.createdAt),
+  },
   {
     title: t('trace.id'),
     key: 'requestTraceId',
@@ -108,7 +121,12 @@ const columns = computed<DataTableColumns<TraceSummaryContract>>(() => [
   { title: t('trace.upstream'), key: 'upstreamKeyId', ellipsis: { tooltip: true } },
   { title: t('trace.model'), key: 'realModelName', ellipsis: { tooltip: true } },
   { title: t('trace.status'), key: 'status', width: 90, render: (row) => statusTag(row.status) },
-  { title: t('trace.latency'), key: 'latencyMs', width: 110, render: (row) => `${row.latencyMs} ms` },
+  {
+    title: t('trace.latency'),
+    key: 'latencyMs',
+    width: 110,
+    render: (row) => `${row.latencyMs} ms`,
+  },
   { title: t('trace.tokens'), key: 'tokens', width: 140, render: (row) => tokens(row) },
   { title: t('trace.attempts'), key: 'attemptCount', width: 90 },
 ]);
@@ -116,7 +134,12 @@ const columns = computed<DataTableColumns<TraceSummaryContract>>(() => [
 const eventColumns = computed<DataTableColumns<TraceEventContract>>(() => [
   { title: t('trace.step'), key: 'step' },
   { title: '#', key: 'stepIndex', width: 70 },
-  { title: t('trace.status'), key: 'status', width: 90, render: (row) => (row.status ? statusTag(row.status) : '-') },
+  {
+    title: t('trace.status'),
+    key: 'status',
+    width: 90,
+    render: (row) => (row.status ? statusTag(row.status) : '-'),
+  },
   { title: t('trace.upstream'), key: 'upstreamKeyId', ellipsis: { tooltip: true } },
   { title: t('trace.model'), key: 'realModelName', ellipsis: { tooltip: true } },
   {
@@ -150,7 +173,9 @@ onMounted(load);
         :data="traces"
         :bordered="false"
         size="small"
-        :row-props="(row) => ({ style: { cursor: 'pointer' }, onClick: () => openDetail(row.requestTraceId) })"
+        :row-props="
+          (row) => ({ style: { cursor: 'pointer' }, onClick: () => openDetail(row.requestTraceId) })
+        "
       />
 
       <NEmpty v-else :description="t('trace.empty')" />
@@ -176,12 +201,7 @@ onMounted(load);
       <NEmpty v-else :description="t('trace.noSummary')" />
 
       <NCard :title="t('trace.steps')" size="small">
-        <NDataTable
-          :columns="eventColumns"
-          :data="detail.events"
-          :bordered="false"
-          size="small"
-        />
+        <NDataTable :columns="eventColumns" :data="detail.events" :bordered="false" size="small" />
       </NCard>
 
       <NSpace justify="end">

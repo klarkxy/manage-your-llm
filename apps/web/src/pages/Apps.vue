@@ -344,7 +344,9 @@ onMounted(async () => {
         </NSpin>
         <template #footer>
           <NSpace justify="end">
-            <NButton @click="openSnippetModal(rawKeyModal.rawKey)">{{ t('snippets.generate') }}</NButton>
+            <NButton @click="openSnippetModal(rawKeyModal.rawKey)">{{
+              t('snippets.generate')
+            }}</NButton>
             <NButton @click="rawKeyModal.show = false">{{ t('common.close') }}</NButton>
           </NSpace>
         </template>

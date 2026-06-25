@@ -91,7 +91,10 @@ describe('gateway side-effects', () => {
 
   it('records zero cost when no pricing entry exists', async () => {
     await recordCost(10, 5);
-    const rows = await testDb.db.select().from(usageRecords).where(eq(usageRecords.requestTraceId, 'cost_trace_1'));
+    const rows = await testDb.db
+      .select()
+      .from(usageRecords)
+      .where(eq(usageRecords.requestTraceId, 'cost_trace_1'));
     expect(rows).toHaveLength(1);
     expect(rows[0]!.costAmount).toBe(0);
     expect(rows[0]!.costCurrency).toBe('USD');
@@ -108,7 +111,10 @@ describe('gateway side-effects', () => {
       effectiveFrom: new Date(Date.now() - 60_000),
     });
     await recordCost(1000, 500);
-    const rows = await testDb.db.select().from(usageRecords).where(eq(usageRecords.requestTraceId, 'cost_trace_1'));
+    const rows = await testDb.db
+      .select()
+      .from(usageRecords)
+      .where(eq(usageRecords.requestTraceId, 'cost_trace_1'));
     expect(rows[0]!.costAmount).toBe(Math.round((5 * 1000 + 15 * 500) / 1000)); // 13
     expect(rows[0]!.costCurrency).toBe('USD');
   });
@@ -133,12 +139,14 @@ describe('gateway side-effects', () => {
       effectiveFrom: new Date(Date.now() - 60_000),
     });
     await recordCost(1000, 1000);
-    const rows = await testDb.db.select().from(usageRecords).where(eq(usageRecords.requestTraceId, 'cost_trace_1'));
+    const rows = await testDb.db
+      .select()
+      .from(usageRecords)
+      .where(eq(usageRecords.requestTraceId, 'cost_trace_1'));
     expect(rows[0]!.costAmount).toBe(Math.round((1 * 1000 + 2 * 1000) / 1000)); // 3
     expect(rows[0]!.costCurrency).toBe('CNY');
   });
 });
-
 
 describe('gateway side-effects debug content', () => {
   let testDb: TestDb;

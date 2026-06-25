@@ -69,7 +69,12 @@ export class CostLedgerService {
     usage: ChatUsageIR | null,
     at = new Date(),
   ): Promise<{ costAmount: number; costCurrency: string }> {
-    let pricing = await this.repo().findActivePricingForUpstream(providerType, upstreamKeyId, realModelName, at);
+    let pricing = await this.repo().findActivePricingForUpstream(
+      providerType,
+      upstreamKeyId,
+      realModelName,
+      at,
+    );
     if (!pricing) {
       pricing = await this.repo().findActivePricing(providerType, realModelName, at);
     }

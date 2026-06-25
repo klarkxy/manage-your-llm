@@ -1,8 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import {
-  listTracesResponseSchema,
-  traceDetailResponseSchema,
-} from '@manageyourllm/contracts';
+import { listTracesResponseSchema, traceDetailResponseSchema } from '@manageyourllm/contracts';
 import { TraceService } from '../../../application/trace.service.js';
 import { serializeForContract } from '../../helpers/contract-serializer.js';
 import type { Db } from '../../../infrastructure/db/client.js';
@@ -22,7 +19,10 @@ export async function traceRoutes(app: FastifyInstance, deps: TraceRouteDeps): P
     const query = req.query as { since?: string; limit?: string };
     const since = query.since ? new Date(query.since) : dayStart(new Date());
     const limit = query.limit ? Number.parseInt(query.limit, 10) : 100;
-    const traces = await service.listTraces(since, Number.isNaN(limit) ? 100 : Math.min(limit, 100));
+    const traces = await service.listTraces(
+      since,
+      Number.isNaN(limit) ? 100 : Math.min(limit, 100),
+    );
     return listTracesResponseSchema.parse({
       data: serializeForContract(traces),
     });

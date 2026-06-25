@@ -18,7 +18,11 @@ import {
 import { useI18n } from 'vue-i18n';
 import { listDebugContentLogs, getDebugContentLogByTraceId } from '../api/admin/debug-content.js';
 import { getSettings, updateSettings } from '../api/admin/settings.js';
-import type { DebugContentLogContract, SettingsContract, UpdateSettingsRequest } from '@manageyourllm/contracts';
+import type {
+  DebugContentLogContract,
+  SettingsContract,
+  UpdateSettingsRequest,
+} from '@manageyourllm/contracts';
 
 const { t } = useI18n();
 const message = useMessage();
@@ -63,7 +67,11 @@ async function load() {
     settings.value = s;
     logs.value = data;
     form.value.maxRows = s.contentLogMaxRows ?? 1000;
-    if (s.contentLogEnabled && s.contentLogExpiresAt && new Date(s.contentLogExpiresAt) > new Date()) {
+    if (
+      s.contentLogEnabled &&
+      s.contentLogExpiresAt &&
+      new Date(s.contentLogExpiresAt) > new Date()
+    ) {
       form.value.duration = '60';
     } else {
       form.value.duration = 'off';

@@ -1,5 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import { generateSnippetRequestSchema, generateSnippetResponseSchema } from '@manageyourllm/contracts';
+import {
+  generateSnippetRequestSchema,
+  generateSnippetResponseSchema,
+} from '@manageyourllm/contracts';
 import { ValidationError } from '@manageyourllm/shared';
 import { SnippetService } from '../../../application/snippet.service.js';
 import { SettingsService } from '../../../domain/settings/settings.service.js';

@@ -133,7 +133,8 @@ const columns = computed<DataTableColumns<ModelReferenceEntryContract>>(() => [
     title: t('modelReference.license'),
     key: 'license',
     width: 120,
-    render: (row: ModelReferenceEntryContract) => (row.rawJson as Record<string, string>)?.license ?? '-',
+    render: (row: ModelReferenceEntryContract) =>
+      (row.rawJson as Record<string, string>)?.license ?? '-',
   },
 ]);
 
@@ -291,7 +292,8 @@ onMounted(load);
         />
         <NSelect v-model:value="selectedSort" :options="sortOptions" style="width: 180px" />
         <NText depth="3">
-          {{ t('modelReference.lastRefresh') }}: {{ formatDate((syncStatus as any)?.lastRefreshAt) }}
+          {{ t('modelReference.lastRefresh') }}:
+          {{ formatDate((syncStatus as any)?.lastRefreshAt) }}
         </NText>
       </NSpace>
 
@@ -347,7 +349,9 @@ onMounted(load);
           <ul>
             <li v-for="pm in recommendDraft.publicModels" :key="pm.name">
               {{ pm.displayName }}
-              <NText v-if="pm.nameConflict" type="error">({{ t('modelReference.nameConflict') }})</NText>
+              <NText v-if="pm.nameConflict" type="error"
+                >({{ t('modelReference.nameConflict') }})</NText
+              >
             </li>
           </ul>
         </NCard>

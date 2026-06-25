@@ -112,7 +112,6 @@ describe('createStreamTransformer', () => {
   });
 });
 
-
 describe('createStreamTransformer content collection', () => {
   it('collects OpenAI assistant content', async () => {
     const onComplete = vi.fn<(payload: { content: string; usage: ChatUsageIR | null }) => void>();

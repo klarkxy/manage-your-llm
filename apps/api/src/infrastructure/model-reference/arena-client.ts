@@ -4,10 +4,16 @@ import type {
   ModelReferenceSource,
 } from '../db/schema.js';
 
-export type ModelReferenceEntryInput = Omit<ModelReferenceEntryInsert, 'id' | 'createdAt' | 'updatedAt'>;
+export type ModelReferenceEntryInput = Omit<
+  ModelReferenceEntryInsert,
+  'id' | 'createdAt' | 'updatedAt'
+>;
 
 export interface ModelReferenceSourceClient {
-  fetch(region: ModelReferenceRegion, abortSignal?: AbortSignal): Promise<ModelReferenceEntryInput[]>;
+  fetch(
+    region: ModelReferenceRegion,
+    abortSignal?: AbortSignal,
+  ): Promise<ModelReferenceEntryInput[]>;
 }
 
 interface ArenaLeaderboardModel {

@@ -127,9 +127,7 @@ export class GatewaySideEffectsService {
     const safeResponse = redactAndTruncate(response, maxPayloadBytes);
 
     if (maxRows > 0) {
-      const [current] = await this.db
-        .select({ total: count() })
-        .from(debugContentLogs);
+      const [current] = await this.db.select({ total: count() }).from(debugContentLogs);
       const total = current?.total ?? 0;
       if (total >= maxRows) {
         const excess = total - maxRows + 1;
@@ -139,9 +137,12 @@ export class GatewaySideEffectsService {
           .orderBy(asc(debugContentLogs.createdAt))
           .limit(excess);
         if (oldest.length > 0) {
-          await this.db
-            .delete(debugContentLogs)
-            .where(inArray(debugContentLogs.id, oldest.map((r) => r.id)));
+          await this.db.delete(debugContentLogs).where(
+            inArray(
+              debugContentLogs.id,
+              oldest.map((r) => r.id),
+            ),
+          );
         }
       }
     }

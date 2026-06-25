@@ -25,7 +25,7 @@ export function createStreamTransformer(
     usageReported = true;
     const usage =
       override === null || (inputTokens === 0 && outputTokens === 0)
-        ? override ?? null
+        ? (override ?? null)
         : {
             inputTokens,
             outputTokens,
@@ -39,7 +39,7 @@ export function createStreamTransformer(
     completedReported = true;
     const usage =
       override === null || (inputTokens === 0 && outputTokens === 0)
-        ? override ?? null
+        ? (override ?? null)
         : {
             inputTokens,
             outputTokens,

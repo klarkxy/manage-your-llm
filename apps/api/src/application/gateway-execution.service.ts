@@ -498,13 +498,7 @@ export class GatewayExecutionService {
         },
         onComplete: ({ content, usage }) => {
           sideEffects
-            .recordDebugContent(
-              base,
-              settings,
-              ir.messages,
-              { content },
-              usage,
-            )
+            .recordDebugContent(base, settings, ir.messages, { content }, usage)
             .catch(() => {});
         },
       });

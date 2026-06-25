@@ -88,12 +88,9 @@ export async function adminRoutes(app: FastifyInstance, deps: AdminRoutesDeps): 
   await app.register(async (subApp) => subApp.register(debugContentRoutes, deps.debugContent), {
     prefix: '/debug-content',
   });
-  await app.register(
-    async (subApp) => subApp.register(modelReferenceRoutes, deps.modelReference),
-    {
-      prefix: '/model-reference',
-    },
-  );
+  await app.register(async (subApp) => subApp.register(modelReferenceRoutes, deps.modelReference), {
+    prefix: '/model-reference',
+  });
   await app.register(async (subApp) => subApp.register(snippetRoutes, deps.snippets), {
     prefix: '/snippets',
   });

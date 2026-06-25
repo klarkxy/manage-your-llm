@@ -164,7 +164,6 @@ describe('observability repository', () => {
     expect(byTarget[0]!.name).toBe('gpt-5');
   });
 
-
   it('lists traces with attempt counts', async () => {
     const traceId = 'trace_success';
     await repo.insertUsageRecord({

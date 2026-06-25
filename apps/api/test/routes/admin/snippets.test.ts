@@ -28,7 +28,10 @@ describe('admin snippet routes', () => {
     cookie = login.cookies.find((c) => c.name === 'session')!.value;
 
     const settingsService = new SettingsService(testDb.db);
-    await settingsService.updateSettings({ publicBaseUrl: 'https://myllm.example.com', gatewayBasePath: '/v1' });
+    await settingsService.updateSettings({
+      publicBaseUrl: 'https://myllm.example.com',
+      gatewayBasePath: '/v1',
+    });
   });
 
   afterAll(async () => {

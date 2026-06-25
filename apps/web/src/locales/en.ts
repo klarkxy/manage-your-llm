@@ -291,7 +291,8 @@ const messages: Messages = {
     recent: 'Recent Logs',
     recordingTitle: 'Recording request/response content',
     notRecordingTitle: 'Content recording is off',
-    notRecordingDesc: 'When enabled, the system records request/response content for a limited time with redaction and truncation.',
+    notRecordingDesc:
+      'When enabled, the system records request/response content for a limited time with redaction and truncation.',
     remaining: 'About {minutes} minutes remaining',
     duration: {
       label: 'Duration',

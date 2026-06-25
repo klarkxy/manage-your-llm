@@ -48,7 +48,10 @@ describe('ModelReferenceService', () => {
     const result = await service.refresh('global' as ModelReferenceRegion, 'arena');
     expect(result.success).toBe(true);
 
-    const entries = await new ModelReferenceRepository(testDb.db).listEntriesBySource('global', 'arena');
+    const entries = await new ModelReferenceRepository(testDb.db).listEntriesBySource(
+      'global',
+      'arena',
+    );
     expect(entries).toHaveLength(2);
 
     const status = await new ModelReferenceRepository(testDb.db).getSyncStatus('global', 'arena');
@@ -65,7 +68,10 @@ describe('ModelReferenceService', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('network error');
 
-    const entries = await new ModelReferenceRepository(testDb.db).listEntriesBySource('global', 'arena');
+    const entries = await new ModelReferenceRepository(testDb.db).listEntriesBySource(
+      'global',
+      'arena',
+    );
     expect(entries).toHaveLength(2);
 
     const status = await new ModelReferenceRepository(testDb.db).getSyncStatus('global', 'arena');
@@ -102,7 +108,10 @@ describe('ModelReferenceService', () => {
 
   it('recommends public model drafts and detects name conflicts', async () => {
     await service.refresh('global' as ModelReferenceRegion, 'arena');
-    const entries = await new ModelReferenceRepository(testDb.db).listEntriesBySource('global', 'arena');
+    const entries = await new ModelReferenceRepository(testDb.db).listEntriesBySource(
+      'global',
+      'arena',
+    );
     const entryIds = entries.map((e) => e.id);
 
     await new TargetRepository(testDb.db).createTargetName({
@@ -111,7 +120,11 @@ describe('ModelReferenceService', () => {
       targetId: 'pm_existing',
     });
 
-    const draft = await service.recommendDraft({ entryIds, upstreamKeyId: 'uk_1', createGroup: true });
+    const draft = await service.recommendDraft({
+      entryIds,
+      upstreamKeyId: 'uk_1',
+      createGroup: true,
+    });
     expect(draft.publicModels).toHaveLength(2);
     expect(draft.publicModels[0]!.nameConflict || draft.publicModels[1]!.nameConflict).toBe(true);
     expect(draft.conflicts.length).toBeGreaterThan(0);

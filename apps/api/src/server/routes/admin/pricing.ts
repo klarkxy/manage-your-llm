@@ -45,11 +45,20 @@ export async function pricingRoutes(app: FastifyInstance, deps: PricingRouteDeps
       ...body,
       providerType: body.providerType as never,
       effectiveFrom: body.effectiveFrom ? new Date(body.effectiveFrom) : undefined,
-      effectiveUntil: body.effectiveUntil === undefined ? undefined : body.effectiveUntil ? new Date(body.effectiveUntil) : null,
+      effectiveUntil:
+        body.effectiveUntil === undefined
+          ? undefined
+          : body.effectiveUntil
+            ? new Date(body.effectiveUntil)
+            : null,
     });
     if (!entry) {
       return reply.status(404).send({
-        error: { message: 'Pricing entry not found', type: 'not_found', code: 'pricing_entry_not_found' },
+        error: {
+          message: 'Pricing entry not found',
+          type: 'not_found',
+          code: 'pricing_entry_not_found',
+        },
       });
     }
     return pricingEntryResponseSchema.parse({ data: serializeForContract(entry) });

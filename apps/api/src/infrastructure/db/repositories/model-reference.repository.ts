@@ -51,7 +51,11 @@ export class ModelReferenceRepository {
   }
 
   async findEntryById(id: string): Promise<ModelReferenceEntryRow | undefined> {
-    const rows = await this.db.select().from(modelReferenceEntries).where(eq(modelReferenceEntries.id, id)).limit(1);
+    const rows = await this.db
+      .select()
+      .from(modelReferenceEntries)
+      .where(eq(modelReferenceEntries.id, id))
+      .limit(1);
     return rows[0];
   }
 

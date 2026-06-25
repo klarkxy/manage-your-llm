@@ -175,7 +175,9 @@ export class ModelReferenceService {
     let modelGroup: DraftModelGroup | undefined;
     if (input.createGroup && entries.length > 0) {
       const first = entries[0]!;
-      const groupName = (input.groupName?.trim() || `${first.normalizedModelName}-group`).toLowerCase();
+      const groupName = (
+        input.groupName?.trim() || `${first.normalizedModelName}-group`
+      ).toLowerCase();
       const existingGroup = await this.targetRepo.findByName(groupName);
       const nameConflict = !!existingGroup;
       if (nameConflict) conflicts.push(groupName);

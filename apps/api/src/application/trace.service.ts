@@ -26,7 +26,10 @@ export interface TraceDetail {
 export class TraceService {
   constructor(private readonly db: Db) {}
 
-  async listTraces(since = new Date(Date.now() - 24 * 60 * 60 * 1000), limit = 100): Promise<TraceSummary[]> {
+  async listTraces(
+    since = new Date(Date.now() - 24 * 60 * 60 * 1000),
+    limit = 100,
+  ): Promise<TraceSummary[]> {
     const repo = new ObservabilityRepository(this.db);
     const rows = await repo.listTraces(since, limit);
     return rows.map((row) => ({

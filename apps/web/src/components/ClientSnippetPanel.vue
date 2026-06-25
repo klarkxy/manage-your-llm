@@ -1,14 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useMessage } from 'naive-ui';
-import {
-  NSpace,
-  NFormItem,
-  NSelect,
-  NInput,
-  NButton,
-  NSpin,
-} from 'naive-ui';
+import { NSpace, NFormItem, NSelect, NInput, NButton, NSpin } from 'naive-ui';
 import { useI18n } from 'vue-i18n';
 import { generateSnippet } from '../api/admin/snippets.js';
 import { SNIPPET_CLIENTS, type SnippetClient } from '@manageyourllm/contracts';
@@ -101,7 +94,11 @@ onMounted(async () => {
         <NSelect v-model:value="selectedClient" :options="clientOptions" />
       </NFormItem>
       <NFormItem :label="t('snippets.model')" v-if="!props.model">
-        <NSelect v-model:value="selectedModel" :options="modelOptions" :placeholder="t('snippets.model')" />
+        <NSelect
+          v-model:value="selectedModel"
+          :options="modelOptions"
+          :placeholder="t('snippets.model')"
+        />
       </NFormItem>
       <NInput :value="content" type="textarea" rows="10" readonly />
       <NSpace justify="end">

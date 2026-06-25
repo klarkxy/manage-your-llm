@@ -145,9 +145,7 @@ export class ObservabilityRepository {
     };
   }
 
-  async getUsageGroupByApp(
-    since: Date,
-  ): Promise<
+  async getUsageGroupByApp(since: Date): Promise<
     Array<{
       id: string;
       name: string;
@@ -181,9 +179,7 @@ export class ObservabilityRepository {
     }));
   }
 
-  async getUsageGroupByConsumerKey(
-    since: Date,
-  ): Promise<
+  async getUsageGroupByConsumerKey(since: Date): Promise<
     Array<{
       id: string;
       name: string;
@@ -217,9 +213,7 @@ export class ObservabilityRepository {
     }));
   }
 
-  async getUsageGroupByUpstream(
-    since: Date,
-  ): Promise<
+  async getUsageGroupByUpstream(since: Date): Promise<
     Array<{
       id: string;
       name: string;
@@ -253,9 +247,7 @@ export class ObservabilityRepository {
     }));
   }
 
-  async getUsageGroupByTarget(
-    since: Date,
-  ): Promise<
+  async getUsageGroupByTarget(since: Date): Promise<
     Array<{
       name: string;
       requestCount: number;
