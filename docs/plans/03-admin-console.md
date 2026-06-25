@@ -63,7 +63,7 @@ Wizard 不直接写数据库，必须调用 application services。
 - [x] 6. 实现 model group CRUD 和 member editor。
 - [x] 7. 实现 app / consumer key CRUD，默认 `accessMode = all`。
 - [x] 8. 实现 backup create/list/export API。
-  - [ ] backup restore（目前是 placeholder，未真正替换数据库文件）
+  - [x] backup restore（真实替换 SQLite 文件，关闭/重开 client，带 safeguard 快照）
 - [x] 9. 实现 Setup Wizard UI。
 - [x] 10. 实现管理后台基础页面和 resource composables。
 
