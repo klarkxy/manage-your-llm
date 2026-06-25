@@ -15,5 +15,6 @@ export * from './admin/pricing.js';
 export * from './admin/plans.js';
 export * from './admin/debug-content.js';
 export * from './admin/model-reference.js';
+export * from './admin/snippets.js';
 export * from './gateway/models.js';
 export * from './gateway/chat.js';

@@ -16,6 +16,7 @@ import {
   NSwitch,
   NAlert,
   NSpin,
+  NDivider,
 } from 'naive-ui';
 import { useI18n } from 'vue-i18n';
 import {
@@ -27,6 +28,7 @@ import {
   getSetupTestRequest,
 } from '../api/admin/setup.js';
 import { listProviderPresets } from '../api/admin/provider-presets.js';
+import ClientSnippetPanel from '../components/ClientSnippetPanel.vue';
 import type { ProviderPresetContract } from '@manageyourllm/contracts';
 
 const { t } = useI18n();
@@ -335,6 +337,14 @@ onMounted(load);
             }}</NButton>
           </NSpace>
           <NInput v-if="testCurl" :value="testCurl" type="textarea" rows="6" readonly />
+          <NDivider />
+          <NCard :title="t('snippets.title')" size="small">
+            <ClientSnippetPanel
+              :model="testModel"
+              :api-key="consumerKeyResult?.rawKey"
+              :selectable-client="true"
+            />
+          </NCard>
           <NSpace justify="end">
             <NButton type="primary" @click="finish">{{ t('setup.finish') }}</NButton>
           </NSpace>

@@ -340,6 +340,24 @@ export interface Messages {
       votesDesc: string;
     };
   };
+  snippets: {
+    title: string;
+    client: string;
+    model: string;
+    apiKeyPlaceholder: string;
+    copy: string;
+    copied: string;
+    copyFailed: string;
+    generate: string;
+    clients: {
+      generic_openai: string;
+      claude_code: string;
+      codex_cli: string;
+      opencode: string;
+      hermes: string;
+      cherry_studio: string;
+    };
+  };
   common: {
     save: string;
     saved: string;

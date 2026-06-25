@@ -15,6 +15,7 @@ import { pricingRoutes, type PricingRouteDeps } from './pricing.js';
 import { planRoutes, type PlanRouteDeps } from './plans.js';
 import { debugContentRoutes, type DebugContentRouteDeps } from './debug-content.js';
 import { modelReferenceRoutes, type ModelReferenceRouteDeps } from './model-reference.js';
+import { snippetRoutes, type SnippetRouteDeps } from './snippets.js';
 import { settingsRoutes, type SettingsRouteDeps } from './settings.js';
 
 export interface AdminRoutesDeps {
@@ -34,6 +35,7 @@ export interface AdminRoutesDeps {
   plans: PlanRouteDeps;
   debugContent: DebugContentRouteDeps;
   modelReference: ModelReferenceRouteDeps;
+  snippets: SnippetRouteDeps;
   settings: SettingsRouteDeps;
 }
 
@@ -92,6 +94,9 @@ export async function adminRoutes(app: FastifyInstance, deps: AdminRoutesDeps): 
       prefix: '/model-reference',
     },
   );
+  await app.register(async (subApp) => subApp.register(snippetRoutes, deps.snippets), {
+    prefix: '/snippets',
+  });
   await app.register(async (subApp) => subApp.register(settingsRoutes, deps.settings), {
     prefix: '/settings',
   });

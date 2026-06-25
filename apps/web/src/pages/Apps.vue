@@ -33,6 +33,7 @@ import {
 } from '../api/admin/consumer-keys.js';
 import { listPublicModels } from '../api/admin/public-models.js';
 import { listModelGroups } from '../api/admin/model-groups.js';
+import ClientSnippetPanel from '../components/ClientSnippetPanel.vue';
 import type { AppContract, ConsumerKeyContract } from '@manageyourllm/contracts';
 import type { DataTableColumns } from 'naive-ui';
 
@@ -52,6 +53,7 @@ const rawKeyModal = ref<{ show: boolean; title: string; rawKey: string }>({
   title: '',
   rawKey: '',
 });
+const snippetModal = ref<{ show: boolean; rawKey: string }>({ show: false, rawKey: '' });
 
 const publicModels = ref<Array<{ id: string; name: string }>>([]);
 const modelGroups = ref<Array<{ id: string; name: string }>>([]);
@@ -234,6 +236,10 @@ async function removeKey(appId: string, key: ConsumerKeyContract) {
   }
 }
 
+function openSnippetModal(rawKey?: string) {
+  snippetModal.value = { show: true, rawKey: rawKey ?? '' };
+}
+
 const columns: DataTableColumns<AppContract> = [
   { title: t('apps.name'), key: 'name' },
   { title: t('apps.description'), key: 'description' },
@@ -338,9 +344,19 @@ onMounted(async () => {
         </NSpin>
         <template #footer>
           <NSpace justify="end">
+            <NButton @click="openSnippetModal(rawKeyModal.rawKey)">{{ t('snippets.generate') }}</NButton>
             <NButton @click="rawKeyModal.show = false">{{ t('common.close') }}</NButton>
           </NSpace>
         </template>
+      </NModal>
+
+      <NModal
+        v-model:show="snippetModal.show"
+        :title="t('snippets.title')"
+        preset="card"
+        style="width: 640px"
+      >
+        <ClientSnippetPanel :api-key="snippetModal.rawKey" />
       </NModal>
 
       <NModal
@@ -414,6 +430,11 @@ onMounted(async () => {
                         NButton,
                         { size: 'small', onClick: () => openKeyEdit(app.id, row) },
                         { default: () => t('common.edit') },
+                      ),
+                      h(
+                        NButton,
+                        { size: 'small', onClick: () => openSnippetModal() },
+                        { default: () => t('snippets.title') },
                       ),
                       h(
                         NButton,

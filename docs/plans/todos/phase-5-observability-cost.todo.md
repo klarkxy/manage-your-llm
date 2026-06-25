@@ -131,49 +131,49 @@
 
 ## Model Reference Board
 
-- [ ] P5-060 Implement fixed source fetcher
+- [x] P5-060 Implement fixed source fetcher
   - Depends on: P1-038
   - Deliverables: source client for chosen fixed model reference source
   - Acceptance: fixture fetch normalizes entries.
 
-- [ ] P5-061 Implement model reference refresh service
+- [x] P5-061 Implement model reference refresh service
   - Depends on: P5-060
   - Deliverables: refresh, TTL/status, error capture
   - Acceptance: failed refresh keeps old data and records error.
 
-- [ ] P5-062 Implement model reference API
+- [x] P5-062 Implement model reference API
   - Depends on: P5-061
   - Deliverables: list/filter/sort/refresh endpoints
   - Acceptance: API returns scores, price, context, speed, latency.
 
-- [ ] P5-063 Implement Model Reference page
+- [x] P5-063 Implement Model Reference page
   - Depends on: P5-062
   - Deliverables: filterable table/board
   - Acceptance: mocked API test covers filter and refresh.
 
-- [ ] P5-064 Implement recommendation draft service
+- [x] P5-064 Implement recommendation draft service
   - Depends on: P5-062, P2-040, P2-050
   - Deliverables: draft public model/model group suggestions
   - Acceptance: service returns draft only; no DB writes before confirmation.
 
-- [ ] P5-065 Implement recommendation confirmation UI
+- [x] P5-065 Implement recommendation confirmation UI
   - Depends on: P5-064, P5-063
   - Deliverables: review modal and apply action
   - Acceptance: user must confirm before public model/group creation.
 
 ## Client Configuration Snippets
 
-- [ ] P5-070 Define client templates
+- [x] P5-070 Define client templates
   - Depends on: P2-071
   - Deliverables: templates for Claude Code, Codex, OpenCode, Hermes, Cherry Studio, generic OpenAI
   - Acceptance: templates render with base URL, API key placeholder, model.
 
-- [ ] P5-071 Implement snippet API
+- [x] P5-071 Implement snippet API
   - Depends on: P5-070, P2-061
   - Deliverables: endpoint to generate snippets for selected client/key/model
   - Acceptance: raw key display is opt-in and only available immediately after create/rotate where applicable.
 
-- [ ] P5-072 Implement snippet UI
+- [x] P5-072 Implement snippet UI
   - Depends on: P5-071
   - Deliverables: copyable snippets in setup wizard and Apps page
   - Acceptance: UI does not claim to auto-write config files.
