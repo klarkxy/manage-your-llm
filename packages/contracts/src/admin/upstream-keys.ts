@@ -92,6 +92,10 @@ export const freezeUpstreamKeyRequestSchema = z.object({
   reason: z.string().optional(),
 });
 
+export const pingUpstreamRequestSchema = z.object({
+  model: z.string().optional(),
+});
+
 export const discoveredModelSchema = z.object({
   id: z.string(),
   object: z.string(),
@@ -112,4 +116,5 @@ export type CreateUpstreamKeyRequest = z.infer<typeof createUpstreamKeyRequestSc
 export type UpdateUpstreamKeyRequest = z.infer<typeof updateUpstreamKeyRequestSchema>;
 export type ReorderUpstreamKeysRequest = z.infer<typeof reorderUpstreamKeysRequestSchema>;
 export type FreezeUpstreamKeyRequest = z.infer<typeof freezeUpstreamKeyRequestSchema>;
+export type PingUpstreamRequest = z.infer<typeof pingUpstreamRequestSchema>;
 export type DiscoveredModel = z.infer<typeof discoveredModelSchema>;

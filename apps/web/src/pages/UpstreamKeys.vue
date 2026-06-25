@@ -24,10 +24,12 @@ import {
   rotateUpstreamKey,
   freezeUpstreamKey,
   unfreezeUpstreamKey,
+  discoverUpstreamModels,
+  pingUpstreamKey,
 } from '../api/admin/upstream-keys.js';
 import { listProviderPresets } from '../api/admin/provider-presets.js';
 import type { UpstreamKeyWithQuota } from '../api/admin/upstream-keys.js';
-import type { ProviderPresetContract } from '@manageyourllm/contracts';
+import type { ProviderPresetContract, DiscoveredModel } from '@manageyourllm/contracts';
 import type { DataTableColumns } from 'naive-ui';
 
 const { t } = useI18n();
@@ -51,6 +53,18 @@ const rotateModal = ref<{ show: boolean; id: string; apiKey: string }>({
   show: false,
   id: '',
   apiKey: '',
+});
+
+const discoverModal = ref<{ show: boolean; models: DiscoveredModel[] }>({
+  show: false,
+  models: [],
+});
+
+const pingModal = ref<{ show: boolean; id: string; model: string; result: string }>({
+  show: false,
+  id: '',
+  model: '',
+  result: '',
 });
 
 async function load() {
@@ -159,6 +173,37 @@ async function onRotateSubmit() {
   }
 }
 
+async function onDiscover(row: UpstreamKeyWithQuota) {
+  try {
+    const models = await discoverUpstreamModels(row.id);
+    discoverModal.value = { show: true, models };
+  } catch (err) {
+    message.error(err instanceof Error ? err.message : t('upstreamKeys.discoverFailed'));
+  }
+}
+
+async function onPing(row: UpstreamKeyWithQuota) {
+  pingModal.value = {
+    show: true,
+    id: row.id,
+    model: row.supportedModelsJson?.[0] ?? '',
+    result: '',
+  };
+}
+
+async function onPingSubmit() {
+  try {
+    const result = await pingUpstreamKey(pingModal.value.id, pingModal.value.model || undefined);
+    pingModal.value.result = result.ok
+      ? t('upstreamKeys.pingOk', { latency: result.latencyMs })
+      : t('upstreamKeys.pingFailed', { error: result.error ?? '' });
+  } catch (err) {
+    pingModal.value.result = t('upstreamKeys.pingFailed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 const columns: DataTableColumns<UpstreamKeyWithQuota> = [
   { title: t('upstreamKeys.name'), key: 'name' },
   { title: t('upstreamKeys.providerType'), key: 'providerType' },
@@ -191,6 +236,16 @@ const columns: DataTableColumns<UpstreamKeyWithQuota> = [
               NButton,
               { size: 'small', onClick: () => openEdit(row) },
               { default: () => t('common.edit') },
+            ),
+            h(
+              NButton,
+              { size: 'small', onClick: () => onDiscover(row) },
+              { default: () => t('upstreamKeys.discover') },
+            ),
+            h(
+              NButton,
+              { size: 'small', onClick: () => onPing(row) },
+              { default: () => t('upstreamKeys.ping') },
             ),
             h(
               NButton,
@@ -298,6 +353,50 @@ onMounted(load);
       <NSpace justify="end">
         <NButton @click="rotateModal.show = false">{{ t('common.cancel') }}</NButton>
         <NButton type="primary" @click="onRotateSubmit">{{ t('common.save') }}</NButton>
+      </NSpace>
+    </NModal>
+
+    <NModal
+      v-model:show="discoverModal.show"
+      :title="t('upstreamKeys.discover')"
+      preset="card"
+      style="width: 480px"
+    >
+      <NDataTable
+        :columns="[
+          { title: 'ID', key: 'id' },
+          { title: 'Object', key: 'object' },
+          { title: 'Owned By', key: 'ownedBy' },
+        ]"
+        :data="discoverModal.models"
+        :row-key="(row) => row.id"
+      />
+      <NSpace justify="end">
+        <NButton @click="discoverModal.show = false">{{ t('common.close') }}</NButton>
+      </NSpace>
+    </NModal>
+
+    <NModal
+      v-model:show="pingModal.show"
+      :title="t('upstreamKeys.ping')"
+      preset="card"
+      style="width: 480px"
+    >
+      <NForm label-placement="left" label-width="80px">
+        <NFormItem :label="t('upstreamKeys.realModelName')">
+          <NInput v-model:value="pingModal.model" />
+        </NFormItem>
+      </NForm>
+      <NInput
+        v-if="pingModal.result"
+        :value="pingModal.result"
+        type="textarea"
+        readonly
+        :autosize="{ minRows: 2, maxRows: 4 }"
+      />
+      <NSpace justify="end">
+        <NButton @click="pingModal.show = false">{{ t('common.cancel') }}</NButton>
+        <NButton type="primary" @click="onPingSubmit">{{ t('upstreamKeys.ping') }}</NButton>
       </NSpace>
     </NModal>
   </NCard>

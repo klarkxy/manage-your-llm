@@ -4,6 +4,7 @@ import type {
   UpstreamKeyQuotaContract,
   CreateUpstreamKeyRequest,
   UpdateUpstreamKeyRequest,
+  DiscoveredModel,
 } from '@manageyourllm/contracts';
 
 export type UpstreamKeyWithQuota = UpstreamKeyContract & {
@@ -73,4 +74,22 @@ export async function reorderUpstreamKeys(
   items: { id: string; displayOrder: number }[],
 ): Promise<void> {
   await api.post('/api/admin/upstream-keys/reorder', items);
+}
+
+export async function discoverUpstreamModels(id: string): Promise<DiscoveredModel[]> {
+  const res = await api.post<{ data: DiscoveredModel[] }>(
+    `/api/admin/upstream-keys/${id}/discover`,
+  );
+  return res.data;
+}
+
+export async function pingUpstreamKey(
+  id: string,
+  model?: string,
+): Promise<{ ok: boolean; latencyMs: number; error: string | null }> {
+  const res = await api.post<{ data: { ok: boolean; latencyMs: number; error: string | null } }>(
+    `/api/admin/upstream-keys/${id}/ping`,
+    { model },
+  );
+  return res.data;
 }

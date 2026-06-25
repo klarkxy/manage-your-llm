@@ -78,17 +78,17 @@ Phase 3 实现非流式网关。目标是通过 fake upstream 完成 Anthropic M
 
 ## 任务清单
 
-1. 实现 gateway auth guard。
-2. 实现 `/v1/models`。
-3. 实现 request parsers：Anthropic、OpenAI Chat、OpenAI Responses。
-4. 实现 IR。
-5. 实现 RoutingDecisionService。
-6. 实现 provider adapter 接口和两个核心 adapter。
-7. 实现 upstream sender。
-8. 实现 GatewayExecutionService。
-9. 实现 GatewaySideEffects。
-10. 实现 usage、trace、quota、sticky、breaker 基础写入。
-11. 实现 fake upstream tests。
+- [x] 1. 实现 gateway auth guard。
+- [x] 2. 实现 `/v1/models`。
+- [x] 3. 实现 request parsers：Anthropic、OpenAI Chat、OpenAI Responses。
+- [x] 4. 实现 IR。
+- [x] 5. 实现 RoutingDecisionService。
+- [x] 6. 实现 provider adapter 接口和两个核心 adapter。
+- [x] 7. 实现 upstream sender。
+- [x] 8. 实现 GatewayExecutionService。
+- [x] 9. 实现 GatewaySideEffects。
+- [x] 10. 实现 usage、trace、quota、sticky、breaker 基础写入。
+- [x] 11. 实现 fake upstream tests。
 
 ## 验收标准
 

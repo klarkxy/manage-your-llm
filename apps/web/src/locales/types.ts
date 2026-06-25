@@ -52,6 +52,12 @@ export interface Messages {
     freeze: string;
     unfreeze: string;
     rotate: string;
+    discover: string;
+    ping: string;
+    realModelName: string;
+    pingOk: string;
+    pingFailed: string;
+    discoverFailed: string;
     manualFreeze: string;
     confirmDelete: string;
   };

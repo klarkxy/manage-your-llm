@@ -96,17 +96,19 @@ Trace 必须回答：
 
 ## 任务清单
 
-1. 实现 usage aggregation API。
-2. 实现 trace list/detail API 和 UI。
-3. 实现 daily consumption stats UI。
-4. 实现 temporary debug content log。
-5. 实现 pricing 和 cost ledger API。
-6. 实现 token/coding plan UI。
-7. 实现续费提醒。
-8. 实现 model reference fetcher 和 board。
-9. 实现 recommendation -> config draft。
-10. 实现 client configuration snippets。
-11. 完善 Docker、备份、恢复、公网部署文档。
+- [ ] 1. 实现 usage aggregation API。
+- [ ] 2. 实现 trace list/detail API 和 UI。
+- [ ] 3. 实现 daily consumption stats UI。
+- [ ] 4. 实现 temporary debug content log。
+- [ ] 5. 实现 pricing 和 cost ledger API。
+- [ ] 6. 实现 token/coding plan UI。
+- [ ] 7. 实现续费提醒。
+- [ ] 8. 实现 model reference fetcher 和 board。
+- [ ] 9. 实现 recommendation -> config draft。
+- [ ] 10. 实现 client configuration snippets。
+- [ ] 11. 完善 Docker、备份、恢复、公网部署文档。
+
+> 数据层已就绪：`usageRecords`、`requestTraceLogs`、`dailyConsumptionStats`、`costLedger`、`modelReference` 表与 repository 已实现，但缺少 API/UI/外部 fetcher。
 
 ## 验收标准
 

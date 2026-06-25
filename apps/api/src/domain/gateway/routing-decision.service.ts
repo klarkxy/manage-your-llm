@@ -129,7 +129,7 @@ export class RoutingDecisionService {
       details: { before: candidates.length },
     });
     const filtered = await this.filterCandidates(candidates, ir, settings, now, events);
-    const sorted = this.sortCandidates(filtered);
+    const sorted = await this.sortCandidates(filtered, events);
 
     const finalCandidates = sorted;
     let stickyHit = false;
@@ -403,16 +403,66 @@ export class RoutingDecisionService {
         if (quota.requestLimit != null && counter.requestCount >= quota.requestLimit) {
           return true;
         }
+        if (quota.inputTokenLimit != null && counter.inputTokens >= quota.inputTokenLimit) {
+          return true;
+        }
+        if (quota.outputTokenLimit != null && counter.outputTokens >= quota.outputTokenLimit) {
+          return true;
+        }
+        if (quota.totalTokenLimit != null && counter.totalTokens >= quota.totalTokenLimit) {
+          return true;
+        }
       }
     }
     return false;
   }
 
-  private sortCandidates(candidates: RoutingCandidate[]): RoutingCandidate[] {
-    return candidates.slice().sort((a, b) => {
-      // priority 数值越小越靠前。
-      if (a.priority !== b.priority) return a.priority - b.priority;
-      return a.weight - b.weight;
+  private async sortCandidates(
+    candidates: RoutingCandidate[],
+    events: TraceEvent[],
+  ): Promise<RoutingCandidate[]> {
+    const scored = await Promise.all(
+      candidates.map(async (candidate) => {
+        const health = await this.routingStateRepo.findEndpointHealth(
+          candidate.upstreamKey.id,
+          candidate.endpointUrl,
+        );
+        return { candidate, health };
+      }),
+    );
+
+    const sorted = scored.slice().sort((a, b) => {
+      // 1. 未降级优先于降级。
+      const aDegraded = a.health?.degraded ?? false;
+      const bDegraded = b.health?.degraded ?? false;
+      if (aDegraded !== bDegraded) return Number(aDegraded) - Number(bDegraded);
+
+      // 2. 有健康探测数据的优先于没有的，延迟越低越靠前。
+      const aDelay = a.health?.delayMs ?? null;
+      const bDelay = b.health?.delayMs ?? null;
+      if (aDelay != null && bDelay != null) return aDelay - bDelay;
+      if (aDelay != null && bDelay == null) return -1;
+      if (aDelay == null && bDelay != null) return 1;
+
+      // 3. priority 数值越小越靠前。
+      if (a.candidate.priority !== b.candidate.priority) {
+        return a.candidate.priority - b.candidate.priority;
+      }
+      return a.candidate.weight - b.candidate.weight;
     });
+
+    events.push({
+      step: 'candidates_sort',
+      status: 'info',
+      details: {
+        order: sorted.map((s) => ({
+          upstreamKeyId: s.candidate.upstreamKey.id,
+          degraded: s.health?.degraded ?? false,
+          delayMs: s.health?.delayMs ?? null,
+        })),
+      },
+    });
+
+    return sorted.map((s) => s.candidate);
   }
 }

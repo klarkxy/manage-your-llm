@@ -170,9 +170,13 @@ export class GatewayExecutionService {
       throw new NoRouteAvailableError('当前没有可用的上游路由');
     }
 
+    const maxAttempts =
+      settings.defaultRetries && settings.defaultRetries > 0
+        ? Math.min(settings.defaultRetries + 1, decision.candidates.length)
+        : decision.candidates.length;
     let lastError: NormalizedError | undefined;
 
-    for (let index = 0; index < decision.candidates.length; index++) {
+    for (let index = 0; index < maxAttempts; index++) {
       const candidate = decision.candidates[index];
       if (!candidate) continue;
 
@@ -220,9 +224,13 @@ export class GatewayExecutionService {
       throw new NoRouteAvailableError('当前没有可用的上游路由');
     }
 
+    const maxAttempts =
+      settings.defaultRetries && settings.defaultRetries > 0
+        ? Math.min(settings.defaultRetries + 1, decision.candidates.length)
+        : decision.candidates.length;
     let lastError: NormalizedError | undefined;
 
-    for (let index = 0; index < decision.candidates.length; index++) {
+    for (let index = 0; index < maxAttempts; index++) {
       const candidate = decision.candidates[index];
       if (!candidate) continue;
 

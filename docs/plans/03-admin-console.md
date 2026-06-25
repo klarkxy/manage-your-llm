@@ -53,16 +53,19 @@ Wizard 不直接写数据库，必须调用 application services。
 
 ## 任务清单
 
-1. 实现 admin auth API 和 session cookie。
-2. 实现生产默认 secret/password 拒绝逻辑。
-3. 实现 provider preset API，包含内置和本地自定义 preset。
-4. 实现 upstream CRUD、排序、discover models、manual ping。
-5. 实现 public model CRUD 和 candidate editor。
-6. 实现 model group CRUD 和 member editor。
-7. 实现 app / consumer key CRUD，默认 `accessMode = all`。
-8. 实现 backup create/list/restore/export API。
-9. 实现 Setup Wizard UI。
-10. 实现管理后台基础页面和 resource composables。
+- [x] 1. 实现 admin auth API 和 session cookie。
+- [x] 2. 实现生产默认 secret/password 拒绝逻辑。
+- [x] 3. 实现 provider preset API，包含内置和本地自定义 preset。
+- [x] 4. 实现 upstream CRUD、排序。
+  - [x] discover models
+  - [x] manual ping
+- [x] 5. 实现 public model CRUD 和 candidate editor。
+- [x] 6. 实现 model group CRUD 和 member editor。
+- [x] 7. 实现 app / consumer key CRUD，默认 `accessMode = all`。
+- [x] 8. 实现 backup create/list/export API。
+  - [ ] backup restore（目前是 placeholder，未真正替换数据库文件）
+- [x] 9. 实现 Setup Wizard UI。
+- [x] 10. 实现管理后台基础页面和 resource composables。
 
 ## 验收标准
 

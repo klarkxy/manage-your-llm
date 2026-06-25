@@ -118,7 +118,20 @@ function createService(mocks: {
   upstreamKeys?: UpstreamKeyRow[];
   members?: ModelGroupMemberRow[];
   group?: { id: string; routingPolicy: string };
-  quotas?: Record<string, { requestLimit: number | null; requestCount: number }>;
+  quotas?: Record<
+    string,
+    {
+      requestLimit?: number | null;
+      requestCount?: number;
+      inputTokenLimit?: number | null;
+      inputTokens?: number;
+      outputTokenLimit?: number | null;
+      outputTokens?: number;
+      totalTokenLimit?: number | null;
+      totalTokens?: number;
+    }
+  >;
+  health?: Record<string, { delayMs?: number; degraded?: boolean }>;
   breakers?: Record<
     string,
     { state: 'closed' | 'open' | 'half_open'; cooldownUntil: Date | null; realModelName?: string }
@@ -156,16 +169,29 @@ function createService(mocks: {
     findQuotaByUpstreamKey: async (upstreamKeyId: string) => {
       const q = mocks.quotas?.[upstreamKeyId];
       return q
-        ? ({ requestLimit: q.requestLimit, enabled: true } as ReturnType<
-            UpstreamKeyRepository['findQuotaByUpstreamKey']
-          >)
+        ? ({
+            requestLimit: q.requestLimit ?? null,
+            inputTokenLimit: q.inputTokenLimit ?? null,
+            outputTokenLimit: q.outputTokenLimit ?? null,
+            totalTokenLimit: q.totalTokenLimit ?? null,
+            enabled: true,
+          } as ReturnType<UpstreamKeyRepository['findQuotaByUpstreamKey']>)
         : undefined;
     },
     findCounter: async (upstreamKeyId: string, period: string, periodStartedAt: Date) => {
       const q = mocks.quotas?.[upstreamKeyId];
-      if (!q || q.requestLimit == null) return undefined;
+      const hasLimit =
+        q &&
+        (q.requestLimit != null ||
+          q.inputTokenLimit != null ||
+          q.outputTokenLimit != null ||
+          q.totalTokenLimit != null);
+      if (!hasLimit) return undefined;
       return {
-        requestCount: q.requestCount,
+        requestCount: q.requestCount ?? 0,
+        inputTokens: q.inputTokens ?? 0,
+        outputTokens: q.outputTokens ?? 0,
+        totalTokens: q.totalTokens ?? 0,
         periodEndsAt: new Date(periodStartedAt.getTime() + 60 * 60 * 1000),
       } as ReturnType<UpstreamKeyRepository['findCounter']>;
     },
@@ -188,6 +214,17 @@ function createService(mocks: {
       mocks.stickySession
         ? ({ ...mocks.stickySession } as ReturnType<RoutingStateRepository['findStickySession']>)
         : undefined,
+    findEndpointHealth: async (upstreamKeyId: string) => {
+      const h = mocks.health?.[upstreamKeyId];
+      return h
+        ? ({
+            upstreamKeyId,
+            endpointBaseUrl: 'https://example.com',
+            delayMs: h.delayMs ?? null,
+            degraded: h.degraded ?? false,
+          } as ReturnType<RoutingStateRepository['findEndpointHealth']>)
+        : undefined;
+    },
     listEndpointHealthByUpstream: async () => [],
   } as unknown as RoutingStateRepository;
 
@@ -341,6 +378,90 @@ describe('RoutingDecisionService', () => {
 
     const decision = await service.decide(makeInput());
     expect(decision.candidates.map((c) => c.upstreamKey.id)).toEqual(['uk2']);
+  });
+
+  it('drops candidates whose input token quota is exhausted', async () => {
+    const service = createService({
+      upstreamKeys: [makeUpstreamKey('uk1'), makeUpstreamKey('uk2')],
+      candidates: [
+        makeCandidate({ upstreamKeyId: 'uk1' }),
+        makeCandidate({ upstreamKeyId: 'uk2' }),
+      ],
+      quotas: { uk1: { inputTokenLimit: 1000, inputTokens: 1000 } },
+    });
+
+    const decision = await service.decide(makeInput());
+    expect(decision.candidates.map((c) => c.upstreamKey.id)).toEqual(['uk2']);
+  });
+
+  it('drops candidates whose output token quota is exhausted', async () => {
+    const service = createService({
+      upstreamKeys: [makeUpstreamKey('uk1'), makeUpstreamKey('uk2')],
+      candidates: [
+        makeCandidate({ upstreamKeyId: 'uk1' }),
+        makeCandidate({ upstreamKeyId: 'uk2' }),
+      ],
+      quotas: { uk1: { outputTokenLimit: 1000, outputTokens: 1000 } },
+    });
+
+    const decision = await service.decide(makeInput());
+    expect(decision.candidates.map((c) => c.upstreamKey.id)).toEqual(['uk2']);
+  });
+
+  it('drops candidates whose total token quota is exhausted', async () => {
+    const service = createService({
+      upstreamKeys: [makeUpstreamKey('uk1'), makeUpstreamKey('uk2')],
+      candidates: [
+        makeCandidate({ upstreamKeyId: 'uk1' }),
+        makeCandidate({ upstreamKeyId: 'uk2' }),
+      ],
+      quotas: { uk1: { totalTokenLimit: 1000, totalTokens: 1000 } },
+    });
+
+    const decision = await service.decide(makeInput());
+    expect(decision.candidates.map((c) => c.upstreamKey.id)).toEqual(['uk2']);
+  });
+
+  it('sorts candidates by endpoint health latency', async () => {
+    const service = createService({
+      upstreamKeys: [makeUpstreamKey('uk1'), makeUpstreamKey('uk2')],
+      candidates: [
+        makeCandidate({ upstreamKeyId: 'uk1', priority: 100 }),
+        makeCandidate({ upstreamKeyId: 'uk2', priority: 100 }),
+      ],
+      health: { uk1: { delayMs: 200 }, uk2: { delayMs: 50 } },
+    });
+
+    const decision = await service.decide(makeInput());
+    expect(decision.candidates.map((c) => c.upstreamKey.id)).toEqual(['uk2', 'uk1']);
+    expect(decision.traceEvents.some((e) => e.step === 'candidates_sort')).toBe(true);
+  });
+
+  it('deprioritizes degraded endpoints', async () => {
+    const service = createService({
+      upstreamKeys: [makeUpstreamKey('uk1'), makeUpstreamKey('uk2')],
+      candidates: [
+        makeCandidate({ upstreamKeyId: 'uk1', priority: 50 }),
+        makeCandidate({ upstreamKeyId: 'uk2', priority: 200 }),
+      ],
+      health: { uk1: { degraded: true }, uk2: { delayMs: 100 } },
+    });
+
+    const decision = await service.decide(makeInput());
+    expect(decision.candidates.map((c) => c.upstreamKey.id)).toEqual(['uk2', 'uk1']);
+  });
+
+  it('falls back to priority/weight when no health data', async () => {
+    const service = createService({
+      upstreamKeys: [makeUpstreamKey('uk1'), makeUpstreamKey('uk2')],
+      candidates: [
+        makeCandidate({ upstreamKeyId: 'uk1', priority: 200 }),
+        makeCandidate({ upstreamKeyId: 'uk2', priority: 100 }),
+      ],
+    });
+
+    const decision = await service.decide(makeInput());
+    expect(decision.candidates.map((c) => c.upstreamKey.id)).toEqual(['uk2', 'uk1']);
   });
 
   it('moves sticky binding candidate to front', async () => {

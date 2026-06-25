@@ -80,15 +80,17 @@ infrastructure/db/repositories/
 
 ## 任务清单
 
-1. 建立 Drizzle schema 和 migration runner。
-2. 建立 database client 和 test database helper。
-3. 建立 unit-of-work / transaction wrapper。
-4. 实现管理员、App、Consumer Key 基础 repository。
-5. 实现 upstream、preset、model exposure repository。
-6. 实现 routing 所需查询 repository。
-7. 实现 observability 和 cost ledger 表。
-8. 实现 backup metadata 表和 SQLite 快照底层函数。
-9. 写核心领域测试。
+- [x] 1. 建立 Drizzle schema 和 migration runner。
+- [x] 2. 建立 database client 和 test database helper。
+- [x] 3. 建立 unit-of-work / transaction wrapper。
+- [x] 4. 实现管理员、App、Consumer Key 基础 repository。
+- [x] 5. 实现 upstream、preset、model exposure repository。
+- [x] 6. 实现 routing 所需查询 repository。
+- [x] 7. 实现 observability 和 cost ledger 表。
+- [x] 8. 实现 backup metadata 表和 SQLite 快照底层函数。
+- [x] 9. 写核心领域测试。
+
+> 说明：部分 domain service（`ProviderPresetService`、`RoutingPolicyService`、`QuotaService`、`StickyService`）未作为独立类实现，相关逻辑已合入 repository / `RoutingDecisionService` / `GatewaySideEffectsService`，功能等价。
 
 ## 验收标准
 

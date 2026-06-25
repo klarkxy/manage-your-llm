@@ -9,10 +9,12 @@ import {
   reorderUpstreamKeysRequestSchema,
   freezeUpstreamKeyRequestSchema,
   discoverModelsResponseSchema,
+  pingUpstreamRequestSchema,
   pingUpstreamResponseSchema,
   successEnvelope,
 } from '@manageyourllm/contracts';
 import { UpstreamKeyService } from '../../../application/upstream-key.service.js';
+import { UpstreamProbeService } from '../../../application/upstream-probe.service.js';
 import { UpstreamKeyRepository } from '../../../infrastructure/db/repositories/upstream-key.repository.js';
 import { serializeForContract } from '../../helpers/contract-serializer.js';
 import { stripUpstreamKeySecrets } from './upstream-key-strip.js';
@@ -42,6 +44,7 @@ export async function upstreamKeyRoutes(
   deps: UpstreamKeyRouteDeps,
 ): Promise<void> {
   const service = new UpstreamKeyService(deps.db, deps.secretKey);
+  const probe = new UpstreamProbeService({ db: deps.db, secretKey: deps.secretKey });
   const repo = new UpstreamKeyRepository(deps.db);
 
   app.get('/', async () => {
@@ -129,15 +132,16 @@ export async function upstreamKeyRoutes(
     return successEnvelope(z.object({ ok: z.boolean() })).parse({ data: { ok: true } });
   });
 
-  app.post('/:id/discover', async () => {
-    // Phase 2 占位：真实发现需要调用上游 /models 端点，后续补充。
-    return discoverModelsResponseSchema.parse({
-      data: [{ id: 'placeholder-model', object: 'model' }],
-    });
+  app.post('/:id/discover', async (req) => {
+    const { id } = req.params as { id: string };
+    const models = await probe.discoverModels(id);
+    return discoverModelsResponseSchema.parse({ data: serializeForContract(models) });
   });
 
-  app.post('/:id/ping', async () => {
-    // Phase 2 占位：真实 ping 需要调用上游 chat completions 端点，后续补充。
-    return pingUpstreamResponseSchema.parse({ data: { ok: true, latencyMs: 0 } });
+  app.post('/:id/ping', async (req) => {
+    const { id } = req.params as { id: string };
+    const body = pingUpstreamRequestSchema.parse(req.body ?? {});
+    const result = await probe.ping(id, body.model);
+    return pingUpstreamResponseSchema.parse({ data: serializeForContract(result) });
   });
 }
