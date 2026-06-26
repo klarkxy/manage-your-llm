@@ -53,7 +53,7 @@
 
 ## Provider Presets and Upstreams
 
-- [ ] P2-020 Implement provider preset routes
+- [x] P2-020 Implement provider preset routes
   - Depends on: P1-032
   - Deliverables: list built-ins, CRUD local custom presets
   - Acceptance: local preset can be created and listed.
@@ -63,7 +63,7 @@
   - Deliverables: service/action to create local preset from upstream without secret
   - Acceptance: exported preset excludes ciphertext and raw key.
 
-- [ ] P2-030 Implement upstream CRUD routes
+- [x] P2-030 Implement upstream CRUD routes
   - Depends on: P1-033, P1-051
   - Deliverables: list/get/create/update/delete
   - Acceptance: create encrypts key and response hides raw secret.
@@ -73,24 +73,24 @@
   - Deliverables: reorder upstreams
   - Acceptance: order persists and list returns sorted rows.
 
-- [ ] P2-032 Implement upstream freeze/unfreeze/rotate
+- [x] P2-032 Implement upstream freeze/unfreeze/rotate
   - Depends on: P2-030
   - Deliverables: action routes
   - Acceptance: rotate returns new prefix and never old raw key.
 
-- [ ] P2-033 Implement model discovery service
+- [x] P2-033 Implement model discovery service
   - Depends on: P2-030
   - Deliverables: OpenAI-compatible `/models` discovery and manual fallback
   - Acceptance: fake upstream discovery test passes.
 
-- [ ] P2-034 Implement manual model ping endpoint
+- [x] P2-034 Implement manual model ping endpoint
   - Depends on: P2-030
   - Deliverables: ping route using selected provider endpoint/model
   - Acceptance: fake upstream records ok/error/latency.
 
 ## Model Exposure API
 
-- [ ] P2-040 Implement public model routes
+- [x] P2-040 Implement public model routes
   - Depends on: P1-054
   - Deliverables: list/get/create/update/delete/candidates
   - Acceptance: candidate updates are transactional.
@@ -100,78 +100,78 @@
   - Deliverables: reorder endpoint
   - Acceptance: priority values are normalized after reorder.
 
-- [ ] P2-050 Implement model group routes
+- [x] P2-050 Implement model group routes
   - Depends on: P1-055
   - Deliverables: list/get/create/update/delete/members
   - Acceptance: group cannot reference missing public model.
 
 ## Apps and Consumer Keys
 
-- [ ] P2-060 Implement app routes
+- [x] P2-060 Implement app routes
   - Depends on: P1-031
   - Deliverables: list/get/create/update
   - Acceptance: disabled app prevents its keys from authenticating in service tests.
 
-- [ ] P2-061 Implement consumer key routes
+- [x] P2-061 Implement consumer key routes
   - Depends on: P1-052, P1-053
   - Deliverables: list/create/rotate/revoke/access mode/access targets
   - Acceptance: create defaults to `accessMode = all`.
 
 ## Backup and Settings API
 
-- [ ] P2-070 Implement backup routes
+- [x] P2-070 Implement backup routes
   - Depends on: P1-056
   - Deliverables: create/list/restore/delete/export non-sensitive config
   - Acceptance: restore requires explicit confirmation payload.
 
-- [ ] P2-071 Implement settings routes
+- [x] P2-071 Implement settings routes
   - Depends on: P1-019
   - Deliverables: public base URL, gateway base path, resilience defaults, security checks
   - Acceptance: invalid base path rejected.
 
 ## Web UI
 
-- [ ] P2-100 Implement login page
+- [x] P2-100 Implement login page
   - Depends on: P2-002, P0-041
   - Deliverables: login form, session bootstrap
   - Acceptance: user can log in against API in integration test.
 
-- [ ] P2-101 Implement authenticated layout
+- [x] P2-101 Implement authenticated layout
   - Depends on: P2-003, P2-100
   - Deliverables: sidebar/nav, route guard, user menu
   - Acceptance: unauthenticated navigation redirects to login.
 
-- [ ] P2-102 Implement Setup Wizard UI
+- [x] P2-102 Implement Setup Wizard UI
   - Depends on: P2-010 through P2-015
   - Deliverables: multi-step wizard
   - Acceptance: mocked API test completes wizard flow.
 
-- [ ] P2-103 Implement Upstream Keys page
+- [x] P2-103 Implement Upstream Keys page
   - Depends on: P2-020 through P2-034
   - Deliverables: table, drawer form, discovery, ping, preset selector
   - Acceptance: component tests cover create/edit/discover paths.
 
-- [ ] P2-104 Implement Public Models page
+- [x] P2-104 Implement Public Models page
   - Depends on: P2-040, P2-041
   - Deliverables: table, candidate editor, reorder UI
   - Acceptance: candidate editor saves normalized payload.
 
-- [ ] P2-105 Implement Model Groups page
+- [x] P2-105 Implement Model Groups page
   - Depends on: P2-050
   - Deliverables: table, member editor
   - Acceptance: group members can be added/removed.
 
-- [ ] P2-106 Implement Apps and Consumer Keys page
+- [x] P2-106 Implement Apps and Consumer Keys page
   - Depends on: P2-060, P2-061
   - Deliverables: app table, key drawer, access mode toggle
   - Acceptance: all/restricted mode UI behavior tested.
 
-- [ ] P2-107 Implement Backups page
+- [x] P2-107 Implement Backups page
   - Depends on: P2-070
   - Deliverables: backup list, create, restore confirmation, export
   - Acceptance: restore flow requires confirmation.
 
-- [ ] P2-108 Implement Settings page
+- [x] P2-108 Implement Settings page
   - Depends on: P2-071
   - Deliverables: public URL, base path, security status, account settings
   - Acceptance: invalid setting errors display clearly.
