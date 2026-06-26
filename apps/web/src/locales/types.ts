@@ -72,6 +72,8 @@ export interface Messages {
     discoverFailed: string;
     manualFreeze: string;
     confirmDelete: string;
+    breakers: string;
+    resetBreaker: string;
   };
   publicModels: {
     title: string;
@@ -284,6 +286,7 @@ export interface Messages {
     avgLatency: string;
     dailyConsumptionStats: string;
     empty: string;
+    viewSticky: string;
   };
   settings: {
     title: string;
@@ -293,6 +296,48 @@ export interface Messages {
     defaultRetries: string;
     enableStickySession: string;
     enableCircuitBreaker: string;
+    resilienceTitle: string;
+    firstTokenTimeoutMs: string;
+    circuitBreaker: string;
+    circuitBreakerFailureThreshold: string;
+    circuitBreakerBaseCooldownMs: string;
+    circuitBreakerMaxCooldownMs: string;
+    circuitBreakerHalfOpenSuccessCount: string;
+    endpointHealthProbe: string;
+    endpointHealthProbeEnabled: string;
+    endpointHealthProbeIntervalMs: string;
+    endpointHealthProbeTimeoutMs: string;
+    endpointHealthProbeDegradedLatencyMs: string;
+    upstreamCooldown: string;
+    upstreamCooldownBaseMs: string;
+    upstreamCooldownMaxMs: string;
+  };
+  breaker: {
+    title: string;
+    realModelName: string;
+    state: string;
+    failureCount: string;
+    successCount: string;
+    cooldownUntil: string;
+    noBreakers: string;
+    'state.closed': string;
+    'state.open': string;
+    'state.half_open': string;
+  };
+  sticky: {
+    title: string;
+    bindings: string;
+    sessions: string;
+    consumerKey: string;
+    target: string;
+    upstream: string;
+    model: string;
+    hitCount: string;
+    ttlMs: string;
+    lastUsedAt: string;
+    expiresAt: string;
+    noBindings: string;
+    noSessions: string;
   };
   debugContentLogs: {
     title: string;

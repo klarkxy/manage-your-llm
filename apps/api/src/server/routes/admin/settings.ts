@@ -25,6 +25,17 @@ export async function settingsRoutes(app: FastifyInstance, deps: SettingsRouteDe
       defaultRetries: body.defaultRetries,
       enableStickySession: body.enableStickySession,
       enableCircuitBreaker: body.enableCircuitBreaker,
+      firstTokenTimeoutMs: body.firstTokenTimeoutMs,
+      circuitBreakerFailureThreshold: body.circuitBreakerFailureThreshold,
+      circuitBreakerBaseCooldownMs: body.circuitBreakerBaseCooldownMs,
+      circuitBreakerMaxCooldownMs: body.circuitBreakerMaxCooldownMs,
+      circuitBreakerHalfOpenSuccessCount: body.circuitBreakerHalfOpenSuccessCount,
+      endpointHealthProbeEnabled: body.endpointHealthProbeEnabled,
+      endpointHealthProbeIntervalMs: body.endpointHealthProbeIntervalMs,
+      endpointHealthProbeTimeoutMs: body.endpointHealthProbeTimeoutMs,
+      endpointHealthProbeDegradedLatencyMs: body.endpointHealthProbeDegradedLatencyMs,
+      upstreamCooldownBaseMs: body.upstreamCooldownBaseMs,
+      upstreamCooldownMaxMs: body.upstreamCooldownMaxMs,
       contentLogEnabled: body.contentLogEnabled,
       contentLogExpiresAt:
         body.contentLogExpiresAt === undefined

@@ -4,6 +4,7 @@ import type { Db } from '../infrastructure/db/client.js';
 import { RoutingStateRepository } from '../infrastructure/db/repositories/routing-state.repository.js';
 import { UpstreamKeyRepository } from '../infrastructure/db/repositories/upstream-key.repository.js';
 import { CostLedgerService } from '../domain/cost-ledger/cost-ledger.service.js';
+import { SettingsService } from '../domain/settings/settings.service.js';
 import { redactAndTruncate } from '../domain/observability/content-log-redaction.js';
 import { ObservabilityRepository } from '../infrastructure/db/repositories/observability.repository.js';
 import {
@@ -181,8 +182,9 @@ export class GatewaySideEffectsService {
   async recordDecisionTraceEvents(
     base: ExecutionBaseInfo,
     traceEvents: Array<{ step: string; status: string; details?: Record<string, unknown> }>,
+    startIndex = 0,
   ): Promise<void> {
-    let index = 0;
+    let index = startIndex;
     for (const event of traceEvents) {
       await this.recordTraceEvent(base, {
         step: event.step,
@@ -257,7 +259,7 @@ export class GatewaySideEffectsService {
       if (settings.enableCircuitBreaker) {
         await this.handleBreakerFailure(candidate, info.error, settings, now);
       }
-      await this.setUpstreamCooldown(base, candidate, now);
+      await this.setUpstreamCooldown(base, candidate, settings, now);
     }
 
     await this.upsertEndpointHealth(candidate, info.success, info.latencyMs, info.error, now);
@@ -397,18 +399,41 @@ export class GatewaySideEffectsService {
     );
     if (!existing) return;
     if (existing.state === 'closed') return;
-    await this.routingStateRepo.updateBreakerState(
-      candidate.upstreamKey.id,
-      candidate.realModelName,
-      'closed',
-      {
-        failureCount: 0,
-        successCount: existing.successCount + 1,
-        cooldownUntil: null,
-        lastErrorCode: null,
-        lastErrorMessage: null,
-      },
-    );
+
+    const threshold = await this.halfOpenSuccessThreshold();
+    const successCount = existing.successCount + 1;
+    if (existing.state === 'half_open' && successCount >= threshold) {
+      await this.routingStateRepo.updateBreakerState(
+        candidate.upstreamKey.id,
+        candidate.realModelName,
+        'closed',
+        {
+          failureCount: 0,
+          successCount: 0,
+          cooldownUntil: null,
+          lastErrorCode: null,
+          lastErrorMessage: null,
+        },
+      );
+    } else {
+      await this.routingStateRepo.updateBreakerState(
+        candidate.upstreamKey.id,
+        candidate.realModelName,
+        'half_open',
+        {
+          failureCount: 0,
+          successCount,
+          cooldownUntil: null,
+          lastErrorCode: null,
+          lastErrorMessage: null,
+        },
+      );
+    }
+  }
+
+  private async halfOpenSuccessThreshold(): Promise<number> {
+    const settings = await new SettingsService(this.db).getSettings();
+    return settings.circuitBreakerHalfOpenSuccessCount ?? 2;
   }
 
   private async handleBreakerFailure(
@@ -423,6 +448,29 @@ export class GatewaySideEffectsService {
     );
     const failureCount = (existing?.failureCount ?? 0) + 1;
     const threshold = settings.circuitBreakerFailureThreshold;
+
+    if (existing && existing.state === 'half_open') {
+      const cooldownMs = Math.min(
+        settings.circuitBreakerBaseCooldownMs * 2,
+        settings.circuitBreakerMaxCooldownMs,
+      );
+      await this.routingStateRepo.updateBreakerState(
+        candidate.upstreamKey.id,
+        candidate.realModelName,
+        'open',
+        {
+          state: 'open',
+          failureCount,
+          successCount: 0,
+          cooldownUntil: new Date(now.getTime() + cooldownMs),
+          openCount: existing.openCount + 1,
+          openedAt: now,
+          lastErrorCode: error.code,
+          lastErrorMessage: error.message,
+        },
+      );
+      return;
+    }
 
     if (failureCount >= threshold) {
       const multiplier = Math.pow(2, Math.max(0, failureCount - threshold));
@@ -501,15 +549,16 @@ export class GatewaySideEffectsService {
   private async setUpstreamCooldown(
     base: ExecutionBaseInfo,
     candidate: RoutingCandidate,
+    settings: AdminSettingsRow,
     now: Date,
   ): Promise<void> {
-    const BASE_MS = 30_000;
-    const MAX_MS = 300_000;
+    const baseMs = settings.upstreamCooldownBaseMs ?? 30_000;
+    const maxMs = settings.upstreamCooldownMaxMs ?? 300_000;
     const currentRemainingMs =
       candidate.upstreamKey.cooldownUntil && candidate.upstreamKey.cooldownUntil > now
         ? candidate.upstreamKey.cooldownUntil.getTime() - now.getTime()
         : 0;
-    const durationMs = Math.min(currentRemainingMs ? currentRemainingMs * 2 : BASE_MS, MAX_MS);
+    const durationMs = Math.min(currentRemainingMs ? currentRemainingMs * 2 : baseMs, maxMs);
     const cooldownUntil = new Date(now.getTime() + durationMs);
 
     await this.upstreamKeyRepo.updateCooldown(candidate.upstreamKey.id, cooldownUntil);

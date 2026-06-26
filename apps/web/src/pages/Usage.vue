@@ -11,9 +11,13 @@ import {
   NSpin,
   NEmpty,
   NDatePicker,
+  NModal,
+  NButton,
 } from 'naive-ui';
 import { useI18n } from 'vue-i18n';
 import { getUsageDashboard, getDailyConsumptionStats } from '../api/admin/usage.js';
+import { getStickyOverview } from '../api/admin/resilience.js';
+import type { StickyBindingContract, StickySessionContract } from '@manageyourllm/contracts';
 import type {
   UsageDashboardContract,
   UsageRecordContract,
@@ -32,6 +36,13 @@ const sinceOption = ref<'today' | 'last7' | 'last30'>('today');
 const dailyLoading = ref(false);
 const dailyStats = ref<DailyConsumptionStatContract[]>([]);
 const dailyDateTs = ref<number>(Date.now());
+
+const stickyModal = ref<{ show: boolean; loading: boolean; bindings: StickyBindingContract[]; sessions: StickySessionContract[] }>({
+  show: false,
+  loading: false,
+  bindings: [],
+  sessions: [],
+});
 
 const sinceOptions = [
   { label: t('usage.today'), value: 'today' },
@@ -76,6 +87,23 @@ async function loadDaily() {
   } finally {
     dailyLoading.value = false;
   }
+}
+
+async function openStickyModal() {
+  stickyModal.value = { show: true, loading: true, bindings: [], sessions: [] };
+  try {
+    const overview = await getStickyOverview();
+    stickyModal.value.bindings = overview.bindings;
+    stickyModal.value.sessions = overview.sessions;
+  } catch (err) {
+    message.error(err instanceof Error ? err.message : t('common.loadFailed'));
+  } finally {
+    stickyModal.value.loading = false;
+  }
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleString('zh-CN');
 }
 
 onMounted(() => {
@@ -187,6 +215,7 @@ const dailyColumns = computed<DataTableColumns<DailyConsumptionStatContract>>(()
             :label="t('usage.stickyHitRate')"
             :value="percent(dashboard.summary.stickyHitRate)"
           />
+          <NButton size="small" @click="openStickyModal">{{ t('usage.viewSticky') }}</NButton>
           <NStatistic
             :label="t('usage.cost')"
             :value="costLabel(dashboard.summary.costAmount, dashboard.summary.costCurrency)"
@@ -256,5 +285,58 @@ const dailyColumns = computed<DataTableColumns<DailyConsumptionStatContract>>(()
         />
       </NCard>
     </NSpace>
+
+    <NModal
+      v-model:show="stickyModal.show"
+      :title="t('sticky.title')"
+      preset="card"
+      style="width: 900px; max-width: 90vw"
+    >
+      <NSpin v-if="stickyModal.loading" />
+      <NSpace v-else vertical size="large">
+        <NCard :title="t('sticky.bindings')" size="small">
+          <NDataTable
+            v-if="stickyModal.bindings.length"
+            :columns="[
+              { title: t('sticky.consumerKey'), key: 'consumerKeyId' },
+              { title: t('sticky.target'), key: 'requestedTargetName' },
+              { title: t('sticky.upstream'), key: 'upstreamKeyId' },
+              { title: t('sticky.model'), key: 'realModelName' },
+              { title: t('sticky.hitCount'), key: 'hitCount' },
+              { title: t('sticky.lastUsedAt'), key: 'lastUsedAt', render: (row) => formatTime(row.lastUsedAt) },
+              { title: t('sticky.expiresAt'), key: 'expiresAt', render: (row) => formatTime(row.expiresAt) },
+            ]"
+            :data="stickyModal.bindings"
+            :bordered="false"
+            size="small"
+            :row-key="(row) => row.id"
+          />
+          <NEmpty v-else :description="t('sticky.noBindings')" />
+        </NCard>
+        <NCard :title="t('sticky.sessions')" size="small">
+          <NDataTable
+            v-if="stickyModal.sessions.length"
+            :columns="[
+              { title: t('sticky.consumerKey'), key: 'consumerKeyId' },
+              { title: t('sticky.target'), key: 'requestedTargetName' },
+              { title: t('sticky.upstream'), key: 'upstreamKeyId' },
+              { title: t('sticky.model'), key: 'realModelName' },
+              { title: t('sticky.hitCount'), key: 'hitCount' },
+              { title: t('sticky.ttlMs'), key: 'ttlMs' },
+              { title: t('sticky.lastUsedAt'), key: 'lastUsedAt', render: (row) => formatTime(row.lastUsedAt) },
+              { title: t('sticky.expiresAt'), key: 'expiresAt', render: (row) => formatTime(row.expiresAt) },
+            ]"
+            :data="stickyModal.sessions"
+            :bordered="false"
+            size="small"
+            :row-key="(row) => row.id"
+          />
+          <NEmpty v-else :description="t('sticky.noSessions')" />
+        </NCard>
+        <NSpace justify="end">
+          <NButton @click="stickyModal.show = false">{{ t('common.close') }}</NButton>
+        </NSpace>
+      </NSpace>
+    </NModal>
   </NCard>
 </template>

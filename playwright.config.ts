@@ -30,6 +30,7 @@ export default defineConfig({
       env: {
         MYLLM_PORT: String(API_PORT),
         MYLLM_DATABASE_URL: 'file:./data/e2e-manageyourllm.sqlite',
+        MYLLM_SECRET_KEY: 'e2e-secret-key-not-the-default',
       },
       stdout: 'pipe',
       stderr: 'pipe',

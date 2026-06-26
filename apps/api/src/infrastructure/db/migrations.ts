@@ -541,4 +541,11 @@ export const MIGRATIONS: readonly Migration[] = [
       `ALTER TABLE model_reference_entries ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0`,
     ],
   },
+  {
+    version: 6,
+    statements: [
+      `ALTER TABLE admin_settings ADD COLUMN upstream_cooldown_base_ms INTEGER NOT NULL DEFAULT 30000`,
+      `ALTER TABLE admin_settings ADD COLUMN upstream_cooldown_max_ms INTEGER NOT NULL DEFAULT 300000`,
+    ],
+  },
 ];

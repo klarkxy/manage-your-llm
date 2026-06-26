@@ -17,6 +17,7 @@ import { debugContentRoutes, type DebugContentRouteDeps } from './debug-content.
 import { modelReferenceRoutes, type ModelReferenceRouteDeps } from './model-reference.js';
 import { snippetRoutes, type SnippetRouteDeps } from './snippets.js';
 import { settingsRoutes, type SettingsRouteDeps } from './settings.js';
+import { resilienceRoutes, type ResilienceRouteDeps } from './resilience.js';
 
 export interface AdminRoutesDeps {
   auth: AdminAuthRouteDeps;
@@ -37,6 +38,7 @@ export interface AdminRoutesDeps {
   modelReference: ModelReferenceRouteDeps;
   snippets: SnippetRouteDeps;
   settings: SettingsRouteDeps;
+  resilience: ResilienceRouteDeps;
 }
 
 export async function adminRoutes(app: FastifyInstance, deps: AdminRoutesDeps): Promise<void> {
@@ -96,5 +98,8 @@ export async function adminRoutes(app: FastifyInstance, deps: AdminRoutesDeps): 
   });
   await app.register(async (subApp) => subApp.register(settingsRoutes, deps.settings), {
     prefix: '/settings',
+  });
+  await app.register(async (subApp) => subApp.register(resilienceRoutes, deps.resilience), {
+    prefix: '/resilience',
   });
 }

@@ -5,6 +5,7 @@ import type {
   OpenAIResponsesResponse,
   OpenAIChatMessage,
   OpenAIResponsesInputItem,
+  SourceProtocol,
 } from '@manageyourllm/shared';
 import {
   ProviderError,
@@ -164,5 +165,9 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
       return new ProviderQuotaError(message, { code });
     }
     return new ProviderError(message, { code, status });
+  }
+
+  supportsStreaming(sourceProtocol: SourceProtocol): boolean {
+    return sourceProtocol === 'openai' || sourceProtocol === 'codex';
   }
 }

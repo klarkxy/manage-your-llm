@@ -1,4 +1,8 @@
-import type { ChatRequestIR, NormalizedChatResponse, SourceProtocol } from '@manageyourllm/shared';
+import type {
+  ChatRequestIR,
+  NormalizedChatResponse,
+  SourceProtocol,
+} from '@manageyourllm/shared';
 import type { NormalizedError } from '@manageyourllm/shared';
 import type { UpstreamKeyRow } from '../../infrastructure/db/schema.js';
 
@@ -36,4 +40,5 @@ export interface ProviderAdapter {
   buildRequest(ctx: BuildRequestContext): ProviderHttpRequest;
   normalizeResponse(ctx: NormalizeResponseContext): NormalizedChatResponse;
   normalizeError(ctx: NormalizeErrorContext): NormalizedError;
+  supportsStreaming(sourceProtocol: SourceProtocol): boolean;
 }

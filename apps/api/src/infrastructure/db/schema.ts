@@ -122,6 +122,8 @@ export const adminSettings = sqliteTable('admin_settings', {
   defaultRetries: integer('default_retries').default(0),
   enableStickySession: integer('enable_sticky_session', { mode: 'boolean' }).default(true),
   enableCircuitBreaker: integer('enable_circuit_breaker', { mode: 'boolean' }).default(true),
+  upstreamCooldownBaseMs: integer('upstream_cooldown_base_ms').notNull().default(30_000),
+  upstreamCooldownMaxMs: integer('upstream_cooldown_max_ms').notNull().default(300_000),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });

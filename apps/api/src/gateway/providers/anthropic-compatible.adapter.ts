@@ -3,6 +3,7 @@ import type {
   NormalizedChatResponse,
   AnthropicMessagesResponse,
   AnthropicMessagesRequest,
+  SourceProtocol,
 } from '@manageyourllm/shared';
 import {
   ProviderError,
@@ -112,5 +113,9 @@ export class AnthropicCompatibleAdapter implements ProviderAdapter {
       return new ProviderQuotaError(message, { code });
     }
     return new ProviderError(message, { code, status });
+  }
+
+  supportsStreaming(sourceProtocol: SourceProtocol): boolean {
+    return sourceProtocol === 'anthropic';
   }
 }

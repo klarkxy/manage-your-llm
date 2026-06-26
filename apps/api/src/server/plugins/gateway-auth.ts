@@ -50,6 +50,7 @@ export async function gatewayAuthGuardHook(
   req.consumerKey = consumerKey;
   req.app = app;
   req.requestTraceId = generateId('trace');
+  req.requestStartTime = Date.now();
 }
 
 export async function gatewayAuthPlugin(

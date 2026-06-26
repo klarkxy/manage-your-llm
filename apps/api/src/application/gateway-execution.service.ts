@@ -37,6 +37,8 @@ export interface GatewayExecutionContext {
   consumerKey: ConsumerKeyRow;
   app: AppRow;
   requestTraceId: string;
+  sourceProtocol?: string;
+  requestStartTime?: number;
 }
 
 export interface GatewayExecutionDeps {
@@ -164,7 +166,6 @@ export class GatewayExecutionService {
     ir: ChatRequestIR,
   ): Promise<{ status: number; body: unknown }> {
     const { decision, base, sideEffects, settings } = await this.prepareExecution(ctx, ir);
-    await sideEffects.recordDecisionTraceEvents(base, decision.traceEvents);
 
     if (decision.candidates.length === 0) {
       throw new NoRouteAvailableError('当前没有可用的上游路由');
@@ -218,20 +219,37 @@ export class GatewayExecutionService {
     ir: ChatRequestIR,
   ): Promise<StreamExecutionResult> {
     const { decision, base, sideEffects, settings } = await this.prepareExecution(ctx, ir);
-    await sideEffects.recordDecisionTraceEvents(base, decision.traceEvents);
 
     if (decision.candidates.length === 0) {
       throw new NoRouteAvailableError('当前没有可用的上游路由');
     }
 
+    const streamCandidates = decision.candidates.filter((c) => {
+      const adapter = getProviderAdapter(c.providerType);
+      return adapter.supportsStreaming(ir.sourceProtocol);
+    });
+
+    if (streamCandidates.length === 0) {
+      await sideEffects.recordTraceEvent(base, {
+        step: 'unsupported_stream_protocol',
+        stepIndex: 5,
+        status: 'fail',
+        details: { sourceProtocol: ir.sourceProtocol },
+      });
+      throw new ProviderError('当前目标没有支持该协议流式转换的候选', {
+        code: 'unsupported_stream_conversion',
+        status: 400,
+      });
+    }
+
     const maxAttempts =
       settings.defaultRetries && settings.defaultRetries > 0
-        ? Math.min(settings.defaultRetries + 1, decision.candidates.length)
-        : decision.candidates.length;
+        ? Math.min(settings.defaultRetries + 1, streamCandidates.length)
+        : streamCandidates.length;
     let lastError: NormalizedError | undefined;
 
     for (let index = 0; index < maxAttempts; index++) {
-      const candidate = decision.candidates[index];
+      const candidate = streamCandidates[index];
       if (!candidate) continue;
 
       const attemptResult = await this.attemptStream(
@@ -267,15 +285,9 @@ export class GatewayExecutionService {
     const targetResolution = new TargetResolutionService(this.db);
     const accessPolicy = new AccessPolicyService(this.db);
     const settingsService = new SettingsService(this.db);
+    const sideEffects = this.getSideEffectsService();
 
     const resolved = await targetResolution.resolve(ir.requestedModel);
-    const access = await accessPolicy.checkAccess(ctx.consumerKey, ir.requestedModel);
-    if (!access.allowed) {
-      throw new PermissionError('无权访问该目标模型');
-    }
-
-    const settings = await settingsService.getSettings();
-    const decision = await this.makeRoutingDecision(ctx, ir, resolved, settings);
 
     const base: ExecutionBaseInfo = {
       requestTraceId: ctx.requestTraceId,
@@ -286,7 +298,53 @@ export class GatewayExecutionService {
       resolvedTargetId: resolved.id,
     };
 
-    return { resolved, settings, decision, base, sideEffects: this.getSideEffectsService() };
+    await sideEffects.recordTraceEvent(base, {
+      step: 'request_start',
+      stepIndex: 0,
+      status: 'ok',
+      details: {
+        sourceProtocol: ctx.sourceProtocol ?? ir.sourceProtocol,
+        stream: ir.stream,
+        requestedModel: ir.requestedModel,
+        requestStartTime: ctx.requestStartTime ?? null,
+      },
+    });
+
+    await sideEffects.recordTraceEvent(base, {
+      step: 'target_resolve',
+      stepIndex: 1,
+      status: 'ok',
+      details: {
+        targetType: resolved.type,
+        targetId: resolved.id,
+        targetName: resolved.name,
+      },
+    });
+
+    const access = await accessPolicy.checkAccess(ctx.consumerKey, ir.requestedModel);
+    if (!access.allowed) {
+      await sideEffects.recordTraceEvent(base, {
+        step: 'access_allowed',
+        stepIndex: 2,
+        status: 'fail',
+        details: { allowed: false, accessMode: ctx.consumerKey.accessMode },
+      });
+      throw new PermissionError('无权访问该目标模型');
+    }
+
+    await sideEffects.recordTraceEvent(base, {
+      step: 'access_allowed',
+      stepIndex: 2,
+      status: 'ok',
+      details: { allowed: true, accessMode: ctx.consumerKey.accessMode },
+    });
+
+    const settings = await settingsService.getSettings();
+    const decision = await this.makeRoutingDecision(ctx, ir, resolved, settings);
+
+    await sideEffects.recordDecisionTraceEvents(base, decision.traceEvents, 10);
+
+    return { resolved, settings, decision, base, sideEffects };
   }
 
   private async makeRoutingDecision(
@@ -432,6 +490,23 @@ export class GatewayExecutionService {
     | { ok: true; result: StreamExecutionResult }
     | { ok: false; error: NormalizedError; retriable: boolean }
   > {
+    const streamStartTime = Date.now();
+    const recordStreamEvent = async (
+      step: string,
+      stepIndex: number,
+      status: string,
+      details?: Record<string, unknown>,
+    ) => {
+      await sideEffects.recordTraceEvent(base, {
+        step,
+        stepIndex,
+        upstreamKeyId: candidate.upstreamKey.id,
+        realModelName: candidate.realModelName,
+        status,
+        details,
+      });
+    };
+
     try {
       const adapter = getProviderAdapter(candidate.providerType);
       const authHeaders = await this.authResolver.resolveAuthHeaders(candidate.upstreamKey);
@@ -440,6 +515,11 @@ export class GatewayExecutionService {
         realModelName: candidate.realModelName,
         ir,
         authHeaders,
+      });
+
+      await recordStreamEvent('stream_start', 2000, 'ok', {
+        upstreamKeyId: candidate.upstreamKey.id,
+        realModelName: candidate.realModelName,
       });
 
       const upstreamResponse = await this.sender.sendStream({
@@ -454,6 +534,11 @@ export class GatewayExecutionService {
           realModelName: candidate.realModelName,
           status: upstreamResponse.status,
           body: upstreamResponse.body,
+        });
+        await recordStreamEvent('stream_error', 2003, 'fail', {
+          errorCode: error.code,
+          errorMessage: error.message,
+          upstreamStatus: upstreamResponse.status,
         });
         await this.recordAttemptFailure(
           base,
@@ -473,6 +558,7 @@ export class GatewayExecutionService {
       const transformer = createStreamTransformer({
         requestedModel: ir.requestedModel,
         sourceProtocol: ir.sourceProtocol,
+        streamStartTime,
         onUsage: (usage) => {
           sideEffects
             .recordOutcome(
@@ -501,6 +587,22 @@ export class GatewayExecutionService {
             .recordDebugContent(base, settings, ir.messages, { content }, usage)
             .catch(() => {});
         },
+        onFirstToken: (latencyMs) => {
+          recordStreamEvent('first_token', 2001, 'ok', { latencyMs }).catch(() => {});
+        },
+        onStreamEnd: (usage) => {
+          recordStreamEvent('stream_end', 2002, 'ok', {
+            inputTokens: usage?.inputTokens ?? null,
+            outputTokens: usage?.outputTokens ?? null,
+            totalTokens: usage?.totalTokens ?? null,
+          }).catch(() => {});
+        },
+        onError: (error) => {
+          recordStreamEvent('stream_error', 2003, 'fail', {
+            errorCode: 'stream_parse_error',
+            errorMessage: error.message,
+          }).catch(() => {});
+        },
       });
 
       const stream = upstreamResponse.body.pipeThrough(transformer);
@@ -519,6 +621,12 @@ export class GatewayExecutionService {
       };
     } catch (err) {
       const error = toNormalizedError(err);
+      if (error instanceof ProviderTimeoutError) {
+        await recordStreamEvent('first_token_timeout', 2004, 'fail', {
+          errorCode: error.code,
+          errorMessage: error.message,
+        });
+      }
       await this.recordAttemptFailure(
         base,
         sideEffects,

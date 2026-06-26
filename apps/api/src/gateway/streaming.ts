@@ -3,8 +3,12 @@ import type { ChatUsageIR } from '@manageyourllm/shared';
 export interface StreamTransformerOptions {
   requestedModel: string;
   sourceProtocol: 'openai' | 'anthropic' | 'codex';
+  streamStartTime: number;
   onUsage?: (usage: ChatUsageIR | null) => void;
   onComplete?: (payload: { content: string; usage: ChatUsageIR | null }) => void;
+  onFirstToken?: (latencyMs: number) => void;
+  onStreamEnd?: (usage: ChatUsageIR | null) => void;
+  onError?: (error: { message: string }) => void;
 }
 
 const encoder = new TextEncoder();
@@ -12,13 +16,30 @@ const encoder = new TextEncoder();
 export function createStreamTransformer(
   options: StreamTransformerOptions,
 ): TransformStream<Uint8Array, Uint8Array> {
-  const { requestedModel, sourceProtocol, onUsage, onComplete } = options;
+  const {
+    requestedModel,
+    sourceProtocol,
+    streamStartTime,
+    onUsage,
+    onComplete,
+    onFirstToken,
+    onStreamEnd,
+    onError,
+  } = options;
   let buffer = '';
   let inputTokens = 0;
   let outputTokens = 0;
   let usageReported = false;
   let completedReported = false;
+  let firstTokenReported = false;
+  let streamEndReported = false;
   let assistantContent = '';
+
+  function reportFirstToken() {
+    if (firstTokenReported) return;
+    firstTokenReported = true;
+    onFirstToken?.(Math.max(0, Date.now() - streamStartTime));
+  }
 
   function reportUsage(override?: ChatUsageIR | null) {
     if (usageReported) return;
@@ -46,6 +67,20 @@ export function createStreamTransformer(
             totalTokens: inputTokens + outputTokens,
           };
     onComplete?.({ content: assistantContent, usage });
+  }
+
+  function reportStreamEnd(override?: ChatUsageIR | null) {
+    if (streamEndReported) return;
+    streamEndReported = true;
+    const usage =
+      override === null || (inputTokens === 0 && outputTokens === 0)
+        ? (override ?? null)
+        : {
+            inputTokens,
+            outputTokens,
+            totalTokens: inputTokens + outputTokens,
+          };
+    onStreamEnd?.(usage);
   }
 
   function applyOpenAIUsage(usage: unknown) {
@@ -90,10 +125,12 @@ export function createStreamTransformer(
         encoder.encode(`data: ${JSON.stringify({ error: 'malformed upstream event' })}\n\n`),
       );
       reportUsage(null);
+      onError?.({ message: 'malformed upstream event' });
       controller.terminate();
       return;
     }
 
+    reportFirstToken();
     rewriteModelInObject(obj);
     applyOpenAIUsage(obj.usage);
 
@@ -118,9 +155,12 @@ export function createStreamTransformer(
         encoder.encode(`data: ${JSON.stringify({ error: 'malformed upstream event' })}\n\n`),
       );
       reportUsage(null);
+      onError?.({ message: 'malformed upstream event' });
       controller.terminate();
       return;
     }
+
+    reportFirstToken();
 
     if (obj.message && typeof obj.message === 'object') {
       const message = obj.message as Record<string, unknown>;
@@ -186,6 +226,7 @@ export function createStreamTransformer(
       }
       reportUsage();
       reportComplete();
+      reportStreamEnd();
       controller.terminate();
     },
   });

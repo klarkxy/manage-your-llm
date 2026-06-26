@@ -355,12 +355,18 @@ export class RoutingDecisionService {
               });
               continue;
             }
-            // cooldown 已过，允许作为 half-open 尝试。
+            // cooldown 已过，允许作为 half-open 尝试，并持久化为 half_open 状态。
             events.push({
               step: 'filter_breaker_half_open',
               status: 'ok',
               details: { upstreamKeyId: upstream.id },
             });
+            await this.routingStateRepo.updateBreakerState(
+              upstream.id,
+              c.realModelName,
+              'half_open',
+              { cooldownUntil: null },
+            );
           }
         }
       }

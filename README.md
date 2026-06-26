@@ -66,7 +66,7 @@ pnpm format:check
 构建镜像：
 
 ```bash
-docker build -t manageyourllm:latest .
+docker build -t manageyourllm:v0.1.0 .
 ```
 
 运行容器（请替换环境变量）：
@@ -81,7 +81,7 @@ docker run -d \
   -v manageyourllm-data:/app/data \
   -v manageyourllm-logs:/app/logs \
   -v manageyourllm-backups:/app/backups \
-  manageyourllm:latest
+  manageyourllm:v0.1.0
 ```
 
 ## 配置
@@ -107,6 +107,12 @@ packages/
 docs/           架构与阶段文档
 e2e/            Playwright 端到端测试
 ```
+
+## 版本
+
+当前版本：`v0.1.0`
+
+Docker 镜像标签：`manageyourllm:v0.1.0`
 
 ## 文档
 

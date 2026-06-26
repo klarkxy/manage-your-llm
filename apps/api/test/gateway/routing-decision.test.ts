@@ -34,6 +34,8 @@ const defaultSettings: AdminSettingsRow = {
   defaultRetries: 0,
   enableStickySession: true,
   enableCircuitBreaker: true,
+  upstreamCooldownBaseMs: 30000,
+  upstreamCooldownMaxMs: 300000,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -205,6 +207,18 @@ function createService(mocks: {
       return { state: b.state, cooldownUntil: b.cooldownUntil } as ReturnType<
         RoutingStateRepository['findBreaker']
       >;
+    },
+    updateBreakerState: async (
+      upstreamKeyId: string,
+      _realModelName: string,
+      state: 'closed' | 'open' | 'half_open',
+      _patch: unknown,
+    ) => {
+      const b = mocks.breakers?.[upstreamKeyId];
+      return {
+        state,
+        cooldownUntil: b?.cooldownUntil ?? null,
+      } as Awaited<ReturnType<RoutingStateRepository['updateBreakerState']>>;
     },
     findStickyBinding: async () =>
       mocks.stickyBinding

@@ -32,48 +32,54 @@ export async function gatewayRoutes(app: FastifyInstance, deps: GatewayRouteDeps
   app.get('/models', async (req, reply) => {
     const ctx = assertAuthenticated(req);
     const result = await executionService.listModels({ db: deps.db, ...ctx });
-    return reply.send({ data: result });
+    return reply.header('X-Request-Trace-Id', ctx.requestTraceId).send({ data: result });
   });
 
   app.post('/messages', async (req, reply) => {
     const ctx = assertAuthenticated(req);
     const ir = parseAnthropicMessages(req.body);
+    req.sourceProtocol = ir.sourceProtocol;
     if (ir.stream) {
-      const result = await executionService.executeStream({ db: deps.db, ...ctx }, ir);
+      const result = await executionService.executeStream({ db: deps.db, sourceProtocol: ir.sourceProtocol, ...ctx }, ir);
       return reply
         .status(result.status)
         .headers(result.headers)
+        .header('X-Request-Trace-Id', ctx.requestTraceId)
         .send(Readable.fromWeb(result.stream));
     }
-    const { status, body } = await executionService.executeChat({ db: deps.db, ...ctx }, ir);
-    return reply.status(status).send(body);
+    const { status, body } = await executionService.executeChat({ db: deps.db, sourceProtocol: ir.sourceProtocol, ...ctx }, ir);
+    return reply.status(status).header('X-Request-Trace-Id', ctx.requestTraceId).send(body);
   });
 
   app.post('/chat/completions', async (req, reply) => {
     const ctx = assertAuthenticated(req);
     const ir = parseOpenAIChatCompletions(req.body);
+    req.sourceProtocol = ir.sourceProtocol;
     if (ir.stream) {
-      const result = await executionService.executeStream({ db: deps.db, ...ctx }, ir);
+      const result = await executionService.executeStream({ db: deps.db, sourceProtocol: ir.sourceProtocol, ...ctx }, ir);
       return reply
         .status(result.status)
         .headers(result.headers)
+        .header('X-Request-Trace-Id', ctx.requestTraceId)
         .send(Readable.fromWeb(result.stream));
     }
-    const { status, body } = await executionService.executeChat({ db: deps.db, ...ctx }, ir);
-    return reply.status(status).send(body);
+    const { status, body } = await executionService.executeChat({ db: deps.db, sourceProtocol: ir.sourceProtocol, ...ctx }, ir);
+    return reply.status(status).header('X-Request-Trace-Id', ctx.requestTraceId).send(body);
   });
 
   app.post('/responses', async (req, reply) => {
     const ctx = assertAuthenticated(req);
     const ir = parseOpenAIResponses(req.body);
+    req.sourceProtocol = ir.sourceProtocol;
     if (ir.stream) {
-      const result = await executionService.executeStream({ db: deps.db, ...ctx }, ir);
+      const result = await executionService.executeStream({ db: deps.db, sourceProtocol: ir.sourceProtocol, ...ctx }, ir);
       return reply
         .status(result.status)
         .headers(result.headers)
+        .header('X-Request-Trace-Id', ctx.requestTraceId)
         .send(Readable.fromWeb(result.stream));
     }
-    const { status, body } = await executionService.executeChat({ db: deps.db, ...ctx }, ir);
-    return reply.status(status).send(body);
+    const { status, body } = await executionService.executeChat({ db: deps.db, sourceProtocol: ir.sourceProtocol, ...ctx }, ir);
+    return reply.status(status).header('X-Request-Trace-Id', ctx.requestTraceId).send(body);
   });
 }

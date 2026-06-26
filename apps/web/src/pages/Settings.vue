@@ -11,6 +11,9 @@ import {
   NSpace,
   NButton,
   NSpin,
+  NCollapse,
+  NCollapseItem,
+  NDivider,
 } from 'naive-ui';
 import { useI18n } from 'vue-i18n';
 import { getSettings, updateSettings } from '../api/admin/settings.js';
@@ -29,6 +32,17 @@ const form = ref({
   defaultRetries: 0,
   enableStickySession: true,
   enableCircuitBreaker: true,
+  firstTokenTimeoutMs: 30_000,
+  circuitBreakerFailureThreshold: 5,
+  circuitBreakerBaseCooldownMs: 30_000,
+  circuitBreakerMaxCooldownMs: 300_000,
+  circuitBreakerHalfOpenSuccessCount: 3,
+  endpointHealthProbeEnabled: false,
+  endpointHealthProbeIntervalMs: 30_000,
+  endpointHealthProbeTimeoutMs: 10_000,
+  endpointHealthProbeDegradedLatencyMs: 2000,
+  upstreamCooldownBaseMs: 30_000,
+  upstreamCooldownMaxMs: 300_000,
 });
 
 async function load() {
@@ -43,6 +57,17 @@ async function load() {
       defaultRetries: s.defaultRetries ?? 0,
       enableStickySession: !!s.enableStickySession,
       enableCircuitBreaker: !!s.enableCircuitBreaker,
+      firstTokenTimeoutMs: s.firstTokenTimeoutMs ?? 30_000,
+      circuitBreakerFailureThreshold: s.circuitBreakerFailureThreshold ?? 5,
+      circuitBreakerBaseCooldownMs: s.circuitBreakerBaseCooldownMs ?? 30_000,
+      circuitBreakerMaxCooldownMs: s.circuitBreakerMaxCooldownMs ?? 300_000,
+      circuitBreakerHalfOpenSuccessCount: s.circuitBreakerHalfOpenSuccessCount ?? 3,
+      endpointHealthProbeEnabled: !!s.endpointHealthProbeEnabled,
+      endpointHealthProbeIntervalMs: s.endpointHealthProbeIntervalMs ?? 30_000,
+      endpointHealthProbeTimeoutMs: s.endpointHealthProbeTimeoutMs ?? 10_000,
+      endpointHealthProbeDegradedLatencyMs: s.endpointHealthProbeDegradedLatencyMs ?? 2000,
+      upstreamCooldownBaseMs: s.upstreamCooldownBaseMs ?? 30_000,
+      upstreamCooldownMaxMs: s.upstreamCooldownMaxMs ?? 300_000,
     };
   } finally {
     loading.value = false;
@@ -59,6 +84,17 @@ async function onSave() {
       defaultRetries: form.value.defaultRetries,
       enableStickySession: form.value.enableStickySession,
       enableCircuitBreaker: form.value.enableCircuitBreaker,
+      firstTokenTimeoutMs: form.value.firstTokenTimeoutMs,
+      circuitBreakerFailureThreshold: form.value.circuitBreakerFailureThreshold,
+      circuitBreakerBaseCooldownMs: form.value.circuitBreakerBaseCooldownMs,
+      circuitBreakerMaxCooldownMs: form.value.circuitBreakerMaxCooldownMs,
+      circuitBreakerHalfOpenSuccessCount: form.value.circuitBreakerHalfOpenSuccessCount,
+      endpointHealthProbeEnabled: form.value.endpointHealthProbeEnabled,
+      endpointHealthProbeIntervalMs: form.value.endpointHealthProbeIntervalMs,
+      endpointHealthProbeTimeoutMs: form.value.endpointHealthProbeTimeoutMs,
+      endpointHealthProbeDegradedLatencyMs: form.value.endpointHealthProbeDegradedLatencyMs,
+      upstreamCooldownBaseMs: form.value.upstreamCooldownBaseMs,
+      upstreamCooldownMaxMs: form.value.upstreamCooldownMaxMs,
     };
     settings.value = await updateSettings(payload);
     message.success(t('common.saved'));
@@ -75,7 +111,7 @@ onMounted(load);
 <template>
   <NCard :title="t('settings.title')">
     <NSpin :show="loading">
-      <NForm label-placement="left" label-width="180px">
+      <NForm label-placement="left" label-width="240px">
         <NFormItem :label="t('settings.publicBaseUrl')">
           <NInput v-model:value="form.publicBaseUrl" />
         </NFormItem>
@@ -94,7 +130,54 @@ onMounted(load);
         <NFormItem :label="t('settings.enableCircuitBreaker')">
           <NSwitch v-model:value="form.enableCircuitBreaker" />
         </NFormItem>
-        <NSpace justify="end">
+
+        <NDivider />
+
+        <NCollapse default-expanded-names="resilience">
+          <NCollapseItem :title="t('settings.resilienceTitle')" name="resilience">
+            <NFormItem :label="t('settings.firstTokenTimeoutMs')">
+              <NInputNumber v-model:value="form.firstTokenTimeoutMs" :min="1000" />
+            </NFormItem>
+
+            <NDivider title-placement="left">{{ t('settings.circuitBreaker') }}</NDivider>
+            <NFormItem :label="t('settings.circuitBreakerFailureThreshold')">
+              <NInputNumber v-model:value="form.circuitBreakerFailureThreshold" :min="1" />
+            </NFormItem>
+            <NFormItem :label="t('settings.circuitBreakerBaseCooldownMs')">
+              <NInputNumber v-model:value="form.circuitBreakerBaseCooldownMs" :min="1000" />
+            </NFormItem>
+            <NFormItem :label="t('settings.circuitBreakerMaxCooldownMs')">
+              <NInputNumber v-model:value="form.circuitBreakerMaxCooldownMs" :min="1000" />
+            </NFormItem>
+            <NFormItem :label="t('settings.circuitBreakerHalfOpenSuccessCount')">
+              <NInputNumber v-model:value="form.circuitBreakerHalfOpenSuccessCount" :min="1" />
+            </NFormItem>
+
+            <NDivider title-placement="left">{{ t('settings.endpointHealthProbe') }}</NDivider>
+            <NFormItem :label="t('settings.endpointHealthProbeEnabled')">
+              <NSwitch v-model:value="form.endpointHealthProbeEnabled" />
+            </NFormItem>
+            <NFormItem :label="t('settings.endpointHealthProbeIntervalMs')">
+              <NInputNumber v-model:value="form.endpointHealthProbeIntervalMs" :min="1000" />
+            </NFormItem>
+            <NFormItem :label="t('settings.endpointHealthProbeTimeoutMs')">
+              <NInputNumber v-model:value="form.endpointHealthProbeTimeoutMs" :min="1000" />
+            </NFormItem>
+            <NFormItem :label="t('settings.endpointHealthProbeDegradedLatencyMs')">
+              <NInputNumber v-model:value="form.endpointHealthProbeDegradedLatencyMs" :min="1" />
+            </NFormItem>
+
+            <NDivider title-placement="left">{{ t('settings.upstreamCooldown') }}</NDivider>
+            <NFormItem :label="t('settings.upstreamCooldownBaseMs')">
+              <NInputNumber v-model:value="form.upstreamCooldownBaseMs" :min="1000" />
+            </NFormItem>
+            <NFormItem :label="t('settings.upstreamCooldownMaxMs')">
+              <NInputNumber v-model:value="form.upstreamCooldownMaxMs" :min="1000" />
+            </NFormItem>
+          </NCollapseItem>
+        </NCollapse>
+
+        <NSpace justify="end" style="margin-top: 16px">
           <NButton type="primary" :loading="saving" @click="onSave">
             {{ t('common.save') }}
           </NButton>

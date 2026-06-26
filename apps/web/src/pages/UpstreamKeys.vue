@@ -14,6 +14,8 @@ import {
   NSwitch,
   NTag,
   NPopconfirm,
+  NSpin,
+  NEmpty,
 } from 'naive-ui';
 import { useI18n } from 'vue-i18n';
 import {
@@ -28,6 +30,8 @@ import {
   pingUpstreamKey,
 } from '../api/admin/upstream-keys.js';
 import { listProviderPresets } from '../api/admin/provider-presets.js';
+import { listBreakers, resetBreaker } from '../api/admin/resilience.js';
+import type { CircuitBreakerContract } from '@manageyourllm/contracts';
 import type { UpstreamKeyWithQuota } from '../api/admin/upstream-keys.js';
 import type { ProviderPresetContract, DiscoveredModel } from '@manageyourllm/contracts';
 import type { DataTableColumns } from 'naive-ui';
@@ -65,6 +69,18 @@ const pingModal = ref<{ show: boolean; id: string; model: string; result: string
   id: '',
   model: '',
   result: '',
+});
+
+const breakerModal = ref<{
+  show: boolean;
+  upstreamKeyId: string;
+  breakers: CircuitBreakerContract[];
+  loading: boolean;
+}>({
+  show: false,
+  upstreamKeyId: '',
+  breakers: [],
+  loading: false,
 });
 
 async function load() {
@@ -204,6 +220,39 @@ async function onPingSubmit() {
   }
 }
 
+async function openBreakers(row: UpstreamKeyWithQuota) {
+  breakerModal.value = { show: true, upstreamKeyId: row.id, breakers: [], loading: true };
+  try {
+    const all = await listBreakers();
+    breakerModal.value.breakers = all.filter((b) => b.upstreamKeyId === row.id);
+  } catch (err) {
+    message.error(err instanceof Error ? err.message : t('common.loadFailed'));
+  } finally {
+    breakerModal.value.loading = false;
+  }
+}
+
+async function onResetBreaker(breaker: CircuitBreakerContract) {
+  try {
+    await resetBreaker(breaker.upstreamKeyId, breaker.realModelName);
+    message.success(t('common.saved'));
+    await openBreakers({ id: breakerModal.value.upstreamKeyId } as UpstreamKeyWithQuota);
+  } catch (err) {
+    message.error(err instanceof Error ? err.message : t('common.saveFailed'));
+  }
+}
+
+function breakerStateType(state: string) {
+  switch (state) {
+    case 'open':
+      return 'error';
+    case 'half_open':
+      return 'warning';
+    default:
+      return 'success';
+  }
+}
+
 const columns: DataTableColumns<UpstreamKeyWithQuota> = [
   { title: t('upstreamKeys.name'), key: 'name' },
   { title: t('upstreamKeys.providerType'), key: 'providerType' },
@@ -268,6 +317,11 @@ const columns: DataTableColumns<UpstreamKeyWithQuota> = [
                   { size: 'small', onClick: () => onFreeze(row) },
                   { default: () => t('upstreamKeys.freeze') },
                 ),
+            h(
+              NButton,
+              { size: 'small', onClick: () => openBreakers(row) },
+              { default: () => t('upstreamKeys.breakers') },
+            ),
             h(
               NPopconfirm,
               { onPositiveClick: () => onDelete(row) },
@@ -373,6 +427,46 @@ onMounted(load);
       />
       <NSpace justify="end">
         <NButton @click="discoverModal.show = false">{{ t('common.close') }}</NButton>
+      </NSpace>
+    </NModal>
+
+    <NModal
+      v-model:show="breakerModal.show"
+      :title="t('breaker.title')"
+      preset="card"
+      style="width: 720px; max-width: 90vw"
+    >
+      <NSpin v-if="breakerModal.loading" />
+      <NDataTable
+        v-else
+        :columns="[
+          { title: t('breaker.realModelName'), key: 'realModelName' },
+          {
+            title: t('breaker.state'),
+            key: 'state',
+            render: (row) => h(NTag, { type: breakerStateType(row.state), size: 'small' }, { default: () => t(`breaker.state.${row.state}`) }),
+          },
+          { title: t('breaker.failureCount'), key: 'failureCount' },
+          { title: t('breaker.successCount'), key: 'successCount' },
+          {
+            title: t('common.actions'),
+            key: 'actions',
+            render: (row) =>
+              h(
+                NButton,
+                { size: 'small', onClick: () => onResetBreaker(row) },
+                { default: () => t('upstreamKeys.resetBreaker') },
+              ),
+          },
+        ]"
+        :data="breakerModal.breakers"
+        :bordered="false"
+        size="small"
+        :row-key="(row) => `${row.upstreamKeyId}:${row.realModelName}`"
+      />
+      <NEmpty v-if="!breakerModal.loading && breakerModal.breakers.length === 0" :description="t('breaker.noBreakers')" />
+      <NSpace justify="end" style="margin-top: 12px">
+        <NButton @click="breakerModal.show = false">{{ t('common.close') }}</NButton>
       </NSpace>
     </NModal>
 

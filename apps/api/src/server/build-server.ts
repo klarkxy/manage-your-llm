@@ -120,6 +120,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     modelReference: { db },
     snippets: { db },
     settings: { db },
+    resilience: { db },
   });
   await app.register(gatewayRoutes, { prefix: gatewayBasePath, db, secretKey: env.SECRET_KEY });
   await app.register(healthRoutes, {

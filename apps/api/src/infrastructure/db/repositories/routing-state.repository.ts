@@ -85,6 +85,23 @@ export class RoutingStateRepository {
     return row as StickyBindingRow;
   }
 
+  async listStickyBindings(filters?: {
+    consumerKeyId?: string;
+    requestedTargetName?: string;
+  }): Promise<StickyBindingRow[]> {
+    const conditions: ReturnType<typeof eq>[] = [];
+    if (filters?.consumerKeyId) {
+      conditions.push(eq(stickyBindings.consumerKeyId, filters.consumerKeyId));
+    }
+    if (filters?.requestedTargetName) {
+      conditions.push(eq(stickyBindings.requestedTargetName, filters.requestedTargetName));
+    }
+    if (conditions.length === 0) {
+      return this.db.select().from(stickyBindings);
+    }
+    return this.db.select().from(stickyBindings).where(and(...conditions));
+  }
+
   async deleteExpiredStickyBindings(at = new Date()): Promise<void> {
     await this.db.delete(stickyBindings).where(lt(stickyBindings.expiresAt, at));
   }
@@ -147,11 +164,32 @@ export class RoutingStateRepository {
     return row as StickySessionRow;
   }
 
+  async listStickySessions(filters?: {
+    consumerKeyId?: string;
+    requestedTargetName?: string;
+  }): Promise<StickySessionRow[]> {
+    const conditions: ReturnType<typeof eq>[] = [];
+    if (filters?.consumerKeyId) {
+      conditions.push(eq(stickySessions.consumerKeyId, filters.consumerKeyId));
+    }
+    if (filters?.requestedTargetName) {
+      conditions.push(eq(stickySessions.requestedTargetName, filters.requestedTargetName));
+    }
+    if (conditions.length === 0) {
+      return this.db.select().from(stickySessions);
+    }
+    return this.db.select().from(stickySessions).where(and(...conditions));
+  }
+
   async deleteExpiredStickySessions(at = new Date()): Promise<void> {
     await this.db.delete(stickySessions).where(lt(stickySessions.expiresAt, at));
   }
 
   // --- Circuit breakers ---
+
+  async listBreakers(): Promise<CircuitBreakerRow[]> {
+    return this.db.select().from(circuitBreakers);
+  }
 
   async findBreaker(
     upstreamKeyId: string,
