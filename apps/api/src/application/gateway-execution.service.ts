@@ -75,7 +75,6 @@ function isRetriable(err: NormalizedError): boolean {
   return getErrorRoutingBehavior(err).failover;
 }
 
-
 interface ExecutionPrepareResult {
   resolved: Awaited<ReturnType<TargetResolutionService['resolve']>>;
   settings: Awaited<ReturnType<SettingsService['getSettings']>>;

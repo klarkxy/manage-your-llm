@@ -133,7 +133,9 @@ export class AnthropicCompatibleAdapter implements ProviderAdapter {
   normalizeError(ctx: NormalizeErrorContext): NormalizedError {
     const { status, headers, body } = ctx;
     const { message, code } = normalizeErrorBody(status, body);
-    const retryAfterMs = parseRetryAfterHeader(headers?.['retry-after'] ?? headers?.['Retry-After']);
+    const retryAfterMs = parseRetryAfterHeader(
+      headers?.['retry-after'] ?? headers?.['Retry-After'],
+    );
     if (status === 429) return new ProviderRateLimitError(message, { code, status, retryAfterMs });
     if (status === 408) return new ProviderTimeoutError(message, { code, status, retryAfterMs });
     if (code?.includes('quota') || code?.includes('rate_limit')) {

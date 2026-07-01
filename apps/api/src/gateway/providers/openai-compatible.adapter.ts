@@ -175,7 +175,9 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
   normalizeError(ctx: NormalizeErrorContext): NormalizedError {
     const { status, headers, body } = ctx;
     const { message, code } = normalizeErrorBody(status, body);
-    const retryAfterMs = parseRetryAfterHeader(headers?.['retry-after'] ?? headers?.['Retry-After']);
+    const retryAfterMs = parseRetryAfterHeader(
+      headers?.['retry-after'] ?? headers?.['Retry-After'],
+    );
     if (status === 429) return new ProviderRateLimitError(message, { code, status, retryAfterMs });
     if (status === 408) return new ProviderTimeoutError(message, { code, status, retryAfterMs });
     if (code === 'insufficient_quota' || code === 'quota_exceeded') {
@@ -192,7 +194,7 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
       messageLower.includes('context length') ||
       messageLower.includes('context window') ||
       messageLower.includes('maximum context length') ||
-      messageLower.includes('tokens') && messageLower.includes('limit')
+      (messageLower.includes('tokens') && messageLower.includes('limit'))
     ) {
       return new ProviderContextWindowExceededError(message, { code, status, retryAfterMs });
     }

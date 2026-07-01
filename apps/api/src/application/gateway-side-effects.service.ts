@@ -16,7 +16,11 @@ import {
   usageRecords,
 } from '../infrastructure/db/schema.js';
 import { eq, and, count, asc, inArray } from 'drizzle-orm';
-import { getErrorRoutingBehavior, type NormalizedError, type ChatUsageIR } from '@manageyourllm/shared';
+import {
+  getErrorRoutingBehavior,
+  type NormalizedError,
+  type ChatUsageIR,
+} from '@manageyourllm/shared';
 import type { CandidateSnapshot } from './routing.types.js';
 import type { AdminSettingsRow, QuotaPeriod } from '../infrastructure/db/schema.js';
 

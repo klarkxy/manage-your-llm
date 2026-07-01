@@ -7,7 +7,10 @@
  *
  * 解析失败返回 undefined。
  */
-export function parseRetryAfterHeader(value: string | undefined, now = new Date()): number | undefined {
+export function parseRetryAfterHeader(
+  value: string | undefined,
+  now = new Date(),
+): number | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (trimmed === '') return undefined;

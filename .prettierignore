@@ -10,3 +10,4 @@ pnpm-lock.yaml
 docs/
 litellm/
 sub2api/
+.codegraph/
