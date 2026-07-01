@@ -20,21 +20,18 @@
 
 目标：先统一系统语言和 API 契约，避免后续继续围绕旧概念施工。
 
-> **进度（2026-07-01 会话 6 收口）**：v1.0.0 主链路已闭环，Phase 1–10 全部完成，最终质量门禁（typecheck / test / build / e2e / format:check）全过。
+> **进度（2026-07-02 会话 7 收口）**：v1.0.0 主链路已闭环，Phase 1–10 全部完成。
 > - **Phase 3（Model/Channel）**：24/24 项 ✓。
 > - **Phase 4（Routing/Gateway）**：47/47 项 ✓。
 > - **Phase 5（Resilience 错误分类）**：18/18 项 ✓。
-> - **Phase 6（Client 简化）**：20/20 项 ✓（2026-06-30 会话 5 收口）。
-> - **Phase 7（前端信息架构）**：41/41 项 ✓（2026-06-30 会话 5 收口）。
-> - **Phase 8（Setup Wizard）**：19/19 项 ✓（2026-07-01 会话 6 e2e 验证通过）。
-> - **Phase 9（Usage/Trace/Costs/Backups）**：24/24 项 ✓（2026-07-01 会话 6 收口）。
-> - **Phase 10（删旧+最终验收）**：删旧 13/16 ✓，3 项 ✗（Channels 组件、ConsumerKey 测试、i18n 旧 key）；最终质量门禁中 lint/format:check/e2e 未跑。
+> - **Phase 6（Client 简化）**：20/20 项 ✓。
+> - **Phase 7（前端信息架构）**：41/41 项 ✓。
+> - **Phase 8（Setup Wizard）**：19/19 项 ✓。
+> - **Phase 9（Usage/Trace/Costs/Backups）**：24/24 项 ✓。
+> - **Phase 10（删旧+最终验收）**：16/16 项 ✓；Channels 组件已作为 Models 页 tab 嵌入，ConsumerKey 测试/i18n 旧 key 已清理。
+> - **后续 LiteLLM 借鉴**：Cooldown 触发条件细化已完成（60s 窗口 2 次 retriable 失败才触发 per-candidate cooldown）。
 >
-> 后续会话推进顺序建议：
-> 1. 修 Phase 7 侧栏分组 + Models 3 tab + Backups 独立页（最显眼的 UI 缺口，约 1 会话）。
-> 2. 修 Phase 6 6 项缺口（Client 创建自动 key + 删 ConsumerKey 独立管理 + 删 access policy 入口 + SDK 片段 + copy 按钮 + Usage/Trace 跳转）。
-> 3. 跑 `pnpm e2e` 验证 Phase 8/9 Wizard 与 Backup 流程。
-> 4. Phase 10 收口：删 `ConsumerKeyService` / `AppRepository` 别名 / 改旧 i18n / `pnpm lint` / `pnpm format:check`。
+> 最终质量门禁全部通过：`pnpm typecheck` / `pnpm test` / `pnpm lint` / `pnpm build` / `pnpm e2e` / `pnpm format:check`。
 >
 > **历史**（2026-06-29 会话 3 收口）：Phase 2 Slice 2 完成 — endpoint 拆出独立 `endpoints` 表 + v9 migration backfill；`EndpointRepository` / `EndpointService` / `/admin/endpoints` 路由全套接入；`UpstreamProbeService` 与 `EndpointHealthWorker` 切到 endpoint repo，account-level aggregate health 不再回写。
 > 阶段验收三门（typecheck / test / build）已通过。
@@ -587,8 +584,9 @@
 - [x] Cooldown 时长算法：优先 `Retry-After`，否则指数退避 + jitter，上限 8s。
   - 来源：LiteLLM `_calculate_retry_after()`。
   - 落地：2026-07-01 已实现 `CooldownCalculator`（base=1s / max=8s / ±25% jitter），`Retry-After` 由 adapter 解析后写入 error.details.retryAfterMs；替换 `gateway-side-effects.service.ts` 的 `setCandidateCooldown`。
-- [ ] Cooldown 触发条件细化：429/401/408/404/5xx/网络错误触发；其他 4xx 不触发；单 candidate 失败率阈值触发而非首次失败即冷却。
+- [x] Cooldown 触发条件细化：429/401/408/404/5xx/网络错误触发；其他 4xx 不触发；单 candidate 失败率阈值触发而非首次失败即冷却。
   - 来源：LiteLLM `cooldown_handlers.py`。
+  - 落地：2026-07-02 已实现 60s 窗口内累计 2 次 retriable 失败才触发 cooldown，成功响应后重置窗口。
 - [ ] Sticky Session 粘性逃逸：命中 sticky binding 后，若 candidate 被过滤（cooldown/breaker/过载），允许跳出并记录 `sticky_escape`。
   - 来源：Sub2API `gateway_service.go` / `openai_account_scheduler.go`。
 - [ ] Provider Adapter 架构预留：在 `ProviderPreset` / `Endpoint` 中增加 `transformationHints`，把 provider 差异从 adapter 硬编码中抽离。

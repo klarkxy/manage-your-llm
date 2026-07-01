@@ -174,6 +174,7 @@ test.describe('admin happy path', () => {
     await page.getByRole('button', { name: 'Create Backup' }).click();
     await page.getByRole('textbox').fill(backupNote);
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByRole('cell', { name: backupNote })).toBeVisible();
+    // 完整备份在 Windows 下可能被实时防护扫描，放宽等待时间。
+    await expect(page.getByRole('cell', { name: backupNote })).toBeVisible({ timeout: 15_000 });
   });
 });
